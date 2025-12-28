@@ -1,0 +1,32 @@
+/*
+Theme Name: IA Blank
+Theme URI: https://indieagora.com
+Author: IndieAgora
+Description: Minimal blank theme for Atrium and app-style pages.
+Version: 1.0
+*/
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  color: #fff;
+}
+
+/* Ensure WordPress wrappers never introduce white */
+#page,
+#content,
+.site,
+.site-content,
+.wp-site-blocks,
+main {
+  background: #000 !important;
+}
+
+/* Remove any default spacing */
+* {
+  box-sizing: border-box;
+}

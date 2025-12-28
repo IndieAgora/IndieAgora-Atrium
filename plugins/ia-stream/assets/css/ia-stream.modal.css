@@ -1,0 +1,160 @@
+/* IA Stream — modal (video view + comments)
+ *
+ * Styles the modal container used for:
+ * - Expanded video playback
+ * - Inline PeerTube comments
+ *
+ * Safe even if the modal is never opened.
+ */
+
+.ia-stream-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+
+.ia-stream-modal[hidden] {
+  display: none;
+}
+
+.ia-stream-modal-dialog {
+  width: 100%;
+  max-width: 960px;
+  max-height: 100%;
+  background: var(--ia-panel, #151922);
+  border-radius: var(--ia-radius, 10px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* Header */
+.ia-stream-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ia-border, #2a3145);
+}
+
+.ia-stream-modal-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ia-text, #e6e8ee);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ia-stream-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--ia-muted, #9aa3b2);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.ia-stream-modal-close:hover {
+  color: var(--ia-text, #e6e8ee);
+}
+
+/* Body */
+.ia-stream-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  background: var(--ia-bg, #0f1115);
+}
+
+/* Video area */
+.ia-stream-modal-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: black;
+}
+
+.ia-stream-modal-video iframe,
+.ia-stream-modal-video video {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* Meta / description */
+.ia-stream-modal-meta {
+  padding: 12px;
+  border-bottom: 1px solid var(--ia-border, #2a3145);
+}
+
+.ia-stream-modal-meta p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ia-text, #e6e8ee);
+}
+
+.ia-stream-modal-sub {
+  font-size: 0.8rem;
+  color: var(--ia-muted, #9aa3b2);
+  margin-top: 4px;
+}
+
+/* Comments */
+.ia-stream-modal-comments {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ia-stream-comment {
+  background: var(--ia-card, #1b2030);
+  border: 1px solid var(--ia-border, #2a3145);
+  border-radius: var(--ia-radius, 10px);
+  padding: 10px;
+}
+
+.ia-stream-comment-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.ia-stream-comment-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #333;
+  flex-shrink: 0;
+}
+
+.ia-stream-comment-author {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ia-stream-comment-time {
+  font-size: 0.75rem;
+  color: var(--ia-muted, #9aa3b2);
+}
+
+.ia-stream-comment-text {
+  font-size: 0.85rem;
+  color: var(--ia-text, #e6e8ee);
+  line-height: 1.4;
+}
+
+/* Mobile tweaks */
+@media (max-width: 640px) {
+  .ia-stream-modal-dialog {
+    max-width: 100%;
+    border-radius: 0;
+  }
+}

@@ -1,0 +1,37 @@
+.iad-shell{
+  background: transparent;
+  width: 100%;
+}
+
+.iad-top{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 10px 10px 6px;
+  backdrop-filter: blur(8px);
+  background: linear-gradient(to bottom, rgba(11,13,16,0.92), rgba(11,13,16,0.65));
+  border-bottom: 1px solid var(--iad-border);
+}
+
+.iad-tabs{
+  display:flex;
+  gap: 10px;
+}
+
+.iad-tab{
+  appearance:none;
+  border: 1px solid var(--iad-border);
+  background: rgba(255,255,255,0.05);
+  color: var(--iad-muted);
+  padding: 10px 14px;
+  border-radius: 999px;
+  cursor:pointer;
+  font-size: 14px;
+}
+.iad-tab.is-active{
+  color: var(--iad-text);
+  border-color: rgba(255,69,0,0.35);
+  background: rgba(255,69,0,0.10);
+}
+
+.iad-body{ padding: 12px 10px 20px; }

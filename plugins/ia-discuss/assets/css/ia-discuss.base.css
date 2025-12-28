@@ -1,0 +1,143 @@
+:root{
+  --iad-bg: #0b0d10;
+  --iad-panel: #0f131a;
+  --iad-card: #0f141d;
+  --iad-card2:#101827;
+  --iad-border: rgba(255,255,255,0.08);
+  --iad-text: rgba(255,255,255,0.92);
+  --iad-muted: rgba(255,255,255,0.60);
+  --iad-accent: #ff4500;
+  --iad-accent2:#47b3ff;
+  --iad-good: #2ddb7c;
+  --iad-warn: #ffcc00;
+  --iad-radius: 16px;
+  --iad-radius2: 22px;
+
+  /* --- Typography system --- */
+  --iad-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial,
+                   "Noto Sans", "Liberation Sans", Ubuntu, Cantarell, sans-serif;
+  --iad-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+  /* Scale */
+  --iad-fs-11: 11px;
+  --iad-fs-12: 12px;
+  --iad-fs-13: 13px;
+  --iad-fs-14: 14px;
+  --iad-fs-16: 16px;
+  --iad-fs-18: 18px;
+
+  --iad-lh-tight: 1.15;
+  --iad-lh-body: 1.55;
+  --iad-lh-ui: 1.35;
+}
+
+/* Root typography baseline */
+.ia-discuss-root,
+.iad-shell{
+  color: var(--iad-text);
+  font-family: var(--iad-font-sans);
+  font-size: var(--iad-fs-14);
+  line-height: var(--iad-lh-body);
+
+  /* Make it look less "thin" */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: 0.1px;
+}
+
+/* Make headings + strong feel intentional */
+.ia-discuss-root h1,
+.ia-discuss-root h2,
+.ia-discuss-root h3,
+.ia-discuss-root h4{
+  font-family: var(--iad-font-sans);
+  letter-spacing: 0.2px;
+}
+
+/* Generic states */
+.iad-loading,
+.iad-empty{
+  padding: 18px;
+  color: var(--iad-muted);
+  font-size: var(--iad-fs-14);
+  line-height: var(--iad-lh-ui);
+}
+
+/* Clickable username (opens Connect profile) */
+.iad-user-link{
+  appearance:none;
+  background:transparent;
+  border:0;
+  padding:0;
+  margin:0;
+  font: inherit;
+  font-weight: 650;
+  color: rgba(255,255,255,0.88);
+  cursor:pointer;
+}
+.iad-user-link:hover{
+  text-decoration: underline;
+  color: var(--iad-text);
+}
+
+/* Common link-button */
+.iad-link{
+  appearance:none;
+  background:transparent;
+  border:0;
+  color: var(--iad-muted);
+  cursor:pointer;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: var(--iad-fs-13);
+  line-height: var(--iad-lh-ui);
+}
+.iad-link:hover{
+  background: rgba(255,255,255,0.06);
+  color: var(--iad-text);
+}
+
+.iad-muted{ color: var(--iad-muted); }
+
+.iad-dotsep{
+  margin: 0 6px;
+  color: rgba(255,255,255,0.32);
+}
+
+.iad-btn{
+  appearance:none;
+  border: 1px solid var(--iad-border);
+  background: rgba(255,255,255,0.06);
+  color: var(--iad-text);
+  padding: 10px 14px;
+  border-radius: 999px;
+  cursor:pointer;
+  font-family: var(--iad-font-sans);
+  font-size: var(--iad-fs-13);
+  font-weight: 650;
+  line-height: var(--iad-lh-ui);
+}
+.iad-btn:hover{ background: rgba(255,255,255,0.10); }
+
+/* Inputs should not inherit weird theme fonts */
+.iad-input,
+.iad-textarea,
+.iad-editorbar button{
+  font-family: var(--iad-font-sans);
+  font-size: var(--iad-fs-14);
+  line-height: var(--iad-lh-ui);
+}
+
+/* Better code readability when BBCode [code] renders */
+.iad-post-body pre,
+.iad-post-body code{
+  font-family: var(--iad-font-mono);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Slightly nicer selection */
+.ia-discuss-root ::selection{
+  background: rgba(255,69,0,0.35);
+}

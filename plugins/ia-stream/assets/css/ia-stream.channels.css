@@ -1,0 +1,44 @@
+/* IA Stream — channels */
+
+.ia-stream-channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--ia-gap);
+}
+
+.ia-stream-channel-card {
+  background: var(--ia-card);
+  border: 1px solid var(--ia-border);
+  border-radius: var(--ia-radius);
+  overflow: hidden;
+}
+
+.ia-stream-channel-cover {
+  height: 80px;
+  background: #222;
+}
+
+.ia-stream-channel-body {
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ia-stream-channel-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #333;
+  flex-shrink: 0;
+}
+
+.ia-stream-channel-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.ia-stream-channel-meta {
+  font-size: 0.8rem;
+  color: var(--ia-muted);
+}

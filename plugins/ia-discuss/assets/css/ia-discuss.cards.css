@@ -1,0 +1,508 @@
+.iad-feed-list{ display:flex; flex-direction:column; gap: 10px; }
+
+.iad-card{
+  display:block;
+  padding: 12px;
+  border: 1px solid var(--iad-border);
+  border-radius: var(--iad-radius);
+  background: linear-gradient(180deg, rgba(16,24,39,0.55), rgba(15,20,29,0.75));
+  box-shadow: 0 10px 22px rgba(0,0,0,0.25);
+
+  /* HARD KILL any legacy "vote column" layout */
+  margin-left: 0 !important;
+}
+.iad-card-main{
+  display: block !important;
+  grid-template-columns: none !important;
+}
+
+.iad-card-meta{
+  font-size: var(--iad-fs-12);
+  color: var(--iad-muted);
+  line-height: var(--iad-lh-ui);
+}
+.iad-sub{ color: rgba(255,255,255,0.85); }
+
+.iad-card-title{
+  margin: 6px 0 6px;
+  font-size: var(--iad-fs-16);
+  line-height: var(--iad-lh-tight);
+  letter-spacing: 0.2px;
+}
+
+.iad-card-excerpt p{
+  margin: 0;
+  color: rgba(255,255,255,0.80);
+  font-size: var(--iad-fs-14);
+  line-height: 1.45;
+}
+
+.iad-card-actions{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Attachments */
+.iad-attachrow{
+  display:flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.iad-attachpill{
+  display:inline-flex;
+  align-items:center;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(71,179,255,0.25);
+  background: rgba(71,179,255,0.10);
+  color: rgba(255,255,255,0.88);
+  font-size: var(--iad-fs-12);
+  text-decoration: none;
+  line-height: var(--iad-lh-ui);
+}
+.iad-attachpill:hover{
+  background: rgba(71,179,255,0.16);
+  border-color: rgba(71,179,255,0.35);
+}
+.iad-attachpill.is-loading{ border-color: rgba(255,204,0,0.35); background: rgba(255,204,0,0.10); }
+.iad-attachpill.is-error{ border-color: rgba(255,60,60,0.40); background: rgba(255,60,60,0.10); }
+
+.iad-agora-link{
+  appearance:none;
+  border:0;
+  background:transparent;
+  padding:0;
+  margin:0;
+  display:inline;
+  font: inherit;
+  color: rgba(255,255,255,0.85);
+  cursor:pointer;
+}
+.iad-agora-link:hover{ text-decoration: underline; }
+
+/* Make title/excerpt feel clickable */
+.iad-card-title,
+.iad-card-excerpt{ cursor: pointer; }
+.iad-card-title:hover{ text-decoration: underline; }
+
+/* -----------------------------
+   Media area (New feed)
+   - Compact inline row
+----------------------------- */
+.iad-mediawrap{
+  margin-top: 10px;
+}
+
+.iad-media-row{
+  display:flex;
+  gap: 10px;
+  align-items:flex-start;
+}
+
+.iad-media-meta{
+  flex: 1 1 auto;
+  min-width: 0;
+  display:flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.iad-media-line{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.iad-media-tag{
+  display:inline-flex;
+  align-items:center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,69,0,0.30);
+  background: rgba(255,69,0,0.10);
+  color: rgba(255,255,255,0.90);
+  font-size: var(--iad-fs-12);
+  line-height: var(--iad-lh-ui);
+  flex: 0 0 auto;
+}
+
+.iad-media-host{
+  color: rgba(255,255,255,0.72);
+  font-size: var(--iad-fs-12);
+  line-height: var(--iad-lh-ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Compact video thumbnail */
+.iad-vthumb{
+  appearance:none;
+  border: 1px solid var(--iad-border);
+  background: rgba(255,255,255,0.03);
+  border-radius: 14px;
+  padding: 0;
+  cursor:pointer;
+  overflow:hidden;
+  flex: 0 0 auto;
+}
+.iad-vthumb:hover{
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.12);
+}
+
+/* THIS is the key: small inline size */
+.iad-vthumb.is-compact{
+  width: 190px;
+  max-width: 42vw;   /* stays compact on desktop, adapts on small screens */
+}
+
+.iad-vthumb-inner{
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: rgba(0,0,0,0.25);
+}
+
+.iad-vthumb-img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display:block;
+  transform: scale(1.01);
+  filter: saturate(1.05) contrast(1.02);
+}
+
+.iad-vthumb-fallback{
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 25% 25%, rgba(255,69,0,0.25), transparent 55%),
+    radial-gradient(circle at 80% 20%, rgba(71,179,255,0.18), transparent 55%),
+    linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.55));
+}
+
+.iad-vthumb-overlay{
+  position:absolute;
+  inset: 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0.25), rgba(0,0,0,0.55));
+}
+
+.iad-vthumb-play{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.35);
+  color: rgba(255,255,255,0.92);
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Links pill row */
+.iad-mediastrip{
+  display:flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Pills */
+.iad-pill{
+  appearance:none;
+  border: 1px solid rgba(255,69,0,0.30);
+  background: rgba(255,69,0,0.10);
+  color: rgba(255,255,255,0.90);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor:pointer;
+  font-size: var(--iad-fs-12);
+  line-height: var(--iad-lh-ui);
+  font-family: var(--iad-font-sans);
+}
+.iad-pill:hover{
+  background: rgba(255,69,0,0.16);
+  border-color: rgba(255,69,0,0.42);
+}
+.iad-pill.is-muted{
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+}
+
+/* Stack cleanly on narrow screens */
+@media (max-width: 560px){
+  .iad-media-row{ flex-direction: column; }
+  .iad-vthumb.is-compact{ width: 100%; max-width: 100%; }
+}
+
+/* -----------------------------
+   Links modal (unchanged)
+----------------------------- */
+.iad-linksmodal[hidden]{ display:none; }
+
+.iad-linksmodal{
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  font-family: var(--iad-font-sans);
+}
+
+.iad-linksmodal-backdrop{
+  position:absolute;
+  inset:0;
+  background: rgba(0,0,0,0.62);
+}
+
+.iad-linksmodal-sheet{
+  position:absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  width: min(720px, calc(100% - 18px));
+  max-height: calc(100% - 18px);
+  overflow: auto;
+  border-radius: var(--iad-radius2);
+  border: 1px solid var(--iad-border);
+  background: linear-gradient(180deg, rgba(15,19,26,0.95), rgba(10,12,16,0.98));
+  box-shadow: 0 22px 60px rgba(0,0,0,0.55);
+}
+
+.iad-linksmodal-top{
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--iad-border);
+  background: rgba(10,12,16,0.85);
+  backdrop-filter: blur(8px);
+}
+
+.iad-linksmodal-title{
+  font-size: var(--iad-fs-14);
+  font-weight: 750;
+  color: rgba(255,255,255,0.92);
+  line-height: var(--iad-lh-ui);
+}
+
+.iad-linksmodal-body{ padding: 12px 14px; }
+
+.iad-linkslist{
+  display:flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.iad-linksitem{
+  display:flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--iad-border);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.90);
+  text-decoration: none;
+  font-family: var(--iad-font-sans);
+}
+.iad-linksitem:hover{ background: rgba(255,255,255,0.07); }
+
+.iad-linksitem-ico{
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border: 1px solid rgba(71,179,255,0.25);
+  background: rgba(71,179,255,0.10);
+  flex: 0 0 auto;
+}
+
+.iad-linksitem-txt{
+  font-size: var(--iad-fs-13);
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+/* -----------------------------
+   Video modal (Atrium viewer)
+   - Leaves room for bottom nav
+----------------------------- */
+html.iad-modal-open,
+html.iad-modal-open body{
+  overflow: hidden !important;
+}
+
+/* overlay */
+.iad-videomodal[hidden]{ display:none; }
+
+.iad-videomodal{
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  font-family: var(--iad-font-sans);
+}
+
+.iad-videomodal-backdrop{
+  position:absolute;
+  inset:0;
+  background: rgba(0,0,0,0.72);
+}
+
+/* IMPORTANT:
+   We DO NOT go full-screen to bottom.
+   We leave a fixed "nav safe" gap so Atrium bottom nav remains visible/usable.
+*/
+.iad-videomodal-sheet{
+  position:absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  width: min(980px, calc(100% - 18px));
+  height: calc(100% - 12px - 86px); /* bottom-safe gap for Atrium nav */
+  border-radius: var(--iad-radius2);
+  border: 1px solid var(--iad-border);
+  background: linear-gradient(180deg, rgba(15,19,26,0.96), rgba(10,12,16,0.98));
+  box-shadow: 0 22px 60px rgba(0,0,0,0.60);
+  overflow: hidden;
+  display:flex;
+  flex-direction: column;
+}
+
+/* On very short viewports, reduce bottom gap a bit */
+@media (max-height: 560px){
+  .iad-videomodal-sheet{ height: calc(100% - 12px - 70px); }
+}
+
+.iad-videomodal-top{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  background: rgba(10,12,16,0.75);
+  backdrop-filter: blur(8px);
+}
+
+.iad-videomodal-title{
+  font-size: var(--iad-fs-14);
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
+  overflow:hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iad-videomodal-actions{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.iad-videomodal-open{
+  display:inline-flex;
+  align-items:center;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--iad-border);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.86);
+  text-decoration:none;
+  font-size: var(--iad-fs-13);
+  line-height: var(--iad-lh-ui);
+}
+.iad-videomodal-open:hover{
+  background: rgba(255,255,255,0.08);
+  color: var(--iad-text);
+}
+
+.iad-videomodal-body{
+  flex: 1 1 auto;
+  display:flex;
+  padding: 12px;
+}
+
+/* "stage" gives Atrium look + keeps player centered */
+.iad-video-stage{
+  flex: 1 1 auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,69,0,0.18), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(71,179,255,0.14), transparent 50%),
+    linear-gradient(180deg, rgba(0,0,0,0.00), rgba(0,0,0,0.35));
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  overflow:hidden;
+}
+
+.iad-video-frame{
+  width: 100%;
+  height: 100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.iad-video-iframe,
+.iad-video-el{
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+/* ---------------------------------------
+   Icon buttons (Feed)
+--------------------------------------- */
+.iad-iconbtn{
+  appearance:none;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.88);
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition: transform 90ms ease, background 120ms ease, border-color 120ms ease;
+}
+.iad-iconbtn:hover{
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.18);
+}
+.iad-iconbtn:active{
+  transform: scale(0.98);
+}
+.iad-iconbtn svg{
+  display:block;
+}
+.iad-iconbtn.is-pressed{
+  border-color: rgba(71,179,255,0.35);
+  background: rgba(71,179,255,0.10);
+}
+
+/* Keep actions row tidy */
+.iad-card-actions{
+  gap: 8px;
+}

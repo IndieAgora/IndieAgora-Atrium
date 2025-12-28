@@ -1,0 +1,48 @@
+/* IA Stream — layout */
+
+.ia-stream-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.ia-stream-header {
+  background: var(--ia-panel);
+  border-bottom: 1px solid var(--ia-border);
+}
+
+.ia-stream-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+}
+
+.ia-stream-tab {
+  flex: 1 1 auto;
+  background: transparent;
+  color: var(--ia-muted);
+  border: none;
+  padding: 10px 12px;
+  border-radius: var(--ia-radius);
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.ia-stream-tab.is-active {
+  background: var(--ia-card);
+  color: var(--ia-text);
+  font-weight: 600;
+}
+
+.ia-stream-main {
+  flex: 1 1 auto;
+  padding: var(--ia-gap);
+}
+
+.ia-stream-panel {
+  display: none;
+}
+
+.ia-stream-panel.is-active {
+  display: block;
+}

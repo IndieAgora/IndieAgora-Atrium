@@ -1,0 +1,58 @@
+/* IA Stream — cards */
+
+.ia-stream-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ia-gap);
+}
+
+.ia-stream-card {
+  background: var(--ia-card);
+  border: 1px solid var(--ia-border);
+  border-radius: var(--ia-radius);
+  overflow: hidden;
+}
+
+.ia-stream-card-header {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  align-items: center;
+}
+
+.ia-stream-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #333;
+  flex-shrink: 0;
+}
+
+.ia-stream-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.ia-stream-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.ia-stream-sub {
+  font-size: 0.8rem;
+  color: var(--ia-muted);
+}
+
+.ia-stream-card-body {
+  padding: 0;
+}
+
+.ia-stream-card-footer {
+  display: flex;
+  gap: 16px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: var(--ia-muted);
+  border-top: 1px solid var(--ia-border);
+}

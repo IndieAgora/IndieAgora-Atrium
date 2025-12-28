@@ -1,0 +1,51 @@
+.iad-agora-head{
+  border: 1px solid var(--iad-border);
+  border-radius: var(--iad-radius2);
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255,69,0,0.12), rgba(71,179,255,0.08));
+  margin-bottom: 12px;
+}
+
+.iad-agora-banner{
+  height: 86px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,69,0,0.55), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(71,179,255,0.45), transparent 50%),
+    linear-gradient(180deg, rgba(0,0,0,0.00), rgba(0,0,0,0.35));
+}
+
+.iad-agora-inner{ padding: 12px; }
+
+.iad-agora-name{
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.iad-agora-sub{
+  color: var(--iad-muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.iad-agora-desc{
+  margin-top: 10px;
+  color: rgba(255,255,255,0.82);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.iad-agora-row{
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border: 1px solid var(--iad-border);
+  border-radius: var(--iad-radius);
+  background: rgba(255,255,255,0.04);
+  color: var(--iad-text);
+  cursor:pointer;
+  margin-bottom: 10px;
+}
+.iad-agora-row:hover{ background: rgba(255,255,255,0.07); }
+
+.iad-agora-row-name{ font-weight: 700; }
+.iad-agora-row-sub{ margin-top: 4px; font-size: 12px; color: var(--iad-muted); }

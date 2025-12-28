@@ -1,0 +1,39 @@
+/* IA Stream — base */
+#ia-stream-shell {
+  --ia-bg: #0f1115;
+  --ia-panel: #151922;
+  --ia-card: #1b2030;
+  --ia-border: #2a3145;
+  --ia-text: #e6e8ee;
+  --ia-muted: #9aa3b2;
+  --ia-accent: #ff4500; /* reddit-ish */
+  --ia-radius: 10px;
+  --ia-gap: 12px;
+
+  color: var(--ia-text);
+  background: var(--ia-bg);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+               Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+}
+
+#ia-stream-shell *,
+#ia-stream-shell *::before,
+#ia-stream-shell *::after {
+  box-sizing: border-box;
+}
+
+#ia-stream-shell a {
+  color: var(--ia-accent);
+  text-decoration: none;
+}
+
+#ia-stream-shell a:hover {
+  text-decoration: underline;
+}
+
+.ia-stream-placeholder {
+  padding: 24px;
+  text-align: center;
+  color: var(--ia-muted);
+  font-size: 0.95rem;
+}

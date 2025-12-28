@@ -1,0 +1,15 @@
+.ia-msg-bubble {
+  max-width: 72%;
+  margin: 6px 0;
+  padding: 10px 12px;
+  border: 1px solid #1f1f1f;
+  background: #101010;
+  border-radius: 14px;
+  line-height: 1.35;
+  font-size: 14px;
+}
+.ia-msg-bubble-mine {
+  margin-left: auto;
+  background: #141414;
+  border-color: #2a2a2a;
+}

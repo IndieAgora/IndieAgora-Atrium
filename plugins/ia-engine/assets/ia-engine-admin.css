@@ -1,0 +1,53 @@
+.ia-engine-wrap .description { max-width: 980px; }
+
+.ia-engine-card {
+  background: #fff;
+  border: 1px solid #dcdcde;
+  border-radius: 10px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.ia-engine-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 10px 14px;
+  align-items: center;
+  max-width: 900px;
+}
+
+.ia-engine-grid input[type="text"],
+.ia-engine-grid input[type="password"],
+.ia-engine-grid input[type="number"],
+.ia-engine-grid select {
+  width: 100%;
+  max-width: 520px;
+}
+
+.ia-engine-secret { display: flex; flex-direction: column; gap: 6px; }
+.ia-engine-secret-meta { font-size: 12px; color: #646970; }
+
+.ia-engine-tests {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ia-engine-test-label { width: 160px; color: #1d2327; font-weight: 600; }
+
+.ia-engine-test-result {
+  margin-left: 4px;
+  font-weight: 600;
+}
+.ia-engine-test-result.ok { color: #128c2a; }
+.ia-engine-test-result.bad { color: #b32d2e; }
+
+.ia-engine-hint {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #f6f7f7;
+  border: 1px solid #dcdcde;
+  border-radius: 10px;
+}
+.ia-engine-hint code { display: inline-block; padding: 2px 6px; }

@@ -1,0 +1,10 @@
+/* Make the long identity menu usable without nested menus */
+#ia-atrium-shell .ia-profile-menu {
+  width: min(340px, calc(100vw - 24px));
+  max-height: 72vh;
+  overflow: auto;
+}
+
+#ia-atrium-shell .ia-menu-item.ia-menu-item-danger {
+  color: #ffb4b4; /* subtle “danger” */
+}

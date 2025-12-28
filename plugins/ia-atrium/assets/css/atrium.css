@@ -1,0 +1,381 @@
+/* IA Atrium (Core Shell) – WIDE / OPEN LAYOUT */
+
+/* Root shell now spans full width */
+.ia-atrium-shell {
+  width: 100%;
+  max-width: none;          /* remove centering constraint */
+  margin: 0;
+  padding: 16px 0 92px;     /* horizontal padding handled inside */
+  box-sizing: border-box;
+}
+
+/* ───────────────────────────────────────────── */
+/* Top tabs (full width, open feel)               */
+/* ───────────────────────────────────────────── */
+
+.ia-atrium-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000; /* RAISED: keep tabs clickable above modals */
+  background: #0b0b0b;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Tabs stretch but remain readable */
+.ia-atrium-tabs {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ia-tab {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #111;
+  color: #e8e8e8;
+  border-radius: 999px;
+  padding: 12px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  min-height: 44px;
+  text-align: center;
+}
+
+.ia-tab.active {
+  border-color: rgba(255,255,255,0.35);
+  background: #161616;
+}
+
+/* ───────────────────────────────────────────── */
+/* Main content area (full width container)      */
+/* ───────────────────────────────────────────── */
+
+.ia-atrium-main {
+  width: 100%;
+  margin-top: 16px;
+}
+
+/* Panels now span full width */
+.ia-panel { display: none; }
+.ia-panel.active { display: block; }
+
+/* Inner content is wide but capped for readability */
+.ia-panel-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px;
+  background: #0a0a0a;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  color: #e8e8e8;
+}
+
+/* Slots where micro-plugins render */
+.ia-slot {
+  min-height: 40px;
+}
+
+/* ───────────────────────────────────────────── */
+/* Bottom navigation (unchanged behaviour)       */
+/* ───────────────────────────────────────────── */
+
+.ia-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999999;
+  background: #0b0b0b;
+  border-top: 1px solid rgba(255,255,255,0.10);
+  padding-bottom: env(safe-area-inset-bottom);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.ia-bottom-item,
+.ia-bottom-item-wrap > .ia-bottom-item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #e8e8e8;
+  padding: 10px 6px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.ia-bottom-item .dashicons {
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+}
+
+.ia-bottom-label {
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.ia-bottom-item-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ───────────────────────────────────────────── */
+/* Profile dropdown (mobile-safe, wide-aware)    */
+/* ───────────────────────────────────────────── */
+
+.ia-profile-menu {
+  position: absolute;
+  bottom: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(240px, calc(100vw - 24px));
+  background: #0e0e0e;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  display: none;
+}
+
+.ia-profile-menu.open { display: block; }
+
+.ia-menu-item {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 13px;
+  text-align: left;
+  background: transparent;
+  color: #e8e8e8;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.ia-menu-item:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+/* Pin dropdown on edges */
+.ia-bottom-nav .ia-bottom-item-wrap:first-child .ia-profile-menu {
+  left: 8px;
+  transform: none;
+}
+
+.ia-bottom-nav .ia-bottom-item-wrap:last-child .ia-profile-menu {
+  right: 8px;
+  left: auto;
+  transform: none;
+}
+
+/* ───────────────────────────────────────────── */
+/* Modal styling                                 */
+/* ───────────────────────────────────────────── */
+
+.ia-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 100;
+}
+
+.ia-modal.open { display: block; }
+
+.ia-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+}
+
+.ia-modal-card {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(1100px, 100%);
+  max-height: 86vh;
+  background: #0e0e0e;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ia-modal-header,
+.ia-modal-footer {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  position: relative;
+}
+
+.ia-modal-footer {
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-bottom: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ia-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ia-icon-btn {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #111;
+  color: #e8e8e8;
+  cursor: pointer;
+}
+
+.ia-modal-body {
+  padding: 16px;
+  overflow: auto;
+}
+
+.ia-btn {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: #151515;
+  color: #e8e8e8;
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.ia-btn-primary {
+  border-color: rgba(255,255,255,0.22);
+  background: #1a1a1a;
+}
+
+.ia-no-scroll { overflow: hidden; }
+
+/* ───────────────────────────────────────────── */
+/* Read more pill                                */
+/* ───────────────────────────────────────────── */
+
+.ia-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: #151515;
+  color: #e8e8e8;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.ia-excerpt,
+.ia-full {
+  line-height: 1.6;
+}
+
+/* ───────────────────────────────────────────── */
+/* Mobile tweaks                                 */
+/* ───────────────────────────────────────────── */
+
+@media (max-width: 520px) {
+
+  .ia-atrium-tabs {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .ia-panel-inner {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .ia-atrium-shell {
+    padding-bottom: 100px;
+  }
+}
+
+/* Safety: prevent horizontal scroll */
+html, body {
+  overflow-x: hidden;
+}
+
+/* =========================================================
+   Mobile: make Atrium use the full screen (bigger, not smaller)
+   ========================================================= */
+@media (max-width: 768px) {
+
+  /* Break Atrium OUT of theme containers and use the viewport width */
+  #ia-atrium-shell {
+    width: 100vw !important;
+    max-width: 100vw !important;
+
+    /* viewport breakout trick */
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw !important;
+    margin-right: -50vw !important;
+  }
+
+  /* Give it more breathing room (makes it feel larger) */
+  .ia-atrium-shell {
+    padding: 18px 16px 96px !important;
+  }
+
+  /* Panel should feel “big” on mobile */
+  .ia-panel-inner {
+    padding: 16px !important;
+    border-radius: 16px !important;
+  }
+
+  /* Keep tabs comfortably sized (do NOT shrink) */
+  .ia-atrium-tabs {
+    gap: 10px !important;
+    padding: 12px 8px !important;
+  }
+
+  .ia-tab {
+    min-height: 46px !important;
+    padding: 12px 14px !important;
+    font-size: 15px !important;
+  }
+}
+
+/* =========================================================
+   CONNECT ONLY (logged out) lock:
+   - only affects Connect panel content
+   - Discuss/Stream remain clickable/viewable
+   ========================================================= */
+
+#ia-atrium-shell.ia-connect-locked .ia-panel[data-panel="connect"] .ia-panel-inner {
+  opacity: 0.18;
+  filter: blur(1px);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* If Connect is gated, remove close controls so it behaves as “login required” */
+#ia-atrium-shell.ia-connect-locked #ia-atrium-auth [data-ia-auth-close] {
+  display: none !important;
+}
+
+/* Optional: hide footer close area if present */
+#ia-atrium-shell.ia-connect-locked #ia-atrium-auth .ia-modal-footer {
+  display: none !important;
+}

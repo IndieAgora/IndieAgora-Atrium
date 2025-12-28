@@ -1,0 +1,21 @@
+.ia-msg-thread {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #161616;
+  background: transparent;
+  color: #e6e6e6;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.ia-msg-thread:hover { background: #111; }
+
+.ia-msg-thread-title {
+  font-size: 13px;
+  font-weight: 650;
+}
+.ia-msg-thread-meta {
+  font-size: 12px;
+  color: #9a9a9a;
+  margin-top: 2px;
+}

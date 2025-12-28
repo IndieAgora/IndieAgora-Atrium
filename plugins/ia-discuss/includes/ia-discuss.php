@@ -1,0 +1,156 @@
+<?php
+if (!defined('ABSPATH')) exit;
+
+/**
+ * IA Discuss Orchestrator (Safe Boot)
+ *
+ * Goal:
+ * - Never fatal the whole site.
+ * - Require known module/service/support files.
+ * - Call any boot functions if they exist.
+ *
+ * This replaces any "container->boot()" pattern that can return null.
+ */
+
+if (!function_exists('ia_discuss_boot')) {
+
+  // --------- helpers ---------
+  function ia_discuss_require_if_exists(string $path): bool {
+    if (file_exists($path)) {
+      require_once $path;
+      return true;
+    }
+    return false;
+  }
+
+  function ia_discuss_admin_notice(string $msg): void {
+    if (!is_admin()) return;
+    add_action('admin_notices', function () use ($msg) {
+      echo '<div class="notice notice-error"><p><strong>IA Discuss:</strong> ' . esc_html($msg) . '</p></div>';
+    });
+  }
+
+  /**
+   * Boot Discuss safely.
+   */
+  function ia_discuss_boot(): void {
+
+    if (!defined('IA_DISCUSS_PATH')) {
+      // Should be defined by root plugin file.
+      ia_discuss_admin_notice('IA_DISCUSS_PATH is not defined. Root loader may be corrupted.');
+      return;
+    }
+
+    // ---- Core functions (must exist) ----
+    $core = IA_DISCUSS_PATH . 'includes/functions.php';
+    if (!file_exists($core)) {
+      ia_discuss_admin_notice('Missing core file: includes/functions.php');
+      return;
+    }
+    require_once $core;
+
+    // ---- Support layer ----
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/support/security.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/support/assets.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/support/ajax.php');
+
+    // ---- Render helpers ----
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/render/text.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/render/bbcode.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/render/attachments.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/render/media.php');
+
+    // ---- Services ----
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/auth.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/phpbb.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/text.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/upload.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/phpbb-write.php');
+
+    // ---- Modules ----
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/module-interface.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/panel.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/feed.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/topic.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/agoras.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/upload.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/write.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/diag.php');
+
+    /**
+     * Run boot hooks if they exist.
+     * (We do NOT assume any object container exists.)
+     */
+    $boots = [
+      'ia_discuss_support_security_boot',
+      'ia_discuss_support_assets_boot',
+      'ia_discuss_support_ajax_boot',
+
+      'ia_discuss_module_panel_boot',
+      'ia_discuss_module_feed_boot',
+      'ia_discuss_module_topic_boot',
+      'ia_discuss_module_agoras_boot',
+      'ia_discuss_module_upload_boot',
+      'ia_discuss_module_write_boot',
+      'ia_discuss_module_diag_boot',
+    ];
+
+    foreach ($boots as $fn) {
+      if (function_exists($fn)) {
+        try {
+          $fn();
+        } catch (\Throwable $e) {
+          ia_discuss_admin_notice($fn . ' failed: ' . $e->getMessage());
+        }
+      }
+    }
+    // -------------------------
+    // Dependency wiring (REAL BOOT)
+    // -------------------------
+    try {
+      // Services / renderers
+      $phpbb  = new IA_Discuss_Service_PhpBB();
+      $bbcode = new IA_Discuss_Render_BBCode();
+      $media  = new IA_Discuss_Render_Media();
+      $atts   = new IA_Discuss_Render_Attachments();
+
+      $auth   = new IA_Discuss_Service_Auth($phpbb);
+      $upload = new IA_Discuss_Service_Upload();
+      $write  = new IA_Discuss_Service_PhpBB_Write($phpbb, $auth);
+
+      // Modules (classes)
+      $modules = [
+        new IA_Discuss_Module_Feed($phpbb, $bbcode, $media, $atts),
+        new IA_Discuss_Module_Topic($phpbb, $bbcode, $media),
+        new IA_Discuss_Module_Agoras($phpbb, $bbcode),
+        new IA_Discuss_Module_Upload($upload),
+        new IA_Discuss_Module_Write($phpbb, $bbcode, $auth, $write),
+        new IA_Discuss_Module_Diag($phpbb),
+      ];
+
+      // Let modules register any hooks if they want (currently no-ops, but canon)
+      foreach ($modules as $m) {
+        if ($m instanceof IA_Discuss_Module_Interface) {
+          $m->boot();
+        }
+      }
+
+      // Boot AJAX router (register wp_ajax_* hooks)
+      if (function_exists('ia_discuss_ajax') && function_exists('ia_discuss_security')) {
+        ia_discuss_ajax()->boot($modules, ia_discuss_security());
+      }
+    } catch (\Throwable $e) {
+      ia_discuss_admin_notice('Bootstrap wiring failed: ' . $e->getMessage());
+    }
+
+    /**
+     * Absolute fallback:
+     * If the panel render hook exists in your module file, it will run.
+     * If not, at least we won’t fatal the site.
+     */
+    if (!has_action('ia_atrium_panel_discuss')) {
+      // If your panel module registered it, this will be true. If not, warn in admin.
+      ia_discuss_admin_notice('Discuss panel hook not registered (ia_atrium_panel_discuss). Check includes/modules/panel.php');
+    }
+  }
+}

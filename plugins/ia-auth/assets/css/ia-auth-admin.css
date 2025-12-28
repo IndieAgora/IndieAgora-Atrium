@@ -1,0 +1,10 @@
+/* IA Auth admin tweaks (safe, no PHP logic changes) */
+.ia-auth-migration-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ia-auth-migration-row label {
+  margin: 0;
+}

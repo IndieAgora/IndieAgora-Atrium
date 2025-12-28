@@ -1,0 +1,17 @@
+/* IA Auth - minimal, dark, Atrium-friendly */
+.ia-auth-page { background:#000; color:#d7dadc; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+.ia-auth-page-wrap { max-width: 520px; margin: 60px auto; padding: 0 16px; }
+.ia-auth-card { background:#0b0b0b; border:1px solid #222; border-radius:12px; padding:18px; }
+.ia-auth-card h2 { margin: 0 0 14px; font-size: 20px; }
+.ia-auth-form label { display:block; margin: 12px 0; }
+.ia-auth-form span { display:block; font-size: 12px; opacity: .85; margin-bottom: 6px; }
+.ia-auth-form input { width: 100%; padding: 10px 12px; border-radius: 10px; border:1px solid #2a2a2a; background:#050505; color:#fff; }
+.ia-auth-form button { width:100%; margin-top: 12px; padding: 10px 12px; border-radius: 10px; border:1px solid #3a3a3a; background:#111; color:#fff; cursor:pointer; }
+.ia-auth-form button:hover { background:#151515; }
+.ia-auth-msg { margin-top: 10px; font-size: 13px; min-height: 18px; }
+.ia-auth-msg.ok { color:#7ee787; }
+.ia-auth-msg.err { color:#ff7b72; }
+.ia-auth-alt { margin-top: 14px; font-size: 13px; }
+.ia-auth-alt a { color:#8ab4f8; text-decoration:none; }
+.ia-auth-gate { background:#0b0b0b; border:1px solid #222; border-radius:12px; padding: 14px; }
+.ia-auth-gate-btn { display:inline-block; padding: 8px 10px; border:1px solid #333; border-radius: 10px; background:#111; color:#fff; text-decoration:none; }

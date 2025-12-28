@@ -1,0 +1,29 @@
+.ia-msg-suggest{
+  margin-top:8px;
+  border:1px solid #222;
+  border-radius:6px;
+  background:#111;
+  max-height:200px;
+  overflow:auto;
+  display:none;
+}
+.ia-msg-suggest.open{ display:block; }
+
+.ia-msg-suggest-item{
+  width:100%;
+  text-align:left;
+  padding:10px;
+  border:0;
+  background:none;
+  color:#eee;
+  cursor:pointer;
+}
+.ia-msg-suggest-item:hover{
+  background:#1e1e1e;
+}
+
+.ia-msg-suggest-sub{
+  display:block;
+  font-size:12px;
+  color:#999;
+}

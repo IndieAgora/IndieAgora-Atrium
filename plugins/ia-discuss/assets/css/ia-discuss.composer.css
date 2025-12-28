@@ -1,0 +1,78 @@
+.iad-composer{
+  border: 1px solid rgba(255,69,0,0.22);
+  background: rgba(255,69,0,0.06);
+  border-radius: var(--iad-radius);
+  overflow: hidden;
+}
+
+.iad-composer-top{
+  padding: 10px 12px;
+}
+
+.iad-composer-toggle{
+  width: 100%;
+  appearance:none;
+  border: 0;
+  background: transparent;
+  color: var(--iad-text);
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  cursor:pointer;
+  font-size: 14px;
+}
+
+.iad-dot{
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--iad-accent);
+  box-shadow: 0 0 0 4px rgba(255,69,0,0.18);
+}
+
+.iad-composer-body{
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 12px;
+  display:flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.iad-input{
+  border: 1px solid var(--iad-border);
+  background: rgba(0,0,0,0.25);
+  color: var(--iad-text);
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.iad-textarea{
+  border: 1px solid var(--iad-border);
+  background: rgba(0,0,0,0.25);
+  color: var(--iad-text);
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-height: 120px;
+  resize: vertical;
+  outline: none;
+}
+
+.iad-editorbar{
+  display:flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.iad-editorbar button{
+  appearance:none;
+  border: 1px solid var(--iad-border);
+  background: rgba(255,255,255,0.05);
+  color: var(--iad-text);
+  padding: 8px 10px;
+  border-radius: 12px;
+  cursor:pointer;
+  font-size: 13px;
+}
+.iad-editorbar button:hover{ background: rgba(255,255,255,0.10); }
+
+.iad-composer-actions{ display:flex; justify-content:flex-end; }

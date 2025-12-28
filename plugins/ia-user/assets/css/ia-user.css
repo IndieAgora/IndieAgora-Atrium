@@ -1,0 +1,136 @@
+/* IA User - Atrium auth modal skin (matches the screenshot style) */
+
+#ia-atrium-auth .ia-modal-card {
+  left: 50%;
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  width: min(560px, calc(100vw - 28px));
+  max-height: min(640px, calc(100vh - 40px));
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: linear-gradient(180deg, #131313 0%, #0c0c0c 100%);
+}
+
+/* Header */
+#ia-atrium-auth .ia-modal-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+#ia-atrium-auth .ia-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f0f0f0;
+}
+
+#ia-atrium-auth .ia-icon-btn {
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(10,10,10,0.55);
+}
+
+/* Tabs - pill style */
+#ia-atrium-auth .ia-auth-tabs {
+  display: inline-flex;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.20);
+  margin: 4px 0 14px;
+}
+
+#ia-atrium-auth .ia-auth-tab {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(12,12,12,0.7);
+  color: #eaeaea;
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+#ia-atrium-auth .ia-auth-tab.active {
+  border-color: rgba(255,120,20,0.65);
+  background: rgba(255,120,20,0.12);
+  color: #fff;
+}
+
+/* Fields */
+#ia-atrium-auth .ia-field {
+  display: block;
+  margin: 0 0 12px;
+}
+
+#ia-atrium-auth .ia-label {
+  display: block;
+  font-size: 12px;
+  color: rgba(255,255,255,0.70);
+  margin: 0 0 6px;
+}
+
+#ia-atrium-auth .ia-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.20);
+  background: rgba(0,0,0,0.35);
+  color: #fff;
+  padding: 12px 12px;
+  font-size: 14px;
+  outline: none;
+}
+
+#ia-atrium-auth .ia-input:focus {
+  border-color: rgba(255,120,20,0.65);
+  box-shadow: 0 0 0 3px rgba(255,120,20,0.12);
+}
+
+/* Primary CTA */
+#ia-atrium-auth .ia-user-submit {
+  width: 100%;
+  border: 1px solid rgba(255,120,20,0.60);
+  background: rgba(255,120,20,0.28);
+  color: #fff;
+  border-radius: 999px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+#ia-atrium-auth .ia-user-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Footer links / messages */
+#ia-atrium-auth .ia-user-meta {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#ia-atrium-auth .ia-user-link {
+  color: #8ab4f8;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+#ia-atrium-auth .ia-user-link:hover {
+  text-decoration: underline;
+}
+
+#ia-atrium-auth .ia-user-msg {
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.80);
+  min-height: 18px;
+}
+
+#ia-atrium-auth .ia-user-msg.error { color: #ff6b6b; }
+#ia-atrium-auth .ia-user-msg.ok { color: #7ee787; }
