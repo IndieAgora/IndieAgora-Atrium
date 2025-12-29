@@ -5,10 +5,7 @@ function ia_message_register_hooks(): void {
   register_activation_hook(IA_MESSAGE_PATH . 'ia-message.php', 'ia_message_install');
   add_action('admin_init', 'ia_message_maybe_upgrade');
 
-  // ✅ Mount hidden messages module inside the Atrium shell
-  add_action('ia_atrium_shell_after', 'ia_message_render_shell_mount', 10, 0);
-
-  // Keep this too (optional): if Atrium ever adds a real "messages" panel later, we’re ready.
+  // ✅ Render as an Atrium panel surface (tab), not a modal.
   add_action('ia_atrium_panel_' . IA_MESSAGE_PANEL_KEY, 'ia_message_render_panel', 10, 0);
 }
 
@@ -21,62 +18,55 @@ function ia_message_maybe_upgrade(): void {
 
 function ia_message_install(): void {
   global $wpdb;
+
   require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
   $charset = $wpdb->get_charset_collate();
-  $p = $wpdb->prefix;
 
-  $threads  = $p . 'ia_msg_threads';
-  $members  = $p . 'ia_msg_thread_members';
-  $messages = $p . 'ia_msg_messages';
-  $imap     = $p . 'ia_msg_import_map';
+  $messages = $wpdb->prefix . 'ia_message_messages';
+  $threads  = $wpdb->prefix . 'ia_message_threads';
+  $parts    = $wpdb->prefix . 'ia_message_participants';
+  $map      = $wpdb->prefix . 'ia_message_id_map';
 
   $sql = [];
 
   $sql[] = "CREATE TABLE {$threads} (
     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-    thread_key VARCHAR(190) NOT NULL,
-    type VARCHAR(20) NOT NULL DEFAULT 'dm',
-    last_message_id BIGINT(20) UNSIGNED DEFAULT NULL,
-    last_activity_at DATETIME DEFAULT NULL,
+    thread_type VARCHAR(20) NOT NULL DEFAULT 'dm',
+    title VARCHAR(190) NOT NULL DEFAULT '',
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
-    PRIMARY KEY  (id),
-    UNIQUE KEY thread_key (thread_key),
-    KEY last_activity_at (last_activity_at)
+    last_message_id BIGINT(20) UNSIGNED DEFAULT NULL,
+    PRIMARY KEY (id),
+    KEY updated_at (updated_at),
+    KEY last_message_id (last_message_id)
   ) {$charset};";
 
-  $sql[] = "CREATE TABLE {$members} (
+  $sql[] = "CREATE TABLE {$parts} (
     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
     thread_id BIGINT(20) UNSIGNED NOT NULL,
-    phpbb_user_id BIGINT(20) UNSIGNED NOT NULL,
-    last_read_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00',
+    user_id BIGINT(20) UNSIGNED NOT NULL,
     last_read_message_id BIGINT(20) UNSIGNED DEFAULT NULL,
-    is_muted TINYINT(1) NOT NULL DEFAULT 0,
-    is_pinned TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY thread_member (thread_id, phpbb_user_id),
-    KEY phpbb_user_id (phpbb_user_id),
-    KEY thread_id (thread_id)
+    UNIQUE KEY thread_user (thread_id, user_id),
+    KEY thread_id (thread_id),
+    KEY user_id (user_id)
   ) {$charset};";
 
   $sql[] = "CREATE TABLE {$messages} (
     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
     thread_id BIGINT(20) UNSIGNED NOT NULL,
-    author_phpbb_user_id BIGINT(20) UNSIGNED NOT NULL,
+    sender_id BIGINT(20) UNSIGNED NOT NULL,
     body LONGTEXT NOT NULL,
-    body_format VARCHAR(20) NOT NULL DEFAULT 'plain',
     created_at DATETIME NOT NULL,
-    edited_at DATETIME DEFAULT NULL,
-    deleted_at DATETIME DEFAULT NULL,
     PRIMARY KEY (id),
-    KEY thread_created (thread_id, created_at),
-    KEY author_created (author_phpbb_user_id, created_at)
+    KEY thread_id (thread_id),
+    KEY sender_id (sender_id),
+    KEY created_at (created_at)
   ) {$charset};";
 
-  $sql[] = "CREATE TABLE {$imap} (
+  $sql[] = "CREATE TABLE {$map} (
     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
     source VARCHAR(50) NOT NULL,
     foreign_message_id VARCHAR(190) NOT NULL,

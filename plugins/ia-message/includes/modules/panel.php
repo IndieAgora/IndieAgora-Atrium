@@ -9,13 +9,3 @@ function ia_message_render_panel(): void {
   }
   include $tpl;
 }
-
-/**
- * Mounted inside Atrium shell as hidden overlay,
- * opened via the "ia_atrium:chat" intent event.
- */
-function ia_message_render_shell_mount(): void {
-  $tpl = IA_MESSAGE_PATH . 'includes/templates/modal.php';
-  if (!file_exists($tpl)) return;
-  include $tpl;
-}
