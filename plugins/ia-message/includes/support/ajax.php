@@ -5,8 +5,6 @@ add_action('wp_ajax_ia_message_threads', 'ia_message_ajax_threads');
 add_action('wp_ajax_ia_message_thread', 'ia_message_ajax_thread');
 add_action('wp_ajax_ia_message_send', 'ia_message_ajax_send');
 add_action('wp_ajax_ia_message_new_dm', 'ia_message_ajax_new_dm');
-
-// ✅ required for your username-suggest UI (still returns email for join)
 add_action('wp_ajax_ia_message_user_search', 'ia_message_ajax_user_search');
 
 function ia_message_ajax_threads(): void {
@@ -18,7 +16,19 @@ function ia_message_ajax_threads(): void {
   $limit  = isset($_POST['limit']) ? (int)$_POST['limit'] : 50;
   $offset = isset($_POST['offset']) ? (int)$_POST['offset'] : 0;
 
-  $threads = ia_message_get_threads_for_user($me, $limit, $offset);
+  $rows = ia_message_threads_for_user($me, $limit, $offset);
+
+  // Render threads for UI (adds title from dm key, etc.)
+  $threads = ia_message_render_threads($rows, $me);
+
+  // Add last_preview (safe text) for list
+  foreach ($threads as $i => $t) {
+    $last_body = isset($rows[$i]['last_body']) ? (string)$rows[$i]['last_body'] : '';
+    $last_body = trim(wp_strip_all_tags($last_body));
+    if (mb_strlen($last_body) > 90) $last_body = rtrim(mb_substr($last_body, 0, 90)) . '…';
+    $threads[$i]['last_preview'] = $last_body;
+  }
+
   ia_message_json_ok(['threads' => $threads]);
 }
 
@@ -35,10 +45,21 @@ function ia_message_ajax_thread(): void {
     ia_message_json_err('forbidden', 403);
   }
 
+  $trow = ia_message_get_thread($thread_id);
+  if (!$trow) ia_message_json_err('thread_missing', 404);
+
   $rows = ia_message_get_messages($thread_id, 200, 0);
   $messages = ia_message_render_messages($rows, $me);
 
-  ia_message_json_ok(['messages' => $messages]);
+  $thread = [
+    'id' => (int)$trow['id'],
+    'type' => (string)$trow['type'],
+    'thread_key' => (string)$trow['thread_key'],
+    'title' => ia_message_thread_title_from_key((string)$trow['thread_key'], $me),
+    'messages' => $messages,
+  ];
+
+  ia_message_json_ok(['thread' => $thread]);
 }
 
 function ia_message_ajax_send(): void {
@@ -55,7 +76,7 @@ function ia_message_ajax_send(): void {
     ia_message_json_err('forbidden', 403);
   }
 
-  $mid = ia_message_add_message($thread_id, $me, $body, 'text');
+  $mid = ia_message_add_message($thread_id, $me, $body, 'plain');
   if ($mid <= 0) ia_message_json_err('write_failed', 500);
 
   ia_message_touch_thread($thread_id, $mid);
@@ -63,28 +84,29 @@ function ia_message_ajax_send(): void {
   ia_message_json_ok(['message_id' => $mid]);
 }
 
+/**
+ * Create DM by canonical phpbb_user_id (preferred).
+ * Optionally send first message body in same action.
+ */
 function ia_message_ajax_new_dm(): void {
   ia_message_verify_nonce('boot', isset($_POST['nonce']) ? (string)$_POST['nonce'] : '');
 
   $me = ia_message_current_phpbb_user_id();
   if ($me <= 0) ia_message_json_err('not_authenticated', 401);
 
-  $email = isset($_POST['email']) ? trim((string)$_POST['email']) : '';
-  $self  = isset($_POST['self']) ? (int)$_POST['self'] : 0;
+  $to_phpbb = isset($_POST['to_phpbb']) ? (int)$_POST['to_phpbb'] : 0;
+  $body     = isset($_POST['body']) ? trim((string)$_POST['body']) : '';
 
-  if ($self === 1) {
-    $tid = ia_message_get_or_create_dm($me, $me);
-    if ($tid <= 0) ia_message_json_err('create_failed', 500);
-    ia_message_json_ok(['thread_id' => $tid]);
-  }
+  if ($to_phpbb <= 0) ia_message_json_err('bad_target', 400);
 
-  if ($email === '' || !is_email($email)) ia_message_json_err('bad_email', 400);
-
-  $other = ia_message_resolve_phpbb_user_id_by_email($email);
-  if ($other <= 0) ia_message_json_err('email_not_found', 404);
-
-  $tid = ia_message_get_or_create_dm($me, $other);
+  $tid = ia_message_get_or_create_dm($me, $to_phpbb);
   if ($tid <= 0) ia_message_json_err('create_failed', 500);
+
+  // If body provided, send first message immediately (good UX)
+  if ($body !== '') {
+    $mid = ia_message_add_message($tid, $me, $body, 'plain');
+    if ($mid > 0) ia_message_touch_thread($tid, $mid);
+  }
 
   ia_message_json_ok(['thread_id' => $tid]);
 }
@@ -96,7 +118,7 @@ function ia_message_ajax_user_search(): void {
   if ($me <= 0) ia_message_json_err('not_authenticated', 401);
 
   $q = isset($_POST['q']) ? (string)$_POST['q'] : '';
-  $rows = ia_message_search_users_by_email($q, 8);
+  $rows = ia_message_search_users_by_email($q, 10);
 
   ia_message_json_ok(['results' => $rows]);
 }

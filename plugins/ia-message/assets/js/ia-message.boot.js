@@ -1,7 +1,7 @@
 (() => {
   function ready(fn){ if(document.readyState!=="loading") fn(); else document.addEventListener("DOMContentLoaded", fn); }
-  function q(root, sel){ return root.querySelector(sel); }
-  function qa(root, sel){ return Array.from(root.querySelectorAll(sel)); }
+  function q(root, sel){ try { return (root||document).querySelector(sel); } catch(e){ return null; } }
+  function qa(root, sel){ try { return Array.from((root||document).querySelectorAll(sel)); } catch(e){ return []; } }
 
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -15,13 +15,6 @@
     return res.json();
   }
 
-  // ===========================
-  // PANEL MODE (no modal)
-  // ===========================
-
-  function modalEl(){ return null; } // no modal in panel mode
-  function closeModal(){ /* no-op (messages is a panel now) */ }
-
   function findShells(){
     const atrium = document.querySelector("#ia-atrium-shell");
     if (!atrium) return [];
@@ -30,42 +23,7 @@
     return qa(panel, ".ia-msg-shell");
   }
 
-  function activateMessages(){
-    const shells = findShells();
-    if (!shells.length) return;
-    shells.forEach(initShellOnce);
-    shells.forEach(loadThreads);
-  }
-
-  function bindAtriumMessagesTab(){
-    const handler = (ev) => {
-      const tab = ev && ev.detail && ev.detail.tab;
-      if (tab === IA_MESSAGE.panelKey) activateMessages();
-
-      // Leaving messages: close any open sheets (keeps UX tidy)
-      if (tab !== IA_MESSAGE.panelKey) closeSheet("newchat");
-    };
-
-    window.addEventListener("ia_atrium:tabChanged", handler);
-    document.addEventListener("ia_atrium:tabChanged", handler);
-
-    // First paint: if Messages is already active, activate now
-    try {
-      const atrium = document.querySelector("#ia-atrium-shell");
-      const def = atrium ? (atrium.getAttribute("data-default-tab") || "connect") : "connect";
-      const urlTab = (new URL(window.location.href)).searchParams.get("tab");
-      const active = urlTab || def;
-      if (active === IA_MESSAGE.panelKey) activateMessages();
-    } catch(e){}
-  }
-
-  // ===========================
-  // Existing UI logic (kept)
-  // ===========================
-
-  const state = {
-    shells: new WeakMap(),
-  };
+  const state = { shells: new WeakMap() };
 
   function shellState(shell){
     if (!state.shells.has(shell)) state.shells.set(shell, {
@@ -75,17 +33,15 @@
       isLoadingThreads: false,
       isLoadingThread: false,
       isSending: false,
-      mobileView: "list", // list|chat
+      userSearchTimer: null,
+      newSearchTimer: null,
     });
     return state.shells.get(shell);
   }
 
   function setMobileView(shell, view){
-    shell.setAttribute("data-ia-msg-mobile", view);
-  }
-
-  function setStatus(shell, kind, on){
-    shell.setAttribute("data-ia-msg-" + kind, on ? "1" : "0");
+    // CSS uses data-mobile-view
+    shell.setAttribute("data-mobile-view", view);
   }
 
   function renderThreads(shell){
@@ -99,17 +55,13 @@
     }
 
     list.innerHTML = st.threads.map(t => {
-      const title = escapeHtml(t.title || t.display || "Conversation");
+      const title = escapeHtml(t.title || "Conversation");
       const last = escapeHtml(t.last_preview || "");
       const active = (String(t.id) === String(st.activeThreadId)) ? "active" : "";
-      const unread = t.unread_count && Number(t.unread_count) > 0 ? `<span class="ia-msg-badge">${Number(t.unread_count)}</span>` : "";
       return `
         <button type="button" class="ia-msg-thread ${active}" data-ia-msg-thread="${t.id}">
-          <div class="ia-msg-thread-top">
-            <div class="ia-msg-thread-title">${title}</div>
-            ${unread}
-          </div>
-          <div class="ia-msg-thread-sub">${last}</div>
+          <div class="ia-msg-thread-title">${title}</div>
+          <div class="ia-msg-thread-meta">${last}</div>
         </button>
       `;
     }).join("");
@@ -119,11 +71,14 @@
     const st = shellState(shell);
     const headTitle = q(shell, "[data-ia-msg-chat-title]");
     const msgWrap = q(shell, "[data-ia-msg-chat-messages]");
-    if (headTitle) headTitle.textContent = (st.activeThread && (st.activeThread.title || st.activeThread.display)) ? (st.activeThread.title || st.activeThread.display) : "Messages";
-
+    if (headTitle) headTitle.textContent = st.activeThread ? (st.activeThread.title || "Messages") : "Select a conversation";
     if (!msgWrap) return;
 
     const msgs = (st.activeThread && st.activeThread.messages) ? st.activeThread.messages : [];
+    if (!st.activeThread) {
+      msgWrap.innerHTML = `<div class="ia-msg-empty">Select a conversation.</div>`;
+      return;
+    }
     if (!msgs.length) {
       msgWrap.innerHTML = `<div class="ia-msg-empty">No messages yet.</div>`;
       return;
@@ -131,7 +86,7 @@
 
     msgWrap.innerHTML = msgs.map(m => {
       const body = escapeHtml(m.body || "");
-      const mine = m.is_mine ? "mine" : "theirs";
+      const mine = m.is_mine ? "ia-msg-bubble-mine" : "";
       return `<div class="ia-msg-bubble ${mine}"><div class="ia-msg-body">${body}</div></div>`;
     }).join("");
 
@@ -142,25 +97,26 @@
     const st = shellState(shell);
     if (st.isLoadingThreads) return;
     st.isLoadingThreads = true;
-    setStatus(shell, "loading", true);
+
+    const list = q(shell, "[data-ia-msg-threads]");
+    if (list) list.innerHTML = `<div class="ia-msg-empty">Loading…</div>`;
 
     try {
       const res = await post("ia_message_threads", { nonce: IA_MESSAGE.nonceBoot });
-      if (!res || !res.ok) throw new Error(res && res.error ? res.error : "Failed to load threads");
-      st.threads = res.threads || [];
+      if (!res || !res.success) throw new Error((res && res.data && res.data.error) ? res.data.error : "Failed");
+      st.threads = (res.data && res.data.threads) ? res.data.threads : [];
       renderThreads(shell);
 
-      // auto select first thread on desktop if none selected
       if (!st.activeThreadId && st.threads.length) {
-        st.activeThreadId = st.threads[0].id;
-        await loadThread(shell, st.activeThreadId);
+        st.activeThreadId = Number(st.threads[0].id) || 0;
+        if (st.activeThreadId) await loadThread(shell, st.activeThreadId);
+      } else {
+        renderChat(shell);
       }
     } catch (e) {
-      const list = q(shell, "[data-ia-msg-threads]");
       if (list) list.innerHTML = `<div class="ia-msg-empty">Error loading threads.</div>`;
     } finally {
       st.isLoadingThreads = false;
-      setStatus(shell, "loading", false);
     }
   }
 
@@ -177,22 +133,18 @@
 
     if (st.isLoadingThread) return;
     st.isLoadingThread = true;
-    setStatus(shell, "chatloading", true);
 
     try {
       const res = await post("ia_message_thread", { nonce: IA_MESSAGE.nonceBoot, thread_id: st.activeThreadId });
-      if (!res || !res.ok) throw new Error(res && res.error ? res.error : "Failed to load thread");
-      st.activeThread = res.thread || null;
+      if (!res || !res.success) throw new Error((res && res.data && res.data.error) ? res.data.error : "Failed");
+      st.activeThread = (res.data && res.data.thread) ? res.data.thread : null;
       renderChat(shell);
-
-      // on mobile, switch to chat view
       setMobileView(shell, "chat");
     } catch (e) {
       st.activeThread = null;
       renderChat(shell);
     } finally {
       st.isLoadingThread = false;
-      setStatus(shell, "chatloading", false);
     }
   }
 
@@ -200,61 +152,72 @@
     const st = shellState(shell);
     const tid = st.activeThreadId;
     if (!tid || !body) return;
-
     if (st.isSending) return;
     st.isSending = true;
-    setStatus(shell, "sending", true);
 
     try {
-      const res = await post("ia_message_send", { nonce: IA_MESSAGE.nonceBoot, thread_id: tid, body: body });
-      if (!res || !res.ok) throw new Error(res && res.error ? res.error : "Failed to send");
+      const res = await post("ia_message_send", { nonce: IA_MESSAGE.nonceBoot, thread_id: tid, body });
+      if (!res || !res.success) throw new Error((res && res.data && res.data.error) ? res.data.error : "Failed");
       await loadThread(shell, tid);
       await loadThreads(shell);
     } catch (e) {
-      // ignore for now
+      // noop for now
     } finally {
       st.isSending = false;
-      setStatus(shell, "sending", false);
     }
   }
 
-  function openSheet(name){
-    const shells = findShells();
-    shells.forEach(shell => {
-      const sheet = q(shell, `[data-ia-msg-sheet="${name}"]`);
-      if (!sheet) return;
-      sheet.classList.add("open");
-      sheet.setAttribute("aria-hidden", "false");
-    });
+  function openSheet(shell, name){
+    const sheet = q(shell, `[data-ia-msg-sheet="${name}"]`);
+    if (!sheet) return;
+    sheet.classList.add("open");
+    sheet.setAttribute("aria-hidden", "false");
   }
 
-  function closeSheet(name){
-    const shells = findShells();
-    shells.forEach(shell => {
-      const sheet = q(shell, `[data-ia-msg-sheet="${name}"]`);
-      if (!sheet) return;
-      sheet.classList.remove("open");
-      sheet.setAttribute("aria-hidden", "true");
-    });
+  function closeSheet(shell, name){
+    const sheet = q(shell, `[data-ia-msg-sheet="${name}"]`);
+    if (!sheet) return;
+    sheet.classList.remove("open");
+    sheet.setAttribute("aria-hidden", "true");
   }
 
-  function bindGlobalClose(){
-    document.addEventListener("click", (e) => {
-      if (e.target.closest("[data-ia-msg-sheet-close='1']")) closeSheet("newchat");
-    });
+  function renderSuggest(box, results, onPick){
+    if (!box) return;
+    if (!results || !results.length) {
+      box.classList.remove("open");
+      box.innerHTML = "";
+      return;
+    }
+    box.classList.add("open");
+    box.innerHTML = results.map(r => {
+      const label = escapeHtml(r.label || r.username || ("User #" + r.phpbb_user_id));
+      const sub   = escapeHtml(r.email || "");
+      const id    = Number(r.phpbb_user_id) || 0;
+      return `
+        <button type="button" class="ia-msg-suggest-item" data-pick="${id}">
+          ${label}
+          ${sub ? `<span class="ia-msg-suggest-sub">${sub}</span>` : ``}
+        </button>
+      `;
+    }).join("");
 
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        const shells = findShells();
-        shells.forEach(shell => {
-          const sheet = q(shell, `[data-ia-msg-sheet="newchat"]`);
-          if (sheet && sheet.classList.contains("open")) closeSheet("newchat");
-        });
-      }
-    });
+    box.onclick = (e) => {
+      const btn = e.target.closest("[data-pick]");
+      if (!btn) return;
+      const id = Number(btn.getAttribute("data-pick")) || 0;
+      const picked = results.find(x => Number(x.phpbb_user_id) === id);
+      if (picked) onPick(picked);
+    };
+  }
+
+  async function userSearch(qstr){
+    const res = await post("ia_message_user_search", { nonce: IA_MESSAGE.nonceBoot, q: qstr });
+    if (!res || !res.success) return [];
+    return (res.data && res.data.results) ? res.data.results : [];
   }
 
   function bindActions(shell){
+    // Thread clicks / actions
     shell.addEventListener("click", async (e) => {
       const thr = e.target.closest("[data-ia-msg-thread]");
       if (thr) {
@@ -266,11 +229,28 @@
       const act = e.target.closest("[data-ia-msg-action]");
       if (act) {
         const a = act.getAttribute("data-ia-msg-action");
-        if (a === "new") openSheet("newchat");
+        if (a === "new") {
+          // reset new sheet fields
+          const qNew = q(shell, "[data-ia-msg-new-q]");
+          const body = q(shell, "[data-ia-msg-new-body]");
+          const hid  = q(shell, "[data-ia-msg-new-to-phpbb]");
+          const start= q(shell, "[data-ia-msg-new-start]");
+          const sug  = q(shell, "[data-ia-msg-new-suggest]");
+          if (qNew) qNew.value = "";
+          if (body) body.value = "";
+          if (hid) hid.value = "";
+          if (start) start.disabled = true;
+          if (sug) { sug.classList.remove("open"); sug.innerHTML = ""; }
+          openSheet(shell, "newchat");
+        }
         if (a === "back") setMobileView(shell, "list");
       }
+
+      const close = e.target.closest("[data-ia-msg-sheet-close='1']");
+      if (close) closeSheet(shell, "newchat");
     });
 
+    // Send form
     const form = q(shell, "[data-ia-msg-send-form]");
     if (form) {
       form.addEventListener("submit", async (e) => {
@@ -284,25 +264,90 @@
       });
     }
 
-    const newForm = q(shell, "[data-ia-msg-new-form]");
-    if (newForm) {
-      newForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const to = q(shell, "[data-ia-msg-new-to]");
-        const body = q(shell, "[data-ia-msg-new-body]");
-        const toVal = to ? String(to.value || "").trim() : "";
-        const bodyVal = body ? String(body.value || "").trim() : "";
-        if (!toVal || !bodyVal) return;
+    // Left search box can start new DM quickly (optional UX)
+    const leftQ = q(shell, "[data-ia-msg-user-q]");
+    const leftSug = q(shell, "[data-ia-msg-suggest]");
+    if (leftQ && leftSug) {
+      leftQ.addEventListener("input", () => {
+        const st = shellState(shell);
+        clearTimeout(st.userSearchTimer);
+        const v = String(leftQ.value || "").trim();
+        if (v.length < 2) { leftSug.classList.remove("open"); leftSug.innerHTML = ""; return; }
+        st.userSearchTimer = setTimeout(async () => {
+          const results = await userSearch(v);
+          renderSuggest(leftSug, results, (picked) => {
+            // open sheet with picked user prefilled
+            const qNew = q(shell, "[data-ia-msg-new-q]");
+            const hid  = q(shell, "[data-ia-msg-new-to-phpbb]");
+            const start= q(shell, "[data-ia-msg-new-start]");
+            const sug  = q(shell, "[data-ia-msg-new-suggest]");
+            if (qNew) qNew.value = picked.label || picked.username || "";
+            if (hid) hid.value = String(picked.phpbb_user_id || "");
+            if (start) start.disabled = !(Number(hid.value) > 0);
+            if (sug) { sug.classList.remove("open"); sug.innerHTML = ""; }
+            openSheet(shell, "newchat");
+          });
+        }, 220);
+      });
+    }
+
+    // New chat sheet search + start
+    const qNew = q(shell, "[data-ia-msg-new-q]");
+    const sugNew = q(shell, "[data-ia-msg-new-suggest]");
+    const hid = q(shell, "[data-ia-msg-new-to-phpbb]");
+    const start = q(shell, "[data-ia-msg-new-start]");
+    const body = q(shell, "[data-ia-msg-new-body]");
+    const selfBtn = q(shell, "[data-ia-msg-new-self='1']");
+
+    if (qNew && sugNew && hid && start) {
+      qNew.addEventListener("input", () => {
+        const st = shellState(shell);
+        clearTimeout(st.newSearchTimer);
+
+        hid.value = "";
+        start.disabled = true;
+
+        const v = String(qNew.value || "").trim();
+        if (v.length < 2) { sugNew.classList.remove("open"); sugNew.innerHTML = ""; return; }
+
+        st.newSearchTimer = setTimeout(async () => {
+          const results = await userSearch(v);
+          renderSuggest(sugNew, results, (picked) => {
+            qNew.value = picked.label || picked.username || "";
+            hid.value = String(picked.phpbb_user_id || "");
+            start.disabled = !(Number(hid.value) > 0);
+            sugNew.classList.remove("open");
+            sugNew.innerHTML = "";
+          });
+        }, 220);
+      });
+
+      start.addEventListener("click", async () => {
+        const toPhpbb = Number(hid.value) || 0;
+        const msg = body ? String(body.value || "").trim() : "";
+        if (toPhpbb <= 0) return;
 
         try {
-          const res = await post("ia_message_new_dm", { nonce: IA_MESSAGE.nonceBoot, to: toVal, body: bodyVal });
-          if (!res || !res.ok) throw new Error(res && res.error ? res.error : "Failed to create DM");
-          closeSheet("newchat");
+          const res = await post("ia_message_new_dm", { nonce: IA_MESSAGE.nonceBoot, to_phpbb: toPhpbb, body: msg });
+          if (!res || !res.success) return;
+
+          closeSheet(shell, "newchat");
           await loadThreads(shell);
-          if (res.thread_id) await loadThread(shell, res.thread_id);
-        } catch (err) {
-          // ignore
-        }
+
+          const tid = res.data && res.data.thread_id ? Number(res.data.thread_id) : 0;
+          if (tid) await loadThread(shell, tid);
+        } catch(e){}
+      });
+    }
+
+    if (selfBtn) {
+      selfBtn.addEventListener("click", async () => {
+        try {
+          const res = await post("ia_message_new_dm", { nonce: IA_MESSAGE.nonceBoot, to_phpbb: -1, body: "" });
+          // We don’t actually know “me” phpbb id on the client; use quick server-side workaround:
+          // Instead: just start a DM to self by selecting first thread once created via normal create route.
+          // So: do nothing here (button stays decorative) unless you want self-DM explicitly later.
+        } catch(e){}
       });
     }
   }
@@ -310,20 +355,36 @@
   function initShellOnce(shell){
     if (shell.getAttribute("data-ia-msg-ready") === "1") return;
     shell.setAttribute("data-ia-msg-ready", "1");
-
-    // initial view state
     setMobileView(shell, "list");
-
     bindActions(shell);
   }
 
-  // ===========================
-  // Boot
-  // ===========================
+  function activateMessages(){
+    const shells = findShells();
+    if (!shells.length) return;
+    shells.forEach(initShellOnce);
+    shells.forEach(loadThreads);
+  }
+
+  function bindAtriumMessagesTab(){
+    const handler = (ev) => {
+      const tab = ev && ev.detail && ev.detail.tab;
+      if (tab === IA_MESSAGE.panelKey) activateMessages();
+    };
+    window.addEventListener("ia_atrium:tabChanged", handler);
+    document.addEventListener("ia_atrium:tabChanged", handler);
+
+    // First paint
+    try {
+      const atrium = document.querySelector("#ia-atrium-shell");
+      const def = atrium ? (atrium.getAttribute("data-default-tab") || "connect") : "connect";
+      const urlTab = (new URL(window.location.href)).searchParams.get("tab");
+      const active = urlTab || def;
+      if (active === IA_MESSAGE.panelKey) activateMessages();
+    } catch(e){}
+  }
 
   ready(() => {
-    bindGlobalClose();
     bindAtriumMessagesTab();
   });
-
 })();

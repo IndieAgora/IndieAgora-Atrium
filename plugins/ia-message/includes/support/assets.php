@@ -12,6 +12,9 @@ add_action('wp_enqueue_scripts', function () {
   wp_enqueue_style('ia-message-chat', IA_MESSAGE_URL . 'assets/css/ia-message.chat.css', ['ia-message-layout'], IA_MESSAGE_VERSION);
   wp_enqueue_style('ia-message-composer', IA_MESSAGE_URL . 'assets/css/ia-message.composer.css', ['ia-message-layout'], IA_MESSAGE_VERSION);
 
+  // ✅ Needed for the New Chat popup (sheet overlay) + suggestions UI
+  wp_enqueue_style('ia-message-modal', IA_MESSAGE_URL . 'assets/css/ia-message.modal.css', ['ia-message-base'], IA_MESSAGE_VERSION);
+
   // Scripts
   wp_enqueue_script('ia-message-boot', IA_MESSAGE_URL . 'assets/js/ia-message.boot.js', [], IA_MESSAGE_VERSION, true);
 
