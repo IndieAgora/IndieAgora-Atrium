@@ -1,40 +1,80 @@
-.ia-msg-shell {
+:root{
+  --ia-bg0:#07070a;
+  --ia-bg1:#0b0b10;
+  --ia-bg2:#0f1016;
+  --ia-panel:#0c0d12;
+  --ia-panel2:#10121a;
+
+  --ia-line:rgba(255,255,255,0.07);
+  --ia-line2:rgba(255,255,255,0.10);
+
+  --ia-text:#e9e9f2;
+  --ia-muted:#a7a7bc;
+
+  --ia-purple:#7c3aed;   /* purple buttons */
+  --ia-purple2:#a78bfa;  /* hover glow */
+  --ia-green:#22c55e;
+
+  --ia-radius:16px;
+  --ia-radius2:12px;
+  --ia-shadow: 0 18px 60px rgba(0,0,0,0.55);
+}
+
+.ia-msg-shell{
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  color: #e6e6e6;
-  background: #0b0b0b;
-  border: 1px solid #161616;
-  border-radius: 14px;
+  color: var(--ia-text);
+
+  /* Reddit-dark base + soft Discord-ish gradients */
+  background:
+    radial-gradient(900px 480px at 20% 0%, rgba(124,58,237,0.10), transparent 60%),
+    radial-gradient(900px 480px at 90% 10%, rgba(167,139,250,0.08), transparent 60%),
+    linear-gradient(180deg, var(--ia-bg1), var(--ia-bg0));
+
+  border: 1px solid var(--ia-line);
+  border-radius: var(--ia-radius);
   overflow: hidden;
+  box-shadow: var(--ia-shadow);
 }
 
-.ia-msg-shell * { box-sizing: border-box; }
+.ia-msg-shell *{ box-sizing:border-box; }
 
-.ia-msg-btn {
-  background: #141414;
-  color: #e6e6e6;
-  border: 1px solid #242424;
-  border-radius: 10px;
-  padding: 8px 10px;
+.ia-msg-title{
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  text-transform: none;
+  color: var(--ia-text);
+}
+
+/* Buttons: Discord-like pill + purple gradient */
+.ia-msg-btn{
+  background: linear-gradient(180deg, rgba(124,58,237,0.95), rgba(99,102,241,0.85));
+  color: #fff;
+  border: 1px solid rgba(167,139,250,0.35);
+  border-radius: 12px;
+  padding: 8px 12px;
   cursor: pointer;
-}
-.ia-msg-btn:hover { border-color: #3a3a3a; }
-
-.ia-msg-empty {
-  padding: 14px;
-  color: #a8a8a8;
-  font-size: 14px;
-}
-
-.ia-msg-title {
   font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.2px;
+  font-size: 13px;
+  line-height: 1;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.35);
+  transition: transform .08s ease, filter .12s ease, border-color .12s ease;
 }
-.ia-msg-status{
-  display:none;
-  padding:10px 12px;
-  border-bottom:1px solid #161616;
-  background:#0e0e0e;
-  color:#bdbdbd;
-  font-size:13px;
+.ia-msg-btn:hover{
+  filter: brightness(1.06);
+  border-color: rgba(167,139,250,0.60);
+}
+.ia-msg-btn:active{
+  transform: translateY(1px);
+}
+.ia-msg-btn[disabled]{
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.ia-msg-empty{
+  padding: 14px;
+  color: var(--ia-muted);
+  font-size: 13px;
 }

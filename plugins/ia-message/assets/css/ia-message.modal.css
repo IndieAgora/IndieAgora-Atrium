@@ -1,12 +1,15 @@
 /* Suggestions dropdown (used in both left search + new chat) */
 .ia-msg-suggest{
   margin-top:8px;
-  border:1px solid #222;
-  border-radius:8px;
-  background:#111;
+  border:1px solid var(--ia-line2);
+  border-radius:12px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.20)),
+    rgba(0,0,0,0.35);
   max-height:240px;
   overflow:auto;
   display:none;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.55);
 }
 .ia-msg-suggest.open{ display:block; }
 
@@ -16,50 +19,52 @@
   padding:10px 12px;
   border:0;
   background:none;
-  color:#eee;
+  color: var(--ia-text);
   cursor:pointer;
 }
-.ia-msg-suggest-item:hover{ background:#1e1e1e; }
+.ia-msg-suggest-item:hover{
+  background: rgba(124,58,237,0.14);
+}
 
 .ia-msg-suggest-sub{
   display:block;
   font-size:12px;
-  color:#999;
+  color: var(--ia-muted);
   margin-top:2px;
 }
 
 /* =========================
-   New Chat "Sheet" (popup)
+   New Chat modal (Discord-ish)
    ========================= */
-
-/* Hidden by default */
 .ia-msg-sheet{
-  position: fixed;               /* ✅ overlay the whole viewport */
+  position: fixed;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   padding: 18px;
-  background: rgba(0,0,0,0.65);  /* ✅ backdrop */
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(6px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.16s ease;
   z-index: 99999;
 }
-
-/* Open state */
 .ia-msg-sheet.open{
   opacity: 1;
   pointer-events: auto;
 }
 
 .ia-msg-sheet-card{
-  width: min(520px, 100%);
-  background: #0f0f0f;
-  border: 1px solid #1f1f1f;
-  border-radius: 14px;
+  width: min(560px, 100%);
+  background:
+    radial-gradient(900px 420px at 30% 0%, rgba(124,58,237,0.18), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.35)),
+    var(--ia-panel2);
+  border: 1px solid rgba(167,139,250,0.25);
+  border-radius: 18px;
   padding: 16px;
-  box-shadow: 0 18px 60px rgba(0,0,0,0.65);
+  box-shadow: 0 24px 90px rgba(0,0,0,0.70);
 }
 
 .ia-msg-sheet-head{
@@ -68,43 +73,69 @@
   justify-content:space-between;
   gap: 10px;
   margin-bottom: 12px;
-  color: #e6e6e6;
-  font-weight: 700;
+  color: var(--ia-text);
+  font-weight: 900;
+  letter-spacing: 0.2px;
 }
 
 .ia-msg-sheet-label{
   display:block;
   margin: 10px 0 6px;
-  color:#cfcfcf;
-  font-size:13px;
+  color: var(--ia-muted);
+  font-size:12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: none;
 }
 
 .ia-msg-sheet-input{
   width:100%;
-  padding:10px;
-  border-radius:10px;
-  border:1px solid #242424;
-  background:#0b0b0b;
-  color:#e6e6e6;
+  padding:10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--ia-line2);
+  background: rgba(0,0,0,0.35);
+  color: var(--ia-text);
+  outline: none;
+}
+.ia-msg-sheet-input:focus{
+  border-color: rgba(167,139,250,0.55);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.18);
 }
 
 .ia-msg-sheet-actions{
   display:flex;
-  gap:8px;
+  gap:10px;
   justify-content:flex-end;
   margin-top: 12px;
 }
 
 .ia-msg-sheet-hint{
-  margin-top: 10px;
-  color:#a0a0a0;
-  font-size:13px;
+  margin-top: 12px;
+  color: var(--ia-muted);
+  font-size: 12px;
   line-height:1.35;
 }
 
-/* Make the textarea in the popup match your theme */
+/* Make popup textarea consistent */
 .ia-msg-sheet-card .ia-msg-text{
   width:100%;
   resize: vertical;
-  min-height: 90px;
+  min-height: 96px;
 }
+/* Incoming vs outgoing, driven by data-ia-msg-side */
+.ia-msg-shell [data-ia-msg-side="in"]{
+  margin-right:auto;
+  border-color: rgba(255,255,255,0.10);
+  background:
+    radial-gradient(520px 180px at 10% 0%, rgba(59,130,246,0.10), transparent 70%),
+    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.26));
+}
+.ia-msg-shell [data-ia-msg-side="out"]{
+  margin-left:auto;
+  border-color: rgba(167,139,250,0.38);
+  background:
+    radial-gradient(600px 180px at 20% 0%, rgba(124,58,237,0.26), transparent 70%),
+    linear-gradient(180deg, rgba(124,58,237,0.12), rgba(0,0,0,0.24));
+}
+.ia-msg-shell [data-ia-msg-side="out"] .ia-msg-when{ color: rgba(167,139,250,0.85); }
+.ia-msg-shell [data-ia-msg-side="in"]  .ia-msg-when{ color: rgba(148,163,184,0.85); }

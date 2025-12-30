@@ -1,9 +1,16 @@
 <?php if (!defined('ABSPATH')) exit; ?>
 
+<?php
+  // Canonical phpBB user id for the currently logged-in WP session.
+  // This is crucial for client-side "mine vs theirs" rendering.
+  $me_phpbb = function_exists('ia_message_current_phpbb_user_id') ? (int) ia_message_current_phpbb_user_id() : 0;
+?>
+
 <div class="ia-msg-shell"
      data-panel="<?php echo esc_attr(IA_MESSAGE_PANEL_KEY); ?>"
      data-mobile-view="list"
-     data-logged-in="<?php echo is_user_logged_in() ? '1' : '0'; ?>">
+     data-logged-in="<?php echo is_user_logged_in() ? '1' : '0'; ?>"
+     data-phpbb-me="<?php echo esc_attr($me_phpbb); ?>">
 
   <div class="ia-msg-cols">
     <!-- LEFT: THREADS -->

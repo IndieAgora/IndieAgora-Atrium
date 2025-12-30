@@ -1,15 +1,55 @@
-.ia-msg-bubble {
-  max-width: 72%;
-  margin: 6px 0;
+/* Discord-ish message blocks with clear in/out differentiation */
+.ia-msg-bubble{
+  max-width: 78%;
+  margin: 10px 0;
   padding: 10px 12px;
-  border: 1px solid #1f1f1f;
-  background: #101010;
+  border: 1px solid var(--ia-line);
   border-radius: 14px;
   line-height: 1.35;
   font-size: 14px;
+  color: var(--ia-text);
+
+  /* Incoming default: darker reddit card */
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.22));
 }
-.ia-msg-bubble-mine {
+
+/* Incoming (other) — subtle cool tint so it’s not identical to panels */
+.ia-msg-bubble:not(.mine){
+  margin-right: auto;
+  border-color: rgba(255,255,255,0.10);
+  background:
+    radial-gradient(520px 180px at 10% 0%, rgba(59,130,246,0.10), transparent 70%),
+    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.26));
+}
+
+/* Outgoing (mine) — right aligned, purple gradient */
+.ia-msg-bubble.mine{
   margin-left: auto;
-  background: #141414;
-  border-color: #2a2a2a;
+  border-color: rgba(167,139,250,0.38);
+  background:
+    radial-gradient(600px 180px at 20% 0%, rgba(124,58,237,0.26), transparent 70%),
+    linear-gradient(180deg, rgba(124,58,237,0.12), rgba(0,0,0,0.24));
+}
+
+/* Content */
+.ia-msg-body{
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Timestamp: slightly different tints */
+.ia-msg-when{
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.9;
+  color: var(--ia-muted);
+}
+
+.ia-msg-bubble.mine .ia-msg-when{
+  color: rgba(167,139,250,0.85);
+}
+
+.ia-msg-bubble:not(.mine) .ia-msg-when{
+  color: rgba(148,163,184,0.85);
 }

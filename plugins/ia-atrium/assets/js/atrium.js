@@ -12,59 +12,27 @@
     return shell && shell.getAttribute("data-logged-in") === "1";
   }
 
-  function setUrlParam(key, value) {
+  function getUrlParam(name) {
     try {
       const url = new URL(window.location.href);
-      if (value === null || value === undefined || value === "") url.searchParams.delete(key);
-      else url.searchParams.set(key, value);
+      return url.searchParams.get(name);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function setUrlParam(name, value) {
+    try {
+      const url = new URL(window.location.href);
+      if (value === null || value === undefined || value === "") url.searchParams.delete(name);
+      else url.searchParams.set(name, value);
+      // Avoid reload: update address bar only
       window.history.replaceState({}, "", url.toString());
     } catch (e) {}
   }
 
-  function openModal(modalEl) {
-    if (!modalEl) return;
-    modalEl.classList.add("open");
-    modalEl.setAttribute("aria-hidden", "false");
-  }
-
-  function closeModal(modalEl) {
-    if (!modalEl) return;
-    modalEl.classList.remove("open");
-    modalEl.setAttribute("aria-hidden", "true");
-  }
-
-  function setAuthTab(authModal, tab) {
-    if (!authModal) return;
-    const tabs = qsa(".ia-auth-tab", authModal);
-    tabs.forEach(btn => {
-      const on = btn.dataset.authTab === tab;
-      btn.classList.toggle("active", on);
-      btn.setAttribute("aria-selected", on ? "true" : "false");
-    });
-
-    qsa("[data-auth-pane]", authModal).forEach(pane => {
-      const on = pane.dataset.authPane === tab;
-      pane.style.display = on ? "block" : "none";
-    });
-  }
-
-  function openAuth(shell, authModal, intentKey) {
-    openModal(authModal);
-    dispatch("ia_atrium:openAuth", { intent: intentKey || "" });
-  }
-
-  function ensureConnectGate(shell, authModal) {
-    // Preserve your original behaviour: do not block anything here unless you already did.
-    // If your original had logic here, keep it in your local file.
-    return false;
-  }
-
-  /* =============================================
-     Core tab switching
-     IMPORTANT: must NOT break if no top tab exists
-     (Messages is panel-only, opened from bottom nav)
-     ============================================= */
-
+  // Robust tab switching:
+  // - Works even if the tab has NO top-strip button (e.g. messages).
   function setActiveTab(shell, tabKey) {
     const tabs = qsa(".ia-tab", shell);
     const panels = qsa(".ia-panel", shell);
@@ -88,27 +56,197 @@
     });
 
     dispatch("ia_atrium:tabChanged", { tab: tabKey });
-
-    const authModal = qs("#ia-atrium-auth", shell) || qs("#ia-atrium-auth");
-    if (authModal) ensureConnectGate(shell, authModal);
   }
 
-  function initShell(shell) {
+  function openModal(modal) {
+    if (!modal) return;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.documentElement.classList.add("ia-no-scroll");
+  }
+
+  function closeModal(modal) {
+    if (!modal) return;
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    document.documentElement.classList.remove("ia-no-scroll");
+  }
+
+  function escapeHtml(str) {
+    return (str || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  // Read more pill: collapse anything marked data-ia-max-words="50"
+  function initReadMore(shell) {
+    qsa("[data-ia-max-words]", shell).forEach(el => {
+      if (el.getAttribute("data-ia-readmore-ready") === "1") return;
+
+      const maxWords = parseInt(el.getAttribute("data-ia-max-words"), 10) || 50;
+
+      const fullHtml = (el.innerHTML || "").trim();
+      const fullText = (el.textContent || "").trim();
+      const words = fullText.split(/\s+/).filter(Boolean);
+
+      if (words.length <= maxWords) {
+        el.setAttribute("data-ia-readmore-ready", "1");
+        return;
+      }
+
+      const excerpt = words.slice(0, maxWords).join(" ");
+
+      el.setAttribute("data-ia-full-html", fullHtml);
+      el.setAttribute("data-ia-is-collapsed", "1");
+      el.setAttribute("data-ia-readmore-ready", "1");
+
+      el.innerHTML = `
+        <div class="ia-excerpt">${escapeHtml(excerpt)}…</div>
+        <button type="button" class="ia-pill ia-readmore" data-ia-readmore="1">Read more</button>
+      `;
+    });
+
+    shell.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-ia-readmore]");
+      if (!btn) return;
+
+      const container = btn.closest("[data-ia-max-words]");
+      if (!container) return;
+
+      const collapsed = container.getAttribute("data-ia-is-collapsed") === "1";
+      const fullHtml = container.getAttribute("data-ia-full-html") || "";
+
+      if (collapsed) {
+        container.setAttribute("data-ia-is-collapsed", "0");
+        container.innerHTML = `
+          <div class="ia-full">${fullHtml}</div>
+          <button type="button" class="ia-pill ia-readmore" data-ia-readmore="1">Show less</button>
+        `;
+      } else {
+        container.setAttribute("data-ia-is-collapsed", "1");
+        container.innerHTML = fullHtml;
+        container.removeAttribute("data-ia-readmore-ready");
+        initReadMore(shell);
+      }
+    });
+  }
+
+  // Auth modal: set redirect_to to return here and perform intended nav action
+  function openAuth(shell, authModal, intendedKey) {
+    if (!authModal) return;
+
+    // Remember intent
+    shell.setAttribute("data-ia-intended", intendedKey);
+
+    // Build redirect_to = current URL + ia_nav=intended
+    const url = new URL(window.location.href);
+    url.searchParams.set("ia_nav", intendedKey);
+
+    // Update all redirect inputs inside auth modal
+    qsa("[data-ia-redirect-to]", authModal).forEach(inp => {
+      inp.value = url.toString();
+    });
+
+    openModal(authModal);
+  }
+
+  function setAuthTab(authModal, tab) {
+    if (!authModal) return;
+
+    const tabs = qsa(".ia-auth-tab", authModal);
+    const panels = qsa(".ia-auth-panel", authModal);
+
+    tabs.forEach(b => {
+      const active = b.dataset.authTab === tab;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-selected", active ? "true" : "false");
+    });
+
+    panels.forEach(p => {
+      const active = p.dataset.authPanel === tab;
+      p.classList.toggle("active", active);
+      p.style.display = active ? "block" : "none";
+    });
+  }
+
+  // After login redirect: perform the intended action
+  function runNavIntent(shell, intentKey) {
+    if (!intentKey) return;
+
+    // Only run if logged in now
+    if (!isLoggedIn(shell)) return;
+
+    // Prevent rerun if user refreshes
+    setUrlParam("ia_nav", null);
+
+    if (intentKey === "profile") {
+      setActiveTab(shell, "connect");
+      dispatch("ia_atrium:profile", {
+        userId: (window.IA_ATRIUM && IA_ATRIUM.userId) ? IA_ATRIUM.userId : 0
+      });
+      return;
+    }
+
+    if (intentKey === "post") {
+      const composer = qs("#ia-atrium-composer", shell);
+      openModal(composer);
+      dispatch("ia_atrium:openComposer", { defaultDestination: "connect" });
+      return;
+    }
+
+    // If you still want a micro-plugin hook for chat after login,
+    // keep dispatch here; chat click itself now opens messages panel.
+    if (intentKey === "chat") {
+      // Prefer messages panel if it exists
+      setActiveTab(shell, "messages");
+      setUrlParam("tab", "messages");
+      return;
+    }
+
+    if (intentKey === "notify") {
+      dispatch("ia_atrium:notifications", {});
+      return;
+    }
+  }
+
+  // Profile dropdown menu
+  function closeProfileMenu(shell) {
+    const menu = qs("[data-profile-menu]", shell);
+    if (!menu) return;
+    menu.setAttribute("aria-hidden", "true");
+    menu.classList.remove("open");
+  }
+
+  function toggleProfileMenu(shell) {
+    const menu = qs("[data-profile-menu]", shell);
+    if (!menu) return;
+    const open = menu.classList.contains("open");
+    if (open) {
+      closeProfileMenu(shell);
+    } else {
+      menu.classList.add("open");
+      menu.setAttribute("aria-hidden", "false");
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const shell = qs("#ia-atrium-shell");
     if (!shell) return;
 
-    const authModal = qs("#ia-atrium-auth", shell) || qs("#ia-atrium-auth");
-    const composerModal = qs("#ia-atrium-composer", shell) || qs("#ia-atrium-composer");
+    const composerModal = qs("#ia-atrium-composer", shell);
+    const authModal = qs("#ia-atrium-auth", shell);
 
-    // Initial tab from URL ?tab= or default
+    // Initial tab:
+    // - respect ?tab= if present (e.g. tab=messages)
+    // - else use data-default-tab
     const defaultTab = shell.getAttribute("data-default-tab") || "connect";
-    const urlTab = (() => {
-      try { return (new URL(window.location.href)).searchParams.get("tab"); }
-      catch (e) { return null; }
-    })();
-
+    const urlTab = getUrlParam("tab");
     setActiveTab(shell, urlTab || defaultTab);
 
-    // Top tab clicks
+    // Tab switching (no refresh)
     qsa(".ia-tab", shell).forEach(btn => {
       btn.addEventListener("click", function () {
         const key = btn.dataset.target;
@@ -117,13 +255,14 @@
       });
     });
 
-    // Modal close
-    qsa("[data-ia-modal-close='1']", shell).forEach(el => {
-      el.addEventListener("click", function () {
+    // Composer/Auth close
+    shell.addEventListener("click", function (e) {
+      if (e.target.closest("[data-ia-modal-close]")) {
         closeModal(composerModal);
-        if (authModal && ensureConnectGate(shell, authModal)) return;
+      }
+      if (e.target.closest("[data-ia-auth-close]")) {
         closeModal(authModal);
-      });
+      }
     });
 
     // Auth tab switching
@@ -135,26 +274,14 @@
       });
     }
 
-    // Profile menu toggle / close
-    function toggleProfileMenu() {
-      const menu = qs("[data-profile-menu]", shell);
-      if (!menu) return;
-      const open = menu.classList.toggle("open");
-      menu.setAttribute("aria-hidden", open ? "false" : "true");
-    }
-
-    function closeProfileMenu() {
-      const menu = qs("[data-profile-menu]", shell);
-      if (!menu) return;
-      menu.classList.remove("open");
-      menu.setAttribute("aria-hidden", "true");
-    }
-
+    // Close profile menu if clicking elsewhere
     document.addEventListener("click", function (e) {
+      const insideProfileWrap = e.target.closest(".ia-bottom-item-wrap");
       const menu = qs("[data-profile-menu]", shell);
-      if (!menu) return;
-      const wrap = e.target.closest(".ia-bottom-item-wrap");
-      if (!wrap && menu.classList.contains("open")) closeProfileMenu();
+
+      if (!insideProfileWrap && menu && menu.classList.contains("open")) {
+        closeProfileMenu(shell);
+      }
     });
 
     // Bottom nav actions
@@ -162,17 +289,25 @@
       btn.addEventListener("click", function () {
         const key = btn.dataset.bottom;
 
-        // Not logged in -> open auth modal for any nav action
+        // If user not logged in:
+        // - allow CHAT to open Messages panel (no auth modal)
+        // - everything else (including profile) opens auth modal
         if (!isLoggedIn(shell)) {
-          if (authModal) {
-            openAuth(shell, authModal, key);
-            setAuthTab(authModal, "login");
+          if (key === "chat") {
+            setActiveTab(shell, "messages");
+            setUrlParam("tab", "messages");
+            return;
           }
+
+          openAuth(shell, authModal, key);
+          setAuthTab(authModal, "login");
           return;
         }
 
+        // Logged in behavior
         if (key === "profile") {
-          toggleProfileMenu();
+          // Toggle dropdown menu (instead of immediate redirect)
+          toggleProfileMenu(shell);
           return;
         }
 
@@ -182,7 +317,7 @@
           return;
         }
 
-        // ✅ Chat now opens the Messages PANEL (not a popup)
+        // ✅ Chat opens the Messages panel (not a popup)
         if (key === "chat") {
           setActiveTab(shell, "messages");
           setUrlParam("tab", "messages");
@@ -198,24 +333,45 @@
 
     // Profile dropdown actions
     shell.addEventListener("click", function (e) {
-      const action = e.target && e.target.closest && e.target.closest("[data-profile-action]");
-      if (!action) return;
+      const act = e.target.closest("[data-profile-action]");
+      if (!act) return;
 
-      const a = action.getAttribute("data-profile-action");
-      closeProfileMenu();
-
-      if (a === "go_profile") {
+      const action = act.getAttribute("data-profile-action");
+      if (action === "go_profile") {
+        closeProfileMenu(shell);
         setActiveTab(shell, "connect");
         setUrlParam("tab", "connect");
-        return;
+        dispatch("ia_atrium:profile", {
+          userId: (window.IA_ATRIUM && IA_ATRIUM.userId) ? IA_ATRIUM.userId : 0
+        });
       }
     });
-  }
 
-  document.addEventListener("DOMContentLoaded", function () {
-    const shell = qs("#ia-atrium-shell");
-    if (!shell) return;
-    initShell(shell);
+    // Micro-plugins can request navigation without reload
+    window.addEventListener("ia_atrium:navigate", function (ev) {
+      if (!ev || !ev.detail || !ev.detail.tab) return;
+      setActiveTab(shell, ev.detail.tab);
+      setUrlParam("tab", ev.detail.tab);
+    });
+
+    // Micro-plugins can close composer
+    window.addEventListener("ia_atrium:closeComposer", function () {
+      closeModal(composerModal);
+    });
+
+    // Allow micro-plugins to refresh excerpt collapsing after AJAX append
+    window.addEventListener("ia_atrium:refreshReadMore", function () {
+      initReadMore(shell);
+    });
+
+    // Initialize excerpt collapsing
+    initReadMore(shell);
+
+    // If redirected back after login/register with intent, run it now
+    const intent = getUrlParam("ia_nav");
+    if (intent) {
+      runNavIntent(shell, intent);
+    }
   });
 
 })();

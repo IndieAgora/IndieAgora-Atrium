@@ -16,7 +16,7 @@
 .ia-atrium-topbar {
   position: sticky;
   top: 0;
-  z-index: 1000; /* RAISED: keep tabs clickable above modals */
+  z-index: 50;
   background: #0b0b0b;
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
@@ -314,7 +314,6 @@
 html, body {
   overflow-x: hidden;
 }
-
 /* =========================================================
    Mobile: make Atrium use the full screen (bigger, not smaller)
    ========================================================= */
@@ -355,27 +354,4 @@ html, body {
     padding: 12px 14px !important;
     font-size: 15px !important;
   }
-}
-
-/* =========================================================
-   CONNECT ONLY (logged out) lock:
-   - only affects Connect panel content
-   - Discuss/Stream remain clickable/viewable
-   ========================================================= */
-
-#ia-atrium-shell.ia-connect-locked .ia-panel[data-panel="connect"] .ia-panel-inner {
-  opacity: 0.18;
-  filter: blur(1px);
-  pointer-events: none;
-  user-select: none;
-}
-
-/* If Connect is gated, remove close controls so it behaves as “login required” */
-#ia-atrium-shell.ia-connect-locked #ia-atrium-auth [data-ia-auth-close] {
-  display: none !important;
-}
-
-/* Optional: hide footer close area if present */
-#ia-atrium-shell.ia-connect-locked #ia-atrium-auth .ia-modal-footer {
-  display: none !important;
 }
