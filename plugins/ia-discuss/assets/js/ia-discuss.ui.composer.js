@@ -16,7 +16,34 @@
     el.selectionEnd = end + before.length;
   }
 
-  function makeToolbar(onAction) {
+  function insertAtCursor(textarea, text) {
+    const el = textarea;
+    const start = el.selectionStart || 0;
+    const end = el.selectionEnd || 0;
+    const val = el.value || "";
+    const next = val.slice(0, start) + text + val.slice(end);
+    el.value = next;
+    el.focus();
+    const p = start + text.length;
+    el.selectionStart = p;
+    el.selectionEnd = p;
+  }
+
+  function isImage(mime, url) {
+    const m = String(mime || "").toLowerCase();
+    if (m.startsWith("image/")) return true;
+    const u = String(url || "").toLowerCase();
+    return /\.(png|jpe?g|gif|webp|bmp|svg)(\?|#|$)/i.test(u);
+  }
+
+  function isVideo(mime, url) {
+    const m = String(mime || "").toLowerCase();
+    if (m.startsWith("video/")) return true;
+    const u = String(url || "").toLowerCase();
+    return /\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/i.test(u);
+  }
+
+  function makeToolbar() {
     return `
       <div class="iad-editorbar">
         <button type="button" data-act="b" title="Bold"><strong>B</strong></button>
@@ -32,6 +59,7 @@
   function composerHTML(opts) {
     const mode = opts && opts.mode ? opts.mode : "topic"; // topic|reply
     const title = mode === "topic" ? `<input class="iad-input" data-iad-title placeholder="Title" />` : "";
+    const submitLabel = (opts && opts.submitLabel) ? String(opts.submitLabel) : (mode === "topic" ? "Post" : "Reply");
     return `
       <div class="iad-composer ${mode === "reply" ? "is-reply" : ""}" data-iad-composer>
         <div class="iad-composer-top">
@@ -46,10 +74,13 @@
           ${makeToolbar()}
           <textarea class="iad-textarea" data-iad-bodytext placeholder="Text (BBCode supported)"></textarea>
 
+          <div data-iad-error aria-live="polite"></div>
+
           <div class="iad-attachlist" data-iad-attachlist></div>
 
           <div class="iad-composer-actions">
-            <button type="button" class="iad-btn" data-iad-submit>${mode === "topic" ? "Post" : "Reply"}</button>
+            <button type="button" class="iad-btn is-muted" data-iad-add-attach>+ Add attachment</button>
+            <button type="button" class="iad-btn" data-iad-submit>${submitLabel}</button>
           </div>
         </div>
       </div>
@@ -65,16 +96,91 @@
     const ta = qs("[data-iad-bodytext]", box);
     const title = qs("[data-iad-title]", box);
     const attachList = qs("[data-iad-attachlist]", box);
+    const errBox = qs("[data-iad-error]", box);
+    const addAttachBtn = qs("[data-iad-add-attach]", box);
+
+    const startOpen = !!(opts && opts.startOpen);
+
+
+    // Prefill (used for editing existing posts)
+    const prefillBody = (opts && typeof opts.prefillBody === "string") ? opts.prefillBody : "";
+    if (ta && prefillBody) {
+      ta.value = prefillBody;
+    }
+
+    // Default: start collapsed on mount (keeps inline composer tidy).
+    // Modal composers can request startOpen=true.
+    try {
+      if (!startOpen) {
+        body.setAttribute("hidden", "");
+        box.classList.remove("is-open");
+        body.style.display = "";
+      }
+    } catch (e) {}
 
     const attachments = [];
 
+    function setError(msg) {
+      if (!errBox) return;
+      errBox.textContent = msg ? String(msg) : "";
+    }
+
+    function openFilePicker() {
+      if (IA_DISCUSS.loggedIn !== "1") {
+        window.dispatchEvent(new CustomEvent("ia:login_required"));
+        return;
+      }
+
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "*/*";
+      input.onchange = async () => {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+
+        attachList.innerHTML = `<div class="iad-attachpill is-loading">Uploading…</div>`;
+        const res = await API.uploadFile(file);
+
+        if (!res || !res.success) {
+          attachList.innerHTML = `<div class="iad-attachpill is-error">Upload failed</div>`;
+          return;
+        }
+
+        const a = {
+          url: res.data.url,
+          mime: res.data.type || "",
+          filename: res.data.name || file.name,
+          size: res.data.size || file.size || 0
+        };
+
+        attachments.push(a);
+        renderAttachList();
+
+        // Inline insert ONLY for documents/other (not images/videos)
+        if (!isImage(a.mime, a.url) && !isVideo(a.mime, a.url)) {
+          insertAtCursor(ta, `\n[url=${a.url}]${a.filename}[/url]\n`);
+        }
+      };
+      input.click();
+    }
+
+    function setOpen(open) {
+      if (open) {
+        body.removeAttribute("hidden");
+        box.classList.add("is-open");
+      } else {
+        body.setAttribute("hidden", "");
+        box.classList.remove("is-open");
+      }
+    }
+
     toggle.addEventListener("click", () => {
-      const hidden = body.hasAttribute("hidden");
-      if (hidden) body.removeAttribute("hidden");
-      else body.setAttribute("hidden", "");
+      const isHidden = body.hasAttribute("hidden");
+      setOpen(isHidden);
     });
 
-    box.addEventListener("click", async (e) => {
+    // Toolbar actions
+    box.addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-act]");
       if (!btn) return;
 
@@ -86,49 +192,66 @@
       if (act === "u") return wrapSelection(ta, "[u]", "[/u]");
       if (act === "spoiler") return wrapSelection(ta, "[spoiler]", "[/spoiler]");
       if (act === "quote") return wrapSelection(ta, "[quote]", "[/quote]");
-
-      if (act === "attach") {
-        if (IA_DISCUSS.loggedIn !== "1") {
-          window.dispatchEvent(new CustomEvent("ia:login_required"));
-          return;
-        }
-
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "*/*";
-        input.onchange = async () => {
-          if (!input.files || !input.files[0]) return;
-          const file = input.files[0];
-
-          attachList.innerHTML = `<div class="iad-attachpill is-loading">Uploading…</div>`;
-          const res = await API.uploadFile(file);
-
-          if (!res || !res.success) {
-            attachList.innerHTML = `<div class="iad-attachpill is-error">Upload failed</div>`;
-            return;
-          }
-
-          attachments.push({
-            url: res.data.url,
-            mime: res.data.type || "",
-            filename: res.data.name || file.name,
-            size: res.data.size || file.size || 0
-          });
-
-          renderAttachList();
-        };
-        input.click();
-      }
+      if (act === "attach") return openFilePicker();
     });
 
+    if (addAttachBtn) {
+      addAttachBtn.addEventListener("click", () => openFilePicker());
+    }
+
     function renderAttachList() {
-      attachList.innerHTML = attachments.map((a) => `
-        <span class="iad-attachpill" title="${esc(a.filename)}">${esc(a.filename)}</span>
-      `).join("");
+      if (!attachments.length) {
+        attachList.innerHTML = "";
+        return;
+      }
+
+      attachList.innerHTML = `
+        <div class="iad-attachrow">
+          ${attachments.map((a, idx) => {
+            const img = isImage(a.mime, a.url);
+            const vid = isVideo(a.mime, a.url);
+            const kind = vid ? "video" : (img ? "image" : "file");
+            const showInsert = !img && !vid;
+
+            return `
+              <div class="iad-attachitem">
+                <a class="iad-attachpill" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" title="${esc(a.filename)}">
+                  ${esc(a.filename)}
+                </a>
+
+                <div class="iad-attachmini">
+                  <span class="iad-attachkind">${esc(kind)}</span>
+                  ${showInsert ? `<button type="button" class="iad-mini" data-iad-insert-att="${idx}">Insert</button>` : ``}
+                  <button type="button" class="iad-mini is-danger" data-iad-remove-att="${idx}">Remove</button>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+
+      attachList.querySelectorAll("[data-iad-insert-att]").forEach((b) => {
+        b.addEventListener("click", () => {
+          const idx = parseInt(b.getAttribute("data-iad-insert-att") || "0", 10);
+          const a = attachments[idx];
+          if (!a) return;
+          insertAtCursor(ta, `\n[url=${a.url}]${a.filename}[/url]\n`);
+        });
+      });
+
+      attachList.querySelectorAll("[data-iad-remove-att]").forEach((b) => {
+        b.addEventListener("click", () => {
+          const idx = parseInt(b.getAttribute("data-iad-remove-att") || "0", 10);
+          if (idx < 0 || idx >= attachments.length) return;
+          attachments.splice(idx, 1);
+          renderAttachList();
+        });
+      });
     }
 
     const submit = qs("[data-iad-submit]", box);
     submit.addEventListener("click", () => {
+      setError("");
       const mode = (opts && opts.mode) || "topic";
       const bodyText = (ta.value || "").trim();
       const titleText = title ? (title.value || "").trim() : "";
@@ -142,15 +265,23 @@
 
       if (opts && typeof opts.onSubmit === "function") {
         opts.onSubmit(payload, {
+          error: setError,
           clear() {
             if (title) title.value = "";
             ta.value = "";
             attachments.length = 0;
             attachList.innerHTML = "";
-            body.setAttribute("hidden", "");
+            setOpen(false); // ✅ collapse after submit
           }
         });
       }
+    });
+
+    // Safety: if some other script expands it after we bind, re-collapse once
+    // (but never fight modal startOpen).
+    Promise.resolve().then(() => {
+      if (!startOpen && !body.hasAttribute("hidden")) setOpen(false);
+      if (startOpen) setOpen(true);
     });
   }
 

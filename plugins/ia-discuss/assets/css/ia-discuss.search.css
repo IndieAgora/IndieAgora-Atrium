@@ -1,0 +1,207 @@
+/* Search suggestions dropdown */
+.iad-suggest{
+  position:absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: rgba(10,10,10,0.92);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.iad-sug-row{
+  width:100%;
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:10px 12px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: rgba(255,255,255,0.92);
+  text-align:left;
+}
+
+.iad-sug-row:hover{ background: rgba(255,255,255,0.06); }
+.iad-sug-row.is-cta{ border-bottom: 1px solid rgba(255,255,255,0.08); }
+
+.iad-sug-q{ opacity: 0.95; }
+
+.iad-sg{ padding: 6px 0; }
+.iad-sg-title{
+  padding: 6px 12px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  opacity: 0.65;
+}
+
+.iad-sug-text{ display:flex; flex-direction:column; gap:2px; flex: 1 1 auto; }
+.iad-sug-main{ font-size: 13px; }
+.iad-sug-sub{ font-size: 12px; opacity: 0.68; }
+.iad-sug-sn{ font-size: 12px; opacity: 0.62; margin-top: 2px; }
+
+.iad-sug-ico{
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  opacity: 0.95;
+}
+
+.iad-sug-ico svg{ width: 18px; height: 18px; display:block; }
+
+.iad-sug-icon{
+  margin-left: auto;
+  opacity: 0.80;
+}
+.iad-sug-icon svg{ width: 18px; height: 18px; display:block; }
+
+/* Avatar */
+.iad-av{
+  width:34px;
+  height:34px;
+  border-radius:999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.06);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+.iad-av-fallback{
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Search results page */
+.iad-search-page{ width:100%; }
+
+.iad-search-top{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  padding: 10px 6px 6px;
+}
+
+.iad-search-title{
+  font-size: 14px;
+  color: rgba(255,255,255,0.92);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.iad-search-q{ opacity: 0.95; }
+
+.iad-search-tabs{
+  display:flex;
+  gap: 8px;
+  padding: 8px 6px 12px;
+  flex-wrap: wrap;
+}
+
+.iad-stab{
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.90);
+  padding: 7px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.iad-stab:hover{ background: rgba(255,255,255,0.08); }
+.iad-stab.is-active{
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.16);
+}
+
+.iad-sr-list{
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+  padding: 4px 0 14px;
+}
+
+/* Results rows are buttons: force readable colours */
+.iad-sr-row{
+  width:100%;
+  display:flex;
+  gap: 12px;
+  padding: 12px;
+  text-align:left;
+  border: 0;
+  color: rgba(255,255,255,0.92);
+}
+
+.iad-sr-row *{ color: inherit; }
+
+/* Alternating cards */
+.iad-sr-row.is-alt{
+  background: rgba(255,255,255,0.03);
+}
+
+.iad-sr-row:hover{
+  background: rgba(255,255,255,0.06);
+}
+
+.iad-sr-left{
+  width: 44px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding-top: 2px;
+}
+
+.iad-sr-right{
+  width: 44px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding-top: 2px;
+  opacity: 0.85;
+}
+
+.iad-sr-ico{
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+.iad-sr-ico svg{ width: 18px; height: 18px; display:block; }
+
+.iad-sr-mid{
+  flex:1 1 auto;
+  display:flex;
+  flex-direction:column;
+  gap: 4px;
+}
+
+.iad-sr-title{
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.96);
+}
+
+.iad-sr-sub{
+  font-size: 12px;
+  color: rgba(255,255,255,0.68);
+}
+
+.iad-sr-sn{
+  font-size: 13px;
+  color: rgba(255,255,255,0.86);
+}

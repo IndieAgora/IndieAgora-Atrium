@@ -1,0 +1,118 @@
+.iad-tab-action{
+  margin-left: 10px;
+}
+
+.iad-modal-overlay{
+  position:absolute;
+  inset:0;
+  background: rgba(0,0,0,.55);
+}
+
+.iad-modal-sheet{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform: translate(-50%,-50%);
+  width: min(720px, calc(100vw - 24px));
+  background: #0e0e0e;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.6);
+}
+
+.iad-modal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+.iad-modal-title{
+  font-weight: 700;
+}
+
+.iad-modal-x{
+  appearance:none;
+  border:0;
+  background: transparent;
+  color: inherit;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.iad-modal-body{
+  padding: 14px 16px 16px;
+}
+
+.iad-field{
+  display:block;
+  margin-bottom: 12px;
+}
+
+.iad-field-label{
+  font-size: 12px;
+  opacity: .8;
+  margin-bottom: 6px;
+}
+
+.iad-input,
+.iad-textarea{
+  width: 100%;
+  background: #121212;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 10px;
+  color: inherit;
+  padding: 10px 12px;
+}
+
+.iad-textarea{
+  resize: vertical;
+}
+
+.iad-modal-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.iad-modal-error{
+  margin-top: 10px;
+  color: #ff7b7b;
+  font-size: 13px;
+}
+
+/* MOD badge next to username in posts */
+.iad-badge-mod{
+  display:inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.4;
+  border: 1px solid rgba(255,255,255,.18);
+  opacity: .9;
+}
+.iad-mod-badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  background: #2b5cff;
+  color: #fff;
+  line-height: 1.4;
+}
+
+.iad-admin-badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  background: #a10000;
+  color: #fff;
+  line-height: 1.4;
+}

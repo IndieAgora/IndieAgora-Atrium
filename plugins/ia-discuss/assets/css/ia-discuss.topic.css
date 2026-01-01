@@ -1,0 +1,112 @@
+/* Topic-specific CSS (kept separate so we stop bloating other files) */
+
+.iad-att-iframe {
+  width: 100%;
+  aspect-ratio: 16/9;
+  display: block;
+  border: 0;
+}
+
+.iad-compose-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+}
+
+.iad-compose-sheet {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  width: min(920px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: #111;
+  box-shadow: 0 20px 70px rgba(0,0,0,.55);
+}
+
+.iad-compose-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,.10);
+}
+
+.iad-compose-title { font-weight: 600; opacity: .95; }
+
+.iad-compose-x {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  opacity: .85;
+  font-size: 18px;
+  line-height: 1;
+  padding: 6px 10px;
+}
+
+.iad-compose-body {
+  padding: 12px;
+  overflow: auto;
+  max-height: calc(100vh - 24px - 44px);
+}
+
+
+/* Topic post actions (icon bar) */
+.iad-post-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.iad-post-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.iad-post-meta{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.iad-post-author{
+  cursor:pointer;
+}
+
+.iad-highlight{
+  outline: 2px solid rgba(255,255,255,0.18);
+  border-radius: 14px;
+}
+
+.iad-ico{ width:16px; height:16px; display:block; }
+.iad-iconbtn{ background:transparent; border:0; padding:8px; border-radius:999px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+.iad-iconbtn:hover{ background:rgba(255,255,255,0.07); }
+.iad-iconbtn:active{ transform:translateY(1px); }
+.iad-iconbtn-mini{ padding:6px; margin-left:6px; opacity:0.9; }
+/* Post reply pill (top of topic) */
+.iad-pill{
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.92);
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.iad-pill:hover{ background: rgba(255,255,255,0.08); }
+.iad-pill:active{ transform: translateY(1px); }
+.iad-pill-primary{
+  border-color: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.08);
+}

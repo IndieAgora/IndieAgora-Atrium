@@ -318,6 +318,62 @@
   }
 
   // -----------------------------
+  // Attachment media helpers (ADDED)
+  // -----------------------------
+  function isImageAtt(a) {
+    const mime = String((a && a.mime) || "").toLowerCase();
+    const url = String((a && a.url) || "").toLowerCase();
+    if (mime.startsWith("image/")) return true;
+    return /\.(png|jpe?g|gif|webp|bmp|svg)(\?|#|$)/i.test(url);
+  }
+
+  function isVideoAtt(a) {
+    const mime = String((a && a.mime) || "").toLowerCase();
+    const url = String((a && a.url) || "").toLowerCase();
+    if (mime.startsWith("video/")) return true;
+    return /\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/i.test(url);
+  }
+
+  function attachmentInlineMediaHTML(item) {
+    // Show uploaded media inline WITHOUT inserting into body:
+    // - first video (if present)
+    // - then first image (if present)
+    const atts = (item && item.media && item.media.attachments) ? item.media.attachments : [];
+    if (!atts || !atts.length) return "";
+
+    let firstVideo = null;
+    let firstImage = null;
+
+    for (const a of atts) {
+      if (!firstVideo && isVideoAtt(a)) firstVideo = a;
+      if (!firstImage && isImageAtt(a)) firstImage = a;
+      if (firstVideo && firstImage) break;
+    }
+
+    if (!firstVideo && !firstImage) return "";
+
+    const parts = [];
+    if (firstVideo && firstVideo.url) {
+      parts.push(`
+        <div class="iad-att-media">
+          <video class="iad-att-video" controls playsinline preload="none">
+            <source src="${esc(String(firstVideo.url))}" />
+          </video>
+        </div>
+      `);
+    }
+    if (firstImage && firstImage.url) {
+      parts.push(`
+        <div class="iad-att-media">
+          <img class="iad-att-img" src="${esc(String(firstImage.url))}" alt="" loading="lazy" decoding="async" />
+        </div>
+      `);
+    }
+
+    return parts.join("");
+  }
+
+  // -----------------------------
   // Media UI (New feed only)
   // -----------------------------
   function mediaBlockHTML(item, view) {
@@ -418,6 +474,10 @@
 
     const canEdit = !!(me && authorId && me === authorId);
 
+    // ✅ ADDED: inline uploaded media (video first, then image)
+    // This does NOT replace your link-based media block; it only renders attachments.
+    const inlineAttMedia = attachmentInlineMediaHTML(item);
+
     return `
       <article class="iad-card"
         data-topic-id="${item.topic_id}"
@@ -455,6 +515,8 @@
           </div>
 
           <h3 class="iad-card-title" data-open-topic-title>${esc(item.topic_title || "")}</h3>
+
+          ${inlineAttMedia ? `<div class="iad-attwrap">${inlineAttMedia}</div>` : ""}
 
           <div class="iad-card-excerpt" data-open-topic-excerpt>${item.excerpt_html || ""}</div>
 

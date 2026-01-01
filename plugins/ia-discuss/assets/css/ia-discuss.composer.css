@@ -1,3 +1,8 @@
+/* ✅ HARD RULE: hidden composer body must not display */
+.iad-composer-body[hidden]{
+  display: none !important;
+}
+
 .iad-composer{
   border: 1px solid rgba(255,69,0,0.22);
   background: rgba(255,69,0,0.06);
@@ -9,6 +14,7 @@
   padding: 10px 12px;
 }
 
+/* Collapsed header looks like a compact action bar */
 .iad-composer-toggle{
   width: 100%;
   appearance:none;
@@ -20,6 +26,7 @@
   gap: 10px;
   cursor:pointer;
   font-size: 14px;
+  padding: 0;
 }
 
 .iad-dot{
@@ -75,4 +82,62 @@
 }
 .iad-editorbar button:hover{ background: rgba(255,255,255,0.10); }
 
-.iad-composer-actions{ display:flex; justify-content:flex-end; }
+.iad-composer-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap: 8px;
+  align-items:center;
+}
+
+/* Attachment UI inside composer */
+.iad-attachlist{ margin-top: 2px; }
+.iad-attachrow{
+  display:flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.iad-attachitem{
+  display:flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.iad-attachmini{
+  display:flex;
+  gap: 8px;
+  align-items:center;
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+}
+
+.iad-attachkind{
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.75);
+  text-transform: lowercase;
+}
+
+.iad-mini{
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.85);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.iad-mini:hover{ background: rgba(255,255,255,0.10); }
+
+.iad-mini.is-danger{
+  border-color: rgba(255,60,60,0.30);
+  background: rgba(255,60,60,0.08);
+}
+.iad-mini.is-danger:hover{
+  border-color: rgba(255,60,60,0.40);
+  background: rgba(255,60,60,0.12);
+}

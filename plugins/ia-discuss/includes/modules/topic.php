@@ -6,24 +6,29 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
   private $phpbb;
   private $bbcode;
   private $media;
+  private $auth;
   private $atts;
 
   public function __construct(
     IA_Discuss_Service_PhpBB $phpbb,
     IA_Discuss_Render_BBCode $bbcode,
-    IA_Discuss_Render_Media $media
+    IA_Discuss_Render_Media $media,
+    IA_Discuss_Service_Auth $auth
   ) {
     $this->phpbb  = $phpbb;
     $this->bbcode = $bbcode;
     $this->media  = $media;
-    $this->atts   = new IA_Discuss_Render_Attachments();
+    $this->auth   = $auth;
+
+    // stable attachments API
+    $this->atts = new IA_Discuss_Render_Attachments();
   }
 
   public function boot(): void {}
 
   public function ajax_routes(): array {
     return [
-      'ia_discuss_topic'     => ['method' => 'ajax_topic', 'public' => true],
+      'ia_discuss_topic'     => ['method' => 'ajax_topic',     'public' => true],
       'ia_discuss_mark_read' => ['method' => 'ajax_mark_read', 'public' => true],
     ];
   }
@@ -35,39 +40,128 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
     if ($topic_id <= 0) ia_discuss_json_err('Missing topic_id', 400);
     if (!$this->phpbb->is_ready()) ia_discuss_json_err('phpBB adapter not available', 503);
 
-    $topic = $this->phpbb->get_topic_row($topic_id);
+    $topic   = $this->phpbb->get_topic_row($topic_id);
+    $forum_id = (int)($topic['forum_id'] ?? 0);
 
     $limit = 25;
-    $rows = $this->phpbb->get_topic_posts_rows($topic_id, $offset, $limit + 1);
+    $rows  = $this->phpbb->get_topic_posts_rows($topic_id, $offset, $limit + 1);
 
     $has_more = count($rows) > $limit;
     if ($has_more) $rows = array_slice($rows, 0, $limit);
 
+    // Viewer context
+    $viewer_phpbb_id = (int)$this->auth->current_phpbb_user_id();
+    $viewer_is_admin = (function_exists('current_user_can') && current_user_can('manage_options')) ? 1 : 0;
+
+    // Moderator scope: forum-only unless WP admin
+    $viewer_is_mod = ($viewer_phpbb_id > 0 && $forum_id > 0)
+      ? ($this->phpbb->user_is_forum_moderator($viewer_phpbb_id, $forum_id) ? 1 : 0)
+      : 0;
+    if ($viewer_is_admin) $viewer_is_mod = 1;
+
+    // Stable-style: map WP administrators -> phpBB user_ids by email
+    $admin_phpbb_ids = [];
+    try {
+      $admins = get_users(['role' => 'administrator', 'fields' => ['user_email']]);
+      $emails = [];
+      if (is_array($admins)) {
+        foreach ($admins as $u) {
+          if (is_object($u) && !empty($u->user_email)) $emails[] = (string)$u->user_email;
+        }
+      }
+      $emails = array_values(array_unique(array_filter($emails)));
+
+      if ($emails) {
+        $db = $this->phpbb->db();
+        $p  = $this->phpbb->prefix();
+        if ($db) {
+          $place = implode(',', array_fill(0, count($emails), '%s'));
+          $sql = "SELECT user_id FROM {$p}users WHERE user_email IN ({$place})";
+          $prep = $db->prepare($sql, ...$emails);
+          $ids = $db->get_col($prep);
+          if (is_array($ids)) {
+            foreach ($ids as $id) {
+              $id = (int)$id;
+              if ($id > 0) $admin_phpbb_ids[$id] = true;
+            }
+          }
+        }
+      }
+    } catch (\Throwable $e) {
+      $admin_phpbb_ids = [];
+    }
+
     $posts = [];
-    foreach ($rows as $idx => $r) {
+    foreach ($rows as $r) {
+      $post_id   = (int)($r['post_id'] ?? 0);
+      $poster_id = (int)($r['poster_id'] ?? 0);
+      $username  = (string)($r['poster_username'] ?? '');
+      $post_time = (int)($r['post_time'] ?? 0);
+
       $text_raw = (string)($r['post_text'] ?? '');
-      $text     = $this->atts->strip_payload($text_raw);
+
+      // attachments + strip payload markers (stable)
+      $attachments = $this->atts->extract($text_raw);
+      $text        = $this->atts->strip_payload($text_raw);
+
+      // media from stripped text + attach attachments
+      $media = $this->media->extract_media($text);
+      if (is_array($media)) $media['attachments'] = $attachments;
+
+      // badges for the AUTHOR of this post
+      $is_admin_author = isset($admin_phpbb_ids[$poster_id]);
+      $is_mod_author = ($forum_id > 0)
+        ? $this->phpbb->user_is_forum_moderator($poster_id, $forum_id)
+        : false;
+      if ($is_admin_author) $is_mod_author = true;
+
+      // viewer-relative permissions
+      $viewer_can_moderate = ($viewer_is_admin || $viewer_is_mod) ? 1 : 0;
+      $viewer_is_author    = ($viewer_phpbb_id > 0 && $viewer_phpbb_id === $poster_id) ? 1 : 0;
+
+      $can_edit   = ($viewer_can_moderate || $viewer_is_author) ? 1 : 0;
+      $can_delete = ($viewer_can_moderate) ? 1 : 0;
+      $can_ban    = ($viewer_can_moderate && $poster_id > 0 && $poster_id !== $viewer_phpbb_id) ? 1 : 0;
 
       $posts[] = [
-        'post_id'         => (int)($r['post_id'] ?? 0),
-        'poster_id'       => (int)($r['poster_id'] ?? 0),
-        'poster_username' => (string)($r['poster_username'] ?? ''),
-        'post_time'       => (int)($r['post_time'] ?? 0),
+        'post_id'         => $post_id,
+        'poster_id'       => $poster_id,
+        'poster_username' => $username,
+        'post_time'       => $post_time,
+
         'content_html'    => $this->bbcode->format_post_html($text),
-        'media'           => $this->media->extract_media($text),
-        'collapsed_default' => ($offset === 0 && $idx >= 3) ? 1 : 0, // opening post + first 2 replies visible
+        'raw_text'        => $text_raw,
+        'media'           => $media,
+
+        'is_admin'        => $is_admin_author ? 1 : 0,
+        'is_moderator'    => $is_mod_author ? 1 : 0,
+
+        // viewer perms
+        'can_edit'        => $can_edit,
+        'can_delete'      => $can_delete,
+        'can_ban'         => $can_ban,
+
+        // needed for ban endpoint
+        'forum_id'        => $forum_id,
       ];
     }
 
     ia_discuss_json_ok([
-      'topic_id'       => (int)($topic['topic_id'] ?? 0),
+      'topic_id'       => (int)($topic['topic_id'] ?? $topic_id),
       'topic_title'    => (string)($topic['topic_title'] ?? ''),
-      'forum_id'       => (int)($topic['forum_id'] ?? 0),
+      'forum_id'       => $forum_id,
       'forum_name'     => (string)($topic['forum_name'] ?? ''),
       'topic_time'     => (int)($topic['topic_time'] ?? 0),
       'last_post_time' => (int)($topic['topic_last_post_time'] ?? 0),
+
       'posts'          => $posts,
-      'has_more'       => $has_more,
+      'has_more'       => $has_more ? 1 : 0,
+
+      'viewer'         => [
+        'phpbb_user_id' => $viewer_phpbb_id,
+        'is_admin'      => $viewer_is_admin,
+        'is_mod'        => $viewer_is_mod,
+      ],
     ]);
   }
 

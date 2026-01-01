@@ -57,23 +57,83 @@
 
 .iad-modal-body{ padding: 14px; }
 
+/* -----------------------------
+   Topic posts styling
+----------------------------- */
+
 .iad-post{
   border: 1px solid var(--iad-border);
   border-radius: var(--iad-radius);
   padding: 10px 12px;
-  background: rgba(255,255,255,0.04);
   margin-bottom: 10px;
+
+  /* containment */
+  overflow: hidden;
+  max-width: 100%;
+}
+
+/* ✅ Opening post: dark red/blue gradient */
+.iad-post.is-op{
+  background:
+    linear-gradient(135deg, rgba(255,69,0,0.14), rgba(71,179,255,0.12)),
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.03));
+}
+
+/* ✅ Replies: alternating blues (subtle) */
+.iad-post.is-reply{
+  background: rgba(71,179,255,0.06);
+}
+.iad-post.is-reply.is-alt{
+  background: rgba(71,179,255,0.10);
 }
 
 .iad-post.is-collapsed{ display:none; }
 
 .iad-post-meta{ font-size: 12px; color: var(--iad-muted); margin-bottom: 8px; }
 
+/* ✅ Mobile-safe wrapping + media containment inside post body */
 .iad-post-body{
   color: rgba(255,255,255,0.88);
   font-size: 14px;
   line-height: 1.55;
+
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 }
+
+.iad-post-body *{
+  max-width: 100%;
+}
+
+.iad-post-body img,
+.iad-post-body video,
+.iad-post-body iframe,
+.iad-post-body embed,
+.iad-post-body object{
+  display:block;
+  max-width: 100%;
+}
+
+.iad-post-body iframe,
+.iad-post-body embed,
+.iad-post-body object{
+  width: 100%;
+}
+
+.iad-post-body table{
+  display:block;
+  max-width:100%;
+  overflow-x:auto;
+  border-collapse: collapse;
+}
+
+.iad-post-body pre{
+  max-width:100%;
+  overflow-x:auto;
+  white-space: pre;
+}
+
 .iad-post-body blockquote{
   margin: 10px 0;
   padding: 10px 12px;
@@ -81,7 +141,44 @@
   background: rgba(255,69,0,0.08);
   border-radius: 12px;
 }
+
 .iad-post-actions{ display:flex; gap: 8px; margin-top: 10px; }
+
+/* Inline attachment media in topic view (same classes as feed) */
+.iad-attwrap{
+  margin: 10px 0 10px;
+  display: grid;
+  gap: 10px;
+  max-width: 100%;
+}
+.iad-att-media{
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.20);
+}
+.iad-att-video{
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  display: block;
+}
+.iad-att-img{
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  display: block;
+}
+
+/* Attachment pills already styled in cards.css; ensure they fit in modal too */
+.iad-attachrow{
+  display:flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  max-width: 100%;
+}
 
 .iad-more{
   width: 100%;
@@ -91,4 +188,10 @@
   padding: 10px 12px;
   border-radius: 12px;
   cursor:pointer;
+}
+
+/* Extra mobile safety: avoid any horizontal scroll from long URLs */
+@media (max-width: 560px){
+  .iad-modal-body{ padding: 12px; }
+  .iad-post{ padding: 10px 10px; }
 }

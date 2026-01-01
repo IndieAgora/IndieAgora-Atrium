@@ -29,6 +29,14 @@ final class IA_Discuss_Service_Auth {
     $uid = $this->try_external_mapper();
     if ($uid > 0) return $uid;
 
+    // Next: allow the wider Atrium stack to provide a canonical phpBB id.
+    // This is intentionally a simple scalar filter so it can be wired up by
+    // ia-auth / ia-user / a fallback bridge without Discuss needing to know
+    // implementation details.
+    $wp_uid = (int) get_current_user_id();
+    $filtered = (int) apply_filters('ia_current_phpbb_user_id', 0, $wp_uid);
+    if ($filtered > 0) return $filtered;
+
     // Fallback: map WP user_login → phpbb_users.username_clean
     $u = wp_get_current_user();
     $login = $u && $u->user_login ? (string)$u->user_login : '';
@@ -41,12 +49,53 @@ final class IA_Discuss_Service_Auth {
     $wp_uid = (int) get_current_user_id();
     if ($wp_uid <= 0) return 0;
 
+    // 0) If IA_Auth exposes a current user resolver, prefer it.
+    if (class_exists('IA_Auth')) {
+      // Static helpers
+      foreach (['current_phpbb_user_id', 'current_phpbb_uid', 'phpbb_user_id_current'] as $m) {
+        if (method_exists('IA_Auth', $m)) {
+          try {
+            $out = (int) IA_Auth::{$m}();
+            if ($out > 0) return $out;
+          } catch (Throwable $e) {
+            // ignore
+          }
+        }
+      }
+      // Instance helpers
+      foreach (['instance', 'get_instance'] as $inst) {
+        if (method_exists('IA_Auth', $inst)) {
+          try {
+            $ia = IA_Auth::{$inst}();
+            if (is_object($ia)) {
+              foreach (['current_phpbb_user_id', 'current_phpbb_uid'] as $m2) {
+                if (method_exists($ia, $m2)) {
+                  $out = (int) $ia->{$m2}();
+                  if ($out > 0) return $out;
+                }
+              }
+            }
+          } catch (Throwable $e) {
+            // ignore
+          }
+        }
+      }
+    }
+
     // 1) A common pattern: IA_User::instance()->phpbb_user_id()
     if (class_exists('IA_User') && method_exists('IA_User', 'instance')) {
       $iu = IA_User::instance();
       foreach (['phpbb_user_id', 'get_phpbb_user_id', 'phpbb_uid'] as $m) {
         if (is_object($iu) && method_exists($iu, $m)) {
           $out = (int) $iu->{$m}($wp_uid);
+          if ($out > 0) return $out;
+        }
+      }
+
+      // Also support no-arg current-user resolvers
+      foreach (['current_phpbb_user_id', 'current_phpbb_uid'] as $m) {
+        if (is_object($iu) && method_exists($iu, $m)) {
+          $out = (int) $iu->{$m}();
           if ($out > 0) return $out;
         }
       }

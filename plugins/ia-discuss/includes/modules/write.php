@@ -27,6 +27,10 @@ final class IA_Discuss_Module_Write implements IA_Discuss_Module_Interface {
       'ia_discuss_forum_meta' => ['method' => 'ajax_forum_meta', 'public' => true],
       'ia_discuss_new_topic'  => ['method' => 'ajax_new_topic',  'public' => false],
       'ia_discuss_reply'      => ['method' => 'ajax_reply',      'public' => false],
+          'ia_discuss_edit_post' => ['method' => 'ajax_edit_post', 'public' => false],
+      'ia_discuss_delete_post' => ['method' => 'ajax_delete_post', 'public' => false],
+      'ia_discuss_ban_user' => ['method' => 'ajax_ban_user', 'public' => false],
+      'ia_discuss_unban_user' => ['method' => 'ajax_unban_user', 'public' => false],
     ];
   }
 
@@ -89,4 +93,127 @@ final class IA_Discuss_Module_Write implements IA_Discuss_Module_Interface {
       ia_discuss_json_err('Reply error: ' . $e->getMessage(), 500);
     }
   }
+
+
+  public function ajax_edit_post(): void {
+    if (!$this->phpbb->is_ready()) ia_discuss_json_err('phpBB adapter not available', 503);
+
+    $post_id = (int)($_POST['post_id'] ?? 0);
+    $body = trim((string)($_POST['body'] ?? ''));
+
+    if ($post_id <= 0) ia_discuss_json_err('Missing post_id', 400);
+    if ($body === '') ia_discuss_json_err('Missing body', 400);
+
+    $viewer = (int)$this->auth->current_phpbb_user_id();
+    if ($viewer <= 0) ia_discuss_json_err('Not logged in', 401);
+
+    try {
+      // Lookup post to verify permissions
+      $db = $this->phpbb->db();
+      $posts = $this->phpbb->table('posts');
+      $row = $db ? $db->get_row($db->prepare("SELECT post_id, forum_id, poster_id FROM {$posts} WHERE post_id = %d LIMIT 1", $post_id), ARRAY_A) : null;
+      if (!$row) ia_discuss_json_err('Post not found', 404);
+
+      $forum_id = (int)($row['forum_id'] ?? 0);
+      $poster_id = (int)($row['poster_id'] ?? 0);
+
+      $is_admin = function_exists('current_user_can') && current_user_can('manage_options');
+      $is_mod = ($forum_id > 0) ? $this->phpbb->user_is_forum_moderator($viewer, $forum_id) : false;
+      if ($is_admin) $is_mod = true;
+
+      $can_edit = $is_admin || $is_mod || ($viewer === $poster_id);
+      if (!$can_edit) ia_discuss_json_err('Forbidden', 403);
+
+      $out = $this->write->edit_post($post_id, $body, $viewer);
+      ia_discuss_json_ok($out);
+    } catch (Throwable $e) {
+      ia_discuss_json_err('Edit error: ' . $e->getMessage(), 500);
+    }
+  }
+
+  public function ajax_delete_post(): void {
+    if (!$this->phpbb->is_ready()) ia_discuss_json_err('phpBB adapter not available', 503);
+
+    $post_id = (int)($_POST['post_id'] ?? 0);
+    $reason = (string)($_POST['reason'] ?? '');
+
+    if ($post_id <= 0) ia_discuss_json_err('Missing post_id', 400);
+
+    $viewer = (int)$this->auth->current_phpbb_user_id();
+    if ($viewer <= 0) ia_discuss_json_err('Not logged in', 401);
+
+    try {
+      $db = $this->phpbb->db();
+      $posts = $this->phpbb->table('posts');
+      $row = $db ? $db->get_row($db->prepare("SELECT post_id, forum_id, poster_id FROM {$posts} WHERE post_id = %d LIMIT 1", $post_id), ARRAY_A) : null;
+      if (!$row) ia_discuss_json_err('Post not found', 404);
+
+      $forum_id = (int)($row['forum_id'] ?? 0);
+
+      $is_admin = function_exists('current_user_can') && current_user_can('manage_options');
+      $is_mod = ($forum_id > 0) ? $this->phpbb->user_is_forum_moderator($viewer, $forum_id) : false;
+      if ($is_admin) $is_mod = true;
+
+      if (!($is_admin || $is_mod)) ia_discuss_json_err('Forbidden', 403);
+
+      $out = $this->write->delete_post($post_id, $viewer, $reason);
+      ia_discuss_json_ok($out);
+    } catch (Throwable $e) {
+      ia_discuss_json_err('Delete error: ' . $e->getMessage(), 500);
+    }
+  }
+
+  public function ajax_ban_user(): void {
+    if (!$this->phpbb->is_ready()) ia_discuss_json_err('phpBB adapter not available', 503);
+
+    $forum_id = (int)($_POST['forum_id'] ?? 0);
+    $user_id  = (int)($_POST['user_id'] ?? 0);
+
+    if ($forum_id <= 0) ia_discuss_json_err('Missing forum_id', 400);
+    if ($user_id <= 0) ia_discuss_json_err('Missing user_id', 400);
+
+    $viewer = (int)$this->auth->current_phpbb_user_id();
+    if ($viewer <= 0) ia_discuss_json_err('Not logged in', 401);
+
+    try {
+      $is_admin = function_exists('current_user_can') && current_user_can('manage_options');
+      $is_mod = $this->phpbb->user_is_forum_moderator($viewer, $forum_id);
+      if ($is_admin) $is_mod = true;
+
+      if (!($is_admin || $is_mod)) ia_discuss_json_err('Forbidden', 403);
+      if ($user_id === $viewer) ia_discuss_json_err('Cannot ban self', 400);
+
+      $this->write->ban_user_in_forum($forum_id, $user_id, $viewer);
+      ia_discuss_json_ok(['banned' => 1, 'forum_id' => $forum_id, 'user_id' => $user_id]);
+    } catch (Throwable $e) {
+      ia_discuss_json_err('Ban error: ' . $e->getMessage(), 500);
+    }
+  }
+
+  public function ajax_unban_user(): void {
+    if (!$this->phpbb->is_ready()) ia_discuss_json_err('phpBB adapter not available', 503);
+
+    $forum_id = (int)($_POST['forum_id'] ?? 0);
+    $user_id  = (int)($_POST['user_id'] ?? 0);
+
+    if ($forum_id <= 0) ia_discuss_json_err('Missing forum_id', 400);
+    if ($user_id <= 0) ia_discuss_json_err('Missing user_id', 400);
+
+    $viewer = (int)$this->auth->current_phpbb_user_id();
+    if ($viewer <= 0) ia_discuss_json_err('Not logged in', 401);
+
+    try {
+      $is_admin = function_exists('current_user_can') && current_user_can('manage_options');
+      $is_mod = $this->phpbb->user_is_forum_moderator($viewer, $forum_id);
+      if ($is_admin) $is_mod = true;
+
+      if (!($is_admin || $is_mod)) ia_discuss_json_err('Forbidden', 403);
+
+      $this->write->unban_user_in_forum($forum_id, $user_id);
+      ia_discuss_json_ok(['banned' => 0, 'forum_id' => $forum_id, 'user_id' => $user_id]);
+    } catch (Throwable $e) {
+      ia_discuss_json_err('Unban error: ' . $e->getMessage(), 500);
+    }
+  }
+
 }

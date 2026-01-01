@@ -32,12 +32,22 @@ final class IA_Discuss_Service_PhpBB {
   public function is_ready(): bool {
     return ($this->db instanceof wpdb);
   }
+
   public function db(): ?wpdb {
     return ($this->db instanceof wpdb) ? $this->db : null;
   }
 
   public function prefix(): string {
     return (string) $this->prefix;
+  }
+  /**
+   * Convenience helper used by write modules.
+   * Returns a fully-qualified phpBB table name.
+   */
+  public function table(string $name): string {
+    $name = trim($name);
+    $name = ltrim($name, '_');
+    return (string)$this->prefix . $name;
   }
 
   public function diagnostics(): array {
@@ -259,6 +269,51 @@ final class IA_Discuss_Service_PhpBB {
 
     if (!empty($this->db->last_error)) throw new Exception('phpBB SQL error: ' . $this->db->last_error);
     return is_array($rows) ? $rows : [];
+  }
+
+  /**
+   * True if user is a moderator for the given forum.
+   *
+   * IMPORTANT: We only rely on phpBB schema tables (no phpBB app/runtime).
+   * For this project, moderator status is represented in phpbb_moderator_cache.
+   */
+  public function user_is_forum_moderator(int $user_id, int $forum_id): bool {
+    if (!$this->db) return false;
+    $user_id = (int)$user_id;
+    $forum_id = (int)$forum_id;
+    if ($user_id <= 0 || $forum_id <= 0) return false;
+
+    $m = $this->prefix . 'moderator_cache';
+    $sql = "SELECT 1 FROM {$m} WHERE forum_id = %d AND user_id = %d LIMIT 1";
+    $v = $this->db->get_var($this->db->prepare($sql, $forum_id, $user_id));
+
+    if (!empty($this->db->last_error)) {
+      // Fail closed.
+      return false;
+    }
+    return (string)$v === '1';
+  }
+
+
+  /**
+   * Discuss-only: check whether a phpBB user is banned from posting in a forum (Agora).
+   * Stored in WP table: {$wpdb->prefix}ia_discuss_forum_bans
+   */
+  public function discuss_is_user_banned(int $forum_id, int $user_id): bool {
+    $forum_id = (int)$forum_id;
+    $user_id  = (int)$user_id;
+    if ($forum_id <= 0 || $user_id <= 0) return false;
+
+    global $wpdb;
+    if (!$wpdb) return false;
+
+    $t = $wpdb->prefix . 'ia_discuss_forum_bans';
+    // If the table doesn't exist yet, treat as not banned.
+    $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $t));
+    if ((string)$exists !== (string)$t) return false;
+
+    $v = $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$t} WHERE forum_id = %d AND user_id = %d LIMIT 1", $forum_id, $user_id));
+    return (string)$v === '1';
   }
 
   private function get_phpbb_creds(): ?array {
