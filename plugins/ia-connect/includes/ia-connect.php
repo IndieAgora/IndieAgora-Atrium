@@ -14,6 +14,7 @@ function ia_connect_boot(): void {
 
   // Modules
   require_once IA_CONNECT_PATH . 'includes/modules/module-interface.php';
+  require_once IA_CONNECT_PATH . 'includes/modules/profiles.php';
   require_once IA_CONNECT_PATH . 'includes/modules/profile-shell.php';
   require_once IA_CONNECT_PATH . 'includes/modules/bio.php';
   require_once IA_CONNECT_PATH . 'includes/modules/media.php';
@@ -22,6 +23,7 @@ function ia_connect_boot(): void {
   // Build module list
   $modules = [
     new ia_connect_module_profile_shell(),
+    new ia_connect_module_profiles(),
     new ia_connect_module_bio(),
     new ia_connect_module_media(),
     new ia_connect_module_privacy(),

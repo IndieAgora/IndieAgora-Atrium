@@ -4,6 +4,18 @@
   function qs(sel, root) { return (root || document).querySelector(sel); }
   function qsa(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
 
+  function getUrlParam(key) {
+    try { return new URL(window.location.href).searchParams.get(key); } catch (e) { return null; }
+  }
+  function setUrlParam(key, value) {
+    try {
+      const url = new URL(window.location.href);
+      if (value === null || value === undefined || value === "") url.searchParams.delete(key);
+      else url.searchParams.set(key, value);
+      window.history.replaceState({}, "", url.toString());
+    } catch (e) {}
+  }
+
   const VIEW_KEYS = ["wall","edit","media","activity","privacy","notifications","blocked","export"];
 
   const registry = {
@@ -47,7 +59,137 @@
     root.classList.toggle("ia-is-busy", !!on);
   }
 
-  function setIdentity(root) {
+  
+  function getLastRequestedProfile() {
+    // Priority: URL params (persist across redirects) -> localStorage (set by Discuss)
+    let pid = parseInt(getUrlParam("ia_profile") || "0", 10) || 0;
+    let uname = (getUrlParam("ia_profile_name") || "").trim();
+
+    if (!pid && !uname) {
+      try {
+        const raw = localStorage.getItem("ia_connect_last_profile");
+        if (raw) {
+          const obj = JSON.parse(raw);
+          pid = parseInt(obj && obj.user_id ? String(obj.user_id) : "0", 10) || 0;
+          uname = (obj && obj.username ? String(obj.username) : "").trim();
+        }
+      } catch (e) {}
+    }
+
+    if (!pid && !uname) return null;
+    return { user_id: pid, username: uname };
+  }
+
+  function isViewingSelf(targetWpUserId) {
+    return !!(window.IA_CONNECT && IA_CONNECT.userId && targetWpUserId && (parseInt(IA_CONNECT.userId, 10) === parseInt(targetWpUserId, 10)));
+  }
+
+  async function fetchProfile(target) {
+    if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) return { success: false, data: { message: "Login required" } };
+
+    const fd = new FormData();
+    fd.append("nonce", IA_CONNECT.nonce);
+    if (target && target.user_id) fd.append("phpbb_user_id", String(target.user_id));
+    if (target && target.username) fd.append("username", String(target.username));
+
+    return postForm("ia_connect_get_profile", fd);
+  }
+
+  function applyProfileToUI(root, profile) {
+    const p = profile || {};
+
+    // identity header
+    const nameEl = qs("[data-ia-connect-name]", root);
+    if (nameEl) nameEl.textContent = p.display || "Profile";
+
+    const handleEl = qs("[data-ia-connect-handle]", root);
+    if (handleEl) handleEl.textContent = p.handle || "";
+
+    // bio panel (editable textarea lives in modal body)
+    const bioInput = qs("[data-ia-connect-bio-input]", root);
+    if (bioInput) bioInput.value = p.bio || "";
+
+    // media
+    const aImg = qs("[data-ia-connect-avatar-img]", root);
+    if (aImg) aImg.src = p.avatarUrl || "";
+
+    const cImg = qs("[data-ia-connect-cover-img]", root);
+    if (cImg) cImg.src = p.coverUrl || "";
+
+    // Update global-like cache so existing actions (viewer, uploads) behave
+    if (window.IA_CONNECT) {
+      IA_CONNECT.display = p.display || IA_CONNECT.display;
+      IA_CONNECT.handle = p.handle || IA_CONNECT.handle;
+      IA_CONNECT.bio = p.bio || IA_CONNECT.bio;
+      IA_CONNECT.avatarUrl = p.avatarUrl || IA_CONNECT.avatarUrl;
+      IA_CONNECT.coverUrl = p.coverUrl || IA_CONNECT.coverUrl;
+      IA_CONNECT._viewingWpUserId = p.wp_user_id || 0;
+      IA_CONNECT._viewingUsername = p.username || "";
+    }
+
+    // Disable edit/upload actions if not self
+    const self = isViewingSelf(p.wp_user_id || 0);
+
+    qsa("[data-ia-connect-avatar-btn],[data-ia-connect-cover-btn]", root).forEach(el => {
+      if (!self) {
+        el.setAttribute("aria-disabled", "true");
+      } else {
+        el.removeAttribute("aria-disabled");
+      }
+    });
+
+    // Hide change overlays for non-self
+    const coverOverlay = qs(".ia-connect-cover-overlay", root);
+    if (coverOverlay) coverOverlay.style.display = self ? "" : "none";
+
+    const avatarOverlay = qs(".ia-connect-avatar-overlay", root);
+    if (avatarOverlay) avatarOverlay.style.display = self ? "" : "none";
+
+    // Follow/Message buttons: enabled only for non-self (placeholders)
+    const followBtn = qs('[data-ia-connect-action="follow"]', root);
+    const msgBtn = qs('[data-ia-connect-action="message"]', root);
+    if (followBtn) followBtn.disabled = !(!self);
+    if (msgBtn) msgBtn.disabled = !(!self);
+
+    // Stash on root for debugging/other plugins
+    root.setAttribute("data-ia-connect-viewing-wp", String(p.wp_user_id || 0));
+  }
+
+  async function openProfile(root, target, source) {
+    if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) {
+      // Atrium handles the auth modal; keep intent persisted.
+      if (target && target.user_id) setUrlParam("ia_profile", String(target.user_id));
+      if (target && target.username) setUrlParam("ia_profile_name", String(target.username));
+      return;
+    }
+
+    setLoading(root, true, "Loading profile…");
+    try {
+      const json = await fetchProfile(target || {});
+      if (json && json.success && json.data && json.data.profile) {
+        applyProfileToUI(root, json.data.profile);
+        setActiveView(root, "wall", { source: source || "openProfile" });
+        return;
+      }
+      toast(root, (json && json.data && json.data.message) ? json.data.message : "Failed to load profile");
+    } finally {
+      setLoading(root, false);
+    }
+  }
+
+  function showLoggedOutGate(root) {
+    // Minimal, non-invasive message; Atrium auth modal is the real gate.
+    const wall = qs('[data-ia-connect-view="wall"]', root);
+    if (!wall) return;
+    wall.innerHTML = `
+      <div class="ia-connect-card">
+        <div class="ia-connect-card-title">Connect</div>
+        <div class="ia-connect-card-body">Please log in or register to view profiles.</div>
+      </div>
+    `;
+  }
+
+function setIdentity(root) {
     const nameEl = qs("[data-ia-connect-name]", root);
     const handleEl = qs("[data-ia-connect-handle]", root);
     const bioEl = qs("[data-ia-connect-bio-text]", root);
@@ -264,7 +406,12 @@
       const json = await postForm("ia_connect_update_bio", fd);
       if (json && json.success) {
         IA_CONNECT.bio = (json.data && typeof json.data.bio === "string") ? json.data.bio : bio;
-        setIdentity(root);
+        // If logged out, do not show profile content.
+    if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) {
+      showLoggedOutGate(root);
+    }
+
+    setIdentity(root);
         toast(root, "Bio saved");
         return true;
       }
@@ -322,7 +469,12 @@
         if (isAvatar && json.data && json.data.avatarUrl) IA_CONNECT.avatarUrl = json.data.avatarUrl;
         if (!isAvatar && json.data && json.data.coverUrl) IA_CONNECT.coverUrl = json.data.coverUrl;
 
-        setIdentity(root);
+        // If logged out, do not show profile content.
+    if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) {
+      showLoggedOutGate(root);
+    }
+
+    setIdentity(root);
         toast(root, isAvatar ? "Avatar updated" : "Cover updated");
         return true;
       }
@@ -488,7 +640,97 @@
     // reserved for integration with ia-profile-menu / atrium events
   }
 
-  function boot() {
+  
+  function renderUserSearchResults(root, results) {
+    const box = qs("[data-ia-connect-usersearch-results]", root);
+    if (!box) return;
+    const items = Array.isArray(results) ? results : [];
+    if (!items.length) {
+      box.innerHTML = "";
+      box.setAttribute("aria-hidden", "true");
+      return;
+    }
+    box.innerHTML = items.map(r => {
+      const display = String(r.display || r.username || "User");
+      const uname = String(r.username || "");
+      const pid = String(r.phpbb_user_id || 0);
+      const avatar = String(r.avatarUrl || "");
+      return `
+        <button type="button" class="ia-connect-usersearch-item"
+                data-ia-connect-usersearch-pick="1"
+                data-user-id="${pid}"
+                data-username="${uname}">
+          <img class="ia-connect-usersearch-avatar" alt="" src="${avatar}">
+          <div>
+            <div class="ia-connect-usersearch-name">${escapeHtml(display)}</div>
+            <div class="ia-connect-usersearch-username">${escapeHtml("@" + uname)}</div>
+          </div>
+        </button>
+      `;
+    }).join("");
+    box.setAttribute("aria-hidden", "false");
+  }
+
+  async function userSearch(root, q) {
+    if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) return [];
+    const fd = new FormData();
+    fd.append("nonce", IA_CONNECT.nonce);
+    fd.append("q", String(q || ""));
+    const json = await postForm("ia_connect_user_search", fd);
+    if (json && json.success && json.data && Array.isArray(json.data.results)) return json.data.results;
+    return [];
+  }
+
+  function bindUserSearch(root) {
+    const input = qs("[data-ia-connect-usersearch-input]", root);
+    if (!input) return;
+
+    let timer = null;
+    input.addEventListener("input", () => {
+      if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) return;
+      const q = (input.value || "").trim();
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(async () => {
+        if (!q) {
+          renderUserSearchResults(root, []);
+          return;
+        }
+        try {
+          const res = await userSearch(root, q);
+          renderUserSearchResults(root, res);
+        } catch (e) {
+          renderUserSearchResults(root, []);
+        }
+      }, 220);
+    });
+
+    // Pick result
+    root.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-ia-connect-usersearch-pick]");
+      if (!btn) return;
+      const target = {
+        user_id: parseInt(btn.getAttribute("data-user-id") || "0", 10) || 0,
+        username: (btn.getAttribute("data-username") || "").trim()
+      };
+      // persist deep link
+      if (target.user_id) setUrlParam("ia_profile", String(target.user_id));
+      if (target.username) setUrlParam("ia_profile_name", target.username);
+
+      renderUserSearchResults(root, []);
+      if (input) input.value = "";
+      openProfile(root, target, "user-search");
+    });
+
+    // Click outside closes dropdown
+    document.addEventListener("click", (e) => {
+      const box = qs("[data-ia-connect-usersearch-results]", root);
+      if (!box) return;
+      if (e.target === input || box.contains(e.target)) return;
+      box.setAttribute("aria-hidden", "true");
+    });
+  }
+
+function boot() {
     const root = qs("#ia-connect-root");
     if (!root) return;
 
@@ -497,8 +739,14 @@
     window.IA_CONNECT_API = window.IA_CONNECT_API || {};
     window.IA_CONNECT_API.registerView = registry.registerView.bind(registry);
 
+    // If logged out, do not show profile content.
+    if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) {
+      showLoggedOutGate(root);
+    }
+
     setIdentity(root);
     fillModalBodies(root);
+    bindUserSearch(root);
     setActiveView(root, "wall", { source: "init" });
 
     qsa("[data-ia-connect-view-btn]", root).forEach(btn => {
@@ -536,6 +784,8 @@
       // - click the INNER Change button only => upload
       const avatarBtn = e.target.closest("[data-ia-connect-avatar-btn]");
       if (avatarBtn) {
+        if (avatarBtn.getAttribute("aria-disabled") === "true") return;
+
         const clickedChange = e.target.closest(".ia-connect-avatar-overlay-btn");
         if (clickedChange) {
           const fileInput = qs("[data-ia-connect-avatar-file]", root);
@@ -564,6 +814,8 @@
       // - click the overlay text => upload
       const coverBtn = e.target.closest("[data-ia-connect-cover-btn]");
       if (coverBtn) {
+        if (coverBtn.getAttribute("aria-disabled") === "true") return;
+
         const clickedChange = e.target.closest(".ia-connect-cover-overlay");
         if (clickedChange) {
           const fileInput = qs("[data-ia-connect-cover-file]", root);
@@ -605,10 +857,35 @@
       });
     }
 
-    window.addEventListener("ia_atrium:profile", () => {
-      setActiveView(root, "wall", { source: "ia_atrium:profile" });
+    window.addEventListener("ia_atrium:profile", (ev) => {
+      const d = (ev && ev.detail) ? ev.detail : {};
+      const target = {
+        user_id: parseInt(d.userId || "0", 10) || 0,
+        username: (d.username || "").trim()
+      };
+      if (target.user_id || target.username) {
+        openProfile(root, target, "ia_atrium:profile");
+      } else {
+        setActiveView(root, "wall", { source: "ia_atrium:profile" });
+      }
     });
 
+
+    // Fired by Discuss when a username is clicked.
+    window.addEventListener("ia:open_profile", (ev) => {
+      const d = (ev && ev.detail) ? ev.detail : {};
+      const target = {
+        user_id: parseInt(d.user_id || d.userId || "0", 10) || 0,
+        username: (d.username || "").trim()
+      };
+      openProfile(root, target, "ia:open_profile");
+    });
+
+    // If we were deep-linked (e.g. after login), open the requested profile.
+    const last = getLastRequestedProfile();
+    if (last) {
+      openProfile(root, last, "deep-link");
+    }
     window.addEventListener("ia_profile:action", onMenuAction);
     window.addEventListener("ia_connect:profileMenu", onMenuAction);
   }

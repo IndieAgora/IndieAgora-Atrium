@@ -567,3 +567,32 @@ html.ia-connect-viewer-open body {
 [data-ia-connect-viewer-close-btn] {
   background: rgba(255,255,255,0.08);
 }
+
+
+/* User search (Connect) */
+.ia-connect-usersearch{ margin-top:8px; max-width:420px; }
+.ia-connect-usersearch-input{ width:100%; }
+.ia-connect-usersearch-results{
+  margin-top:6px;
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;
+  overflow:hidden;
+  background:rgba(0,0,0,0.35);
+}
+.ia-connect-usersearch-results[aria-hidden="true"]{ display:none; }
+.ia-connect-usersearch-item{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  width:100%;
+  padding:10px 12px;
+  border:0;
+  background:transparent;
+  color:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.ia-connect-usersearch-item:hover{ background:rgba(255,255,255,0.06); }
+.ia-connect-usersearch-avatar{ width:28px; height:28px; border-radius:999px; object-fit:cover; background:rgba(255,255,255,0.08); }
+.ia-connect-usersearch-name{ font-weight:600; }
+.ia-connect-usersearch-username{ opacity:0.8; font-size:12px; margin-top:2px; }

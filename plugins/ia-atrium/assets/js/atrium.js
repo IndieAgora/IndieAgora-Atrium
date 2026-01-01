@@ -184,8 +184,12 @@
 
     if (intentKey === "profile") {
       setActiveTab(shell, "connect");
+      // If a specific profile was requested (e.g. clicking a username in Discuss), honor it.
+      const pid = parseInt(getUrlParam("ia_profile") || "0", 10) || 0;
+      const uname = getUrlParam("ia_profile_name") || "";
       dispatch("ia_atrium:profile", {
-        userId: (window.IA_ATRIUM && IA_ATRIUM.userId) ? IA_ATRIUM.userId : 0
+        userId: pid || ((window.IA_ATRIUM && IA_ATRIUM.userId) ? IA_ATRIUM.userId : 0),
+        username: uname
       });
       return;
     }
@@ -244,12 +248,38 @@
     // - else use data-default-tab
     const defaultTab = shell.getAttribute("data-default-tab") || "connect";
     const urlTab = getUrlParam("tab");
-    setActiveTab(shell, urlTab || defaultTab);
+    const initialKey = urlTab || defaultTab;
+    if (initialKey === "connect" && authModal && !isLoggedIn(shell)) {
+      openAuth(shell, authModal, "profile");
+    } else {
+      setActiveTab(shell, initialKey);
+    }
 
     // Tab switching (no refresh)
     qsa(".ia-tab", shell).forEach(btn => {
       btn.addEventListener("click", function () {
         const key = btn.dataset.target;
+        // Connect is profile-gated: logged-out users must authenticate first.
+        if (key === "connect" && authModal && !isLoggedIn(shell)) {
+          // If Discuss (or other plugins) stored an intended profile, persist it into URL so
+          // post-login intent can open the correct profile.
+          try {
+            const existing = getUrlParam("ia_profile");
+            if (!existing) {
+              const raw = localStorage.getItem("ia_connect_last_profile");
+              if (raw) {
+                const obj = JSON.parse(raw);
+                const pid = obj && obj.user_id ? String(obj.user_id) : "";
+                const uname = obj && obj.username ? String(obj.username) : "";
+                if (pid) setUrlParam("ia_profile", pid);
+                if (uname) setUrlParam("ia_profile_name", uname);
+              }
+            }
+          } catch (e) {}
+          setUrlParam("tab", "connect");
+          openAuth(shell, authModal, "profile");
+          return;
+        }
         setActiveTab(shell, key);
         setUrlParam("tab", key);
       });
@@ -350,8 +380,31 @@
     // Micro-plugins can request navigation without reload
     window.addEventListener("ia_atrium:navigate", function (ev) {
       if (!ev || !ev.detail || !ev.detail.tab) return;
-      setActiveTab(shell, ev.detail.tab);
-      setUrlParam("tab", ev.detail.tab);
+      const target = String(ev.detail.tab || "");
+
+      // Connect is profile-gated even when other plugins navigate there.
+      // Logged-out users should always see the auth modal, never a readable profile.
+      if (target === "connect" && authModal && !isLoggedIn(shell)) {
+        try {
+          const existing = getUrlParam("ia_profile");
+          if (!existing) {
+            const raw = localStorage.getItem("ia_connect_last_profile");
+            if (raw) {
+              const obj = JSON.parse(raw);
+              const pid = obj && obj.user_id ? String(obj.user_id) : "";
+              const uname = obj && obj.username ? String(obj.username) : "";
+              if (pid) setUrlParam("ia_profile", pid);
+              if (uname) setUrlParam("ia_profile_name", uname);
+            }
+          }
+        } catch (e) {}
+        setUrlParam("tab", "connect");
+        openAuth(shell, authModal, "profile");
+        return;
+      }
+
+      setActiveTab(shell, target);
+      setUrlParam("tab", target);
     });
 
     // Micro-plugins can close composer
