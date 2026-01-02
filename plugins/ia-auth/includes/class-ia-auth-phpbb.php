@@ -22,6 +22,63 @@ final class IA_Auth_PHPBB {
     }
 
     /**
+     * List phpBB users for migration/bootstrapping.
+     *
+     * NOTE: This is used by the IA Auth admin UI "Scan & Preview" step.
+     * It must work before any identities are mapped, so it ONLY reads phpBB.
+     *
+     * Returns:
+     * - ['ok' => true,  'rows' => [ ... ]]
+     * - ['ok' => false, 'message' => '...']
+     */
+    public function list_users(array $cfg, int $limit = 200, int $offset = 0): array {
+        $host   = (string)($cfg['host'] ?? '');
+        $port   = (int)($cfg['port'] ?? 3306);
+        $db     = (string)($cfg['name'] ?? '');
+        $user   = (string)($cfg['user'] ?? '');
+        $pass   = (string)($cfg['pass'] ?? '');
+        $prefix = (string)($cfg['prefix'] ?? 'phpbb_');
+
+        if ($host === '' || $db === '' || $user === '' || $prefix === '') {
+            return ['ok' => false, 'message' => 'phpBB DB config missing.'];
+        }
+
+        $table_users = $prefix . 'users';
+        $limit  = max(1, min(1000, (int)$limit));
+        $offset = max(0, (int)$offset);
+
+        try {
+            $dsn = "mysql:host={$host};port={$port};dbname={$db};charset=utf8mb4";
+            $pdo = new PDO($dsn, $user, $pass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
+        } catch (Throwable $e) {
+            $this->log->error('phpbb_db_connect_failed', ['error' => $e->getMessage()]);
+            return ['ok' => false, 'message' => 'phpBB DB connect failed.'];
+        }
+
+        // Only pull fields we need for bootstrapping + preview.
+        $sql = "SELECT user_id, username, username_clean, user_email, user_type, group_id
+                FROM {$table_users}
+                ORDER BY user_id ASC
+                LIMIT :lim OFFSET :off";
+
+        try {
+            $st = $pdo->prepare($sql);
+            $st->bindValue(':lim', $limit, PDO::PARAM_INT);
+            $st->bindValue(':off', $offset, PDO::PARAM_INT);
+            $st->execute();
+            $rows = $st->fetchAll();
+        } catch (Throwable $e) {
+            $this->log->error('phpbb_user_list_failed', ['error' => $e->getMessage()]);
+            return ['ok' => false, 'message' => 'phpBB user list query failed.'];
+        }
+
+        return ['ok' => true, 'rows' => is_array($rows) ? $rows : []];
+    }
+
+    /**
      * Find a phpBB user row without verifying password.
      * Returns associative array row or null.
      */

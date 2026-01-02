@@ -123,6 +123,17 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
       $can_delete = ($viewer_can_moderate) ? 1 : 0;
       $can_ban    = ($viewer_can_moderate && $poster_id > 0 && $poster_id !== $viewer_phpbb_id) ? 1 : 0;
 
+      // Discuss-only: forum-level ban state (stored in WP table)
+      // Used to toggle the moderator icon between "block" and "reinstate".
+      $is_banned = 0;
+      if ($forum_id > 0 && $poster_id > 0) {
+        try {
+          $is_banned = $this->phpbb->discuss_is_user_banned($forum_id, $poster_id) ? 1 : 0;
+        } catch (\Throwable $e) {
+          $is_banned = 0;
+        }
+      }
+
       $posts[] = [
         'post_id'         => $post_id,
         'poster_id'       => $poster_id,
@@ -140,6 +151,9 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
         'can_edit'        => $can_edit,
         'can_delete'      => $can_delete,
         'can_ban'         => $can_ban,
+
+        // viewer-relative moderation state for this Agora
+        'is_banned'       => $is_banned,
 
         // needed for ban endpoint
         'forum_id'        => $forum_id,

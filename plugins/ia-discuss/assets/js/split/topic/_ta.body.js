@@ -1,12 +1,11 @@
-(function () {
   "use strict";
 
-  const U = window.IA_DISCUSS_TOPIC_UTILS || {};
-  const Modal = window.IA_DISCUSS_TOPIC_MODAL || {};
-  const qs = U.qs;
+  var U = window.IA_DISCUSS_TOPIC_UTILS || {};
+  var Modal = window.IA_DISCUSS_TOPIC_MODAL || {};
+  var qs = U.qs;
 
   function findComposerTextarea(scope) {
-    const root = scope || document;
+    var root = scope || document;
     return (
       qs('textarea[data-iad-bodytext]', root) ||
       qs('textarea[name="body"]', root) ||
@@ -18,9 +17,9 @@
 
   function extractQuoteTextFromPost(postEl) {
     if (!postEl) return "";
-    const bodyEl = qs(".iad-post-body", postEl);
+    var bodyEl = qs(".iad-post-body", postEl);
     if (!bodyEl) return "";
-    const t = String(bodyEl.innerText || "").trim();
+    var t = String(bodyEl.innerText || "").trim();
     if (t) return t;
     return String(bodyEl.textContent || "").trim();
   }
@@ -30,14 +29,14 @@
   }
 
   function copyToClipboard(text) {
-    const t = String(text || "");
+    var t = String(text || "");
     if (!t) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(t).catch(() => {});
       return;
     }
     try {
-      const ta = document.createElement("textarea");
+      var ta = document.createElement("textarea");
       ta.value = t;
       ta.style.position = "fixed";
       ta.style.left = "-9999px";
@@ -50,7 +49,7 @@
 
   function makePostUrl(topicId, postId) {
     try {
-      const u = new URL(window.location.href);
+      var u = new URL(window.location.href);
       u.searchParams.set("iad_topic", String(topicId));
       if (postId) u.searchParams.set("iad_post", String(postId));
       return u.toString();
@@ -61,7 +60,7 @@
 
   // Confirm modal from your current build
   function ensureConfirmModal() {
-    let wrap = document.querySelector("[data-iad-confirm-modal]");
+    var wrap = document.querySelector("[data-iad-confirm-modal]");
     if (wrap) return wrap;
 
     wrap = document.createElement("div");
@@ -98,7 +97,7 @@
     wrap.querySelector("[data-iad-confirm-close]")?.addEventListener("click", close);
     wrap.querySelector("[data-iad-confirm-cancel]")?.addEventListener("click", close);
     wrap.querySelector("[data-iad-confirm-ok]")?.addEventListener("click", () => {
-      const fn = wrap.__onok;
+      var fn = wrap.__onok;
       close();
       if (typeof fn === "function") fn();
     });
@@ -112,7 +111,7 @@
   }
 
   function confirmModal(title, text, onOk) {
-    const m = ensureConfirmModal();
+    var m = ensureConfirmModal();
     m.querySelector("[data-iad-confirm-title]").textContent = String(title || "Confirm");
     m.querySelector("[data-iad-confirm-text]").textContent = String(text || "");
     m.__onok = onOk;
@@ -126,7 +125,7 @@
     if (!Modal.openComposerModal || !Modal.getComposerMount) return;
 
     Modal.openComposerModal("Reply");
-    const modalMount = Modal.getComposerMount();
+    var modalMount = Modal.getComposerMount();
     if (!modalMount) return;
     modalMount.innerHTML = "";
 
@@ -144,7 +143,7 @@
     } catch (e2) {}
 
     setTimeout(() => {
-      const ta = findComposerTextarea(modalMount);
+      var ta = findComposerTextarea(modalMount);
       if (!ta) return;
       try { ta.focus(); } catch (e3) {}
     }, 0);
@@ -155,21 +154,20 @@
     mount.__iadTopicActionsBound = true;
 
     mount.addEventListener("click", (e) => {
-      const postReplyPill = e.target.closest("[data-iad-post-reply]");
-      const quoteBtn = e.target.closest("[data-iad-quote]");
-      const replyBtn = e.target.closest("[data-iad-reply]");
-      const copyBtn  = e.target.closest("[data-iad-copylink]");
-      const editBtn  = e.target.closest("[data-iad-edit]");
-      const delBtn   = e.target.closest("[data-iad-del]");
-      const kickBtn  = e.target.closest("[data-iad-kick]");
-      const unbanBtn = e.target.closest("[data-iad-unban]");
+      var postReplyPill = e.target.closest("[data-iad-post-reply]");
+      var quoteBtn = e.target.closest("[data-iad-quote]");
+      var replyBtn = e.target.closest("[data-iad-reply]");
+      var copyBtn  = e.target.closest("[data-iad-copylink]");
+      var editBtn  = e.target.closest("[data-iad-edit]");
+      var delBtn   = e.target.closest("[data-iad-del]");
+      var kickBtn  = e.target.closest("[data-iad-kick]");
 
-      if (!postReplyPill && !quoteBtn && !replyBtn && !copyBtn && !editBtn && !delBtn && !kickBtn && !unbanBtn) return;
+      if (!postReplyPill && !quoteBtn && !replyBtn && !copyBtn && !editBtn && !delBtn && !kickBtn) return;
 
       e.preventDefault();
       e.stopPropagation();
 
-      const API = window.IA_DISCUSS_API;
+      var API = window.IA_DISCUSS_API;
 
       // ✅ NEW: Top pill opens expanded composer modal
       if (postReplyPill) {
@@ -179,14 +177,14 @@
 
       // Copy link
       if (copyBtn) {
-        const pid = parseInt(copyBtn.getAttribute("data-post-id") || "0", 10) || 0;
+        var pid = parseInt(copyBtn.getAttribute("data-post-id") || "0", 10) || 0;
         copyToClipboard(makePostUrl(topicId, pid));
         return;
       }
 
       // Delete
       if (delBtn) {
-        const pid = parseInt(delBtn.getAttribute("data-iad-del") || "0", 10) || 0;
+        var pid = parseInt(delBtn.getAttribute("data-iad-del") || "0", 10) || 0;
         if (!pid) return;
 
         confirmModal("Delete post", "Delete this post?", () => {
@@ -194,7 +192,7 @@
 
           API.post("ia_discuss_delete_post", { post_id: pid }).then((res) => {
             if (!res || !res.success) {
-              const msg = (res && res.data && res.data.message) ? res.data.message : "Delete failed";
+              var msg = (res && res.data && res.data.message) ? res.data.message : "Delete failed";
               confirmModal("Delete failed", msg, null);
               return;
             }
@@ -208,9 +206,9 @@
 
       // Kick / ban user
       if (kickBtn) {
-        const userId  = parseInt(kickBtn.getAttribute("data-user-id") || "0", 10) || 0;
-        const forumId = parseInt(kickBtn.getAttribute("data-forum-id") || "0", 10) || 0;
-        const uname   = kickBtn.getAttribute("data-username") || "user";
+        var userId  = parseInt(kickBtn.getAttribute("data-user-id") || "0", 10) || 0;
+        var forumId = parseInt(kickBtn.getAttribute("data-forum-id") || "0", 10) || 0;
+        var uname   = kickBtn.getAttribute("data-username") || "user";
         if (!userId || !forumId) return;
 
         confirmModal("Block user", `Block ${uname} from posting in this Agora?`, () => {
@@ -218,56 +216,8 @@
 
           API.post("ia_discuss_ban_user", { forum_id: forumId, user_id: userId }).then((res) => {
             if (!res || !res.success) {
-              const msg = (res && res.data && res.data.message) ? res.data.message : "Block failed";
+              var msg = (res && res.data && res.data.message) ? res.data.message : "Block failed";
               confirmModal("Block failed", msg, null);
-              return;
-            }
-            if (window.IA_DISCUSS_UI_TOPIC && typeof window.IA_DISCUSS_UI_TOPIC.renderInto === "function") {
-              window.IA_DISCUSS_UI_TOPIC.renderInto(document, topicId, {});
-            }
-          });
-        });
-        return;
-      }
-
-      // Reinstate / unban user
-      if (unbanBtn) {
-        const userId  = parseInt(unbanBtn.getAttribute("data-user-id") || "0", 10) || 0;
-        const forumId = parseInt(unbanBtn.getAttribute("data-forum-id") || "0", 10) || 0;
-        const uname   = unbanBtn.getAttribute("data-username") || "user";
-        if (!userId || !forumId) return;
-
-        confirmModal("Reinstate user", `Allow ${uname} to post in this Agora again?`, () => {
-          if (!API || typeof API.post !== "function") return;
-
-          API.post("ia_discuss_unban_user", { forum_id: forumId, user_id: userId }).then((res) => {
-            if (!res || !res.success) {
-              const msg = (res && res.data && res.data.message) ? res.data.message : "Reinstate failed";
-              confirmModal("Reinstate failed", msg, null);
-              return;
-            }
-            if (window.IA_DISCUSS_UI_TOPIC && typeof window.IA_DISCUSS_UI_TOPIC.renderInto === "function") {
-              window.IA_DISCUSS_UI_TOPIC.renderInto(document, topicId, {});
-            }
-          });
-        });
-        return;
-      }
-
-      // Unban / reinstate user
-      if (unbanBtn) {
-        const userId  = parseInt(unbanBtn.getAttribute("data-user-id") || "0", 10) || 0;
-        const forumId = parseInt(unbanBtn.getAttribute("data-forum-id") || "0", 10) || 0;
-        const uname   = unbanBtn.getAttribute("data-username") || "user";
-        if (!userId || !forumId) return;
-
-        confirmModal("Reinstate user", `Allow ${uname} to post in this Agora again?`, () => {
-          if (!API || typeof API.post !== "function") return;
-
-          API.post("ia_discuss_unban_user", { forum_id: forumId, user_id: userId }).then((res) => {
-            if (!res || !res.success) {
-              const msg = (res && res.data && res.data.message) ? res.data.message : "Reinstate failed";
-              confirmModal("Reinstate failed", msg, null);
               return;
             }
             if (window.IA_DISCUSS_UI_TOPIC && typeof window.IA_DISCUSS_UI_TOPIC.renderInto === "function") {
@@ -280,18 +230,18 @@
 
       // Edit
       if (editBtn) {
-        const pid = parseInt(editBtn.getAttribute("data-iad-edit") || "0", 10) || 0;
+        var pid = parseInt(editBtn.getAttribute("data-iad-edit") || "0", 10) || 0;
         if (!pid) return;
 
         if (!Modal.openComposerModal || !Modal.getComposerMount) return;
 
         Modal.openComposerModal("Edit");
-        const modalMount = Modal.getComposerMount();
+        var modalMount = Modal.getComposerMount();
         if (!modalMount) return;
         modalMount.innerHTML = "";
 
-        const rawB64 = editBtn.getAttribute("data-iad-edit-raw") || "";
-        const prefill = decodeB64Utf8(rawB64);
+        var rawB64 = editBtn.getAttribute("data-iad-edit-raw") || "";
+        var prefill = decodeB64Utf8(rawB64);
 
         try {
           window.dispatchEvent(new CustomEvent("iad:mount_composer", {
@@ -309,7 +259,7 @@
         } catch (e2) {}
 
         setTimeout(() => {
-          const ta = findComposerTextarea(modalMount);
+          var ta = findComposerTextarea(modalMount);
           if (!ta) return;
           try { ta.focus(); } catch (e3) {}
         }, 0);
@@ -319,10 +269,10 @@
 
       // Quote / Reply icons
       if (quoteBtn) {
-        const author = quoteBtn.getAttribute("data-quote-author") || "";
-        const postEl = quoteBtn.closest(".iad-post");
-        const text = extractQuoteTextFromPost(postEl);
-        const quote = `[quote]${author ? author + " wrote:\n" : ""}${text}[/quote]\n\n`;
+        var author = quoteBtn.getAttribute("data-quote-author") || "";
+        var postEl = quoteBtn.closest(".iad-post");
+        var text = extractQuoteTextFromPost(postEl);
+        var quote = `[quote]${author ? author + " wrote:\n" : ""}${text}[/quote]\n\n`;
         openReplyModal(topicId, quote);
         return;
       }
@@ -335,4 +285,3 @@
   }
 
   window.IA_DISCUSS_TOPIC_ACTIONS = { bindTopicActions };
-})();

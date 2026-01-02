@@ -103,9 +103,19 @@ class IA_Auth_DB {
 
     /**
      * Create or reuse a WP shadow user for a phpBB user row.
-     * Returns WP user ID or 0.
+     *
+     * IMPORTANT (production semantics):
+     * - Match-first: if a WP user already exists for this person (email/username), LINK it.
+     * - Only create a new WP user if no match exists.
+     * - Do NOT introduce phpBB IDs/prefixes into user_login for collision handling.
+     *
+     * @param array $phpbb_user phpBB row.
+     * @param array $opt plugin options.
+     * @param ?bool $created_out set to true if we created a new WP user, false if reused.
+     *
+     * @return int WP user ID or 0.
      */
-    public function ensure_wp_shadow_user(array $phpbb_user, array $opt): int {
+    public function ensure_wp_shadow_user(array $phpbb_user, array $opt, ?bool &$created_out = null): int {
         $email          = (string)($phpbb_user['user_email'] ?? '');
         $username_clean = (string)($phpbb_user['username_clean'] ?? '');
         $username       = (string)($phpbb_user['username'] ?? '');
@@ -113,9 +123,14 @@ class IA_Auth_DB {
         $phpbb_user_id = (int)($phpbb_user['user_id'] ?? 0);
         if (!$phpbb_user_id) return 0;
 
-        // Try to find an existing shadow user by meta mapping.
+        $created = false;
+
+        // Try to find an existing user by meta mapping.
         $existing = $this->find_wp_user_by_phpbb_id($phpbb_user_id);
-        if ($existing) return (int)$existing;
+        if ($existing) {
+            if ($created_out !== null) $created_out = false;
+            return (int)$existing;
+        }
 
         // Otherwise try by email or username (depending on policy).
         $match_policy = (string)($opt['match_policy'] ?? 'email_then_username');
@@ -168,13 +183,20 @@ class IA_Auth_DB {
                 }
             }
 
+            // Email: only use if unique; otherwise use a deterministic placeholder.
+            $create_email = $email !== '' ? $email : '';
+            if ($create_email === '' || email_exists($create_email)) {
+                $create_email = 'phpbb+' . $phpbb_user_id . '@example.invalid';
+            }
+
             $pass = wp_generate_password(32, true, true); // never used for login; phpBB is authoritative
-            $new_id = wp_create_user($candidate, $pass, ($email !== '' ? $email : $candidate . '@example.invalid'));
+            $new_id = wp_create_user($candidate, $pass, $create_email);
             if (is_wp_error($new_id)) {
                 $this->log->error('shadow_user_create_failed', ['phpbb_user_id' => $phpbb_user_id, 'err' => $new_id->get_error_message()]);
                 return 0;
             }
             $wp_user_id = (int)$new_id;
+            $created = true;
 
             // Set role (default subscriber)
             $role = (string)($opt['wp_shadow_role'] ?? 'subscriber');
@@ -182,9 +204,13 @@ class IA_Auth_DB {
             if ($role !== '') $u->set_role($role);
         }
 
-        // Mark as shadow + map phpbb user id
-        update_user_meta($wp_user_id, 'ia_shadow_user', '1');
+        // Map phpbb user id. Only mark ia_shadow_user if we created the WP user here.
+        if ($created) {
+            update_user_meta($wp_user_id, 'ia_shadow_user', '1');
+        }
         update_user_meta($wp_user_id, 'ia_phpbb_user_id', (string)$phpbb_user_id);
+
+        if ($created_out !== null) $created_out = $created;
 
         return (int)$wp_user_id;
     }

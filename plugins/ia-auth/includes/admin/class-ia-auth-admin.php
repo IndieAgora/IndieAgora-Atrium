@@ -7,6 +7,7 @@ class IA_Auth_Admin {
 
     const OPT_PRIMARY_ADMIN        = 'ia_auth_primary_admin';
     const OPT_ADMIN_NAG_DISMISSED  = 'ia_auth_admin_nag_dismissed';
+    const OPT_LAST_SCAN            = 'ia_auth_last_scan';
 
     public function __construct($ia_auth) {
         $this->ia = $ia_auth;
@@ -20,6 +21,7 @@ class IA_Auth_Admin {
 
         add_action('admin_post_ia_auth_migration_scan', [$this, 'migration_scan']);
         add_action('admin_post_ia_auth_migration_apply', [$this, 'migration_apply']);
+        add_action('admin_post_ia_auth_cleanup_legacy_shadow_users', [$this, 'cleanup_legacy_shadow_users']);
     }
 
     public function menu() {
@@ -237,8 +239,86 @@ class IA_Auth_Admin {
         if (!current_user_can('manage_options')) wp_die('Forbidden');
         check_admin_referer('ia_auth_migration_scan');
 
-        // Placeholder: scan preview UI already exists; actual scan logic lives in DB/phpbb helper later.
-        wp_safe_redirect(admin_url('admin.php?page=ia-auth&tab=migration&scanned=1'));
+        // This must be allowed BEFORE a primary admin is defined.
+        // Reason: first-run bootstrap needs to scan phpBB to create shadow users
+        // so the admin can be selected from phpBB-linked users.
+
+        $cfg = [];
+        if (class_exists('IA_Auth') && method_exists('IA_Auth', 'engine_normalized')) {
+            $cfg = IA_Auth::engine_normalized();
+        }
+
+        $phpbb_cfg = (array)($cfg['phpbb'] ?? []);
+        $limit     = 200;
+        $offset    = 0;
+
+        $res = (isset($this->ia->phpbb) && method_exists($this->ia->phpbb, 'list_users'))
+            ? $this->ia->phpbb->list_users($phpbb_cfg, $limit, $offset)
+            : ['ok' => false, 'message' => 'phpBB helper missing.'];
+
+        if (empty($res['ok'])) {
+            $msg = sanitize_text_field((string)($res['message'] ?? 'Scan failed.'));
+            update_option(self::OPT_LAST_SCAN, [
+                'ts' => time(),
+                'ok' => 0,
+                'message' => $msg,
+                'created' => 0,
+                'seen' => 0,
+                'sample' => [],
+            ], false);
+            wp_safe_redirect(admin_url('admin.php?page=ia-auth&tab=migration&scanned=0&err=1'));
+            exit;
+        }
+
+        $rows = (array)($res['rows'] ?? []);
+        $seen = count($rows);
+        $created = 0;
+
+        // Create/ensure WP shadow users for phpBB accounts (no identity-map writes here).
+        // IMPORTANT: match-first semantics.
+        // If a matching WP user already exists (email/username), we LINK it (by writing ia_phpbb_user_id meta)
+        // and we DO NOT create a duplicate WP user.
+        // Only truly missing users are created.
+        $opt = $this->opts();
+
+        foreach ($rows as $r) {
+            $phpbb_uid = (int)($r['user_id'] ?? 0);
+            if ($phpbb_uid <= 0) continue;
+
+            // Skip bots.
+            $user_type = (int)($r['user_type'] ?? 0);
+            if ($user_type === 2) continue;
+
+            if (!isset($this->ia->db) || !method_exists($this->ia->db, 'ensure_wp_shadow_user')) {
+                continue;
+            }
+
+            $was_created = null;
+            $wp_id = (int)$this->ia->db->ensure_wp_shadow_user((array)$r, (array)$opt, $was_created);
+            if ($wp_id > 0 && $was_created === true) {
+                $created++;
+            }
+        }
+
+        // Store a short preview in options for the UI.
+        $sample = array_slice($rows, 0, 50);
+        update_option(self::OPT_LAST_SCAN, [
+            'ts' => time(),
+            'ok' => 1,
+            'message' => 'Scan complete.',
+            'created' => $created,
+            'seen' => $seen,
+            'sample' => $sample,
+        ], false);
+
+        if (isset($this->ia->db) && method_exists($this->ia->db, 'audit')) {
+            $this->ia->db->audit('migration_scan', null, [
+                'seen' => $seen,
+                'created_shadow_users' => $created,
+            ]);
+        }
+
+        wp_safe_redirect(admin_url('admin.php?page=ia-auth&tab=migration&scanned=1&created=' . (int)$created));
         exit;
     }
 
@@ -246,8 +326,155 @@ class IA_Auth_Admin {
         if (!current_user_can('manage_options')) wp_die('Forbidden');
         check_admin_referer('ia_auth_migration_apply');
 
-        // Placeholder: batch apply wiring later (dry-run first).
-        wp_safe_redirect(admin_url('admin.php?page=ia-auth&tab=migration&applied=1'));
+        $dry = !empty($_POST['dry_run']);
+
+        $cfg = [];
+        if (class_exists('IA_Auth') && method_exists('IA_Auth', 'engine_normalized')) {
+            $cfg = IA_Auth::engine_normalized();
+        }
+        $phpbb_cfg = (array)($cfg['phpbb'] ?? []);
+
+        $limit  = 200;
+        $offset = 0;
+
+        $res = (isset($this->ia->phpbb) && method_exists($this->ia->phpbb, 'list_users'))
+            ? $this->ia->phpbb->list_users($phpbb_cfg, $limit, $offset)
+            : ['ok' => false, 'message' => 'phpBB helper missing.'];
+
+        if (empty($res['ok'])) {
+            $msg = sanitize_text_field((string)($res['message'] ?? 'Apply failed.'));
+            update_option(self::OPT_LAST_SCAN, [
+                'ts' => time(),
+                'ok' => 0,
+                'message' => $msg,
+                'created' => 0,
+                'seen' => 0,
+                'sample' => [],
+                'applied' => 0,
+                'dry' => $dry ? 1 : 0,
+            ], false);
+            wp_safe_redirect(admin_url('admin.php?page=ia-auth&tab=migration&applied=0&err=1'));
+            exit;
+        }
+
+        if (!isset($this->ia->db) || !method_exists($this->ia->db, 'upsert_identity')) {
+            update_option(self::OPT_LAST_SCAN, [
+                'ts' => time(),
+                'ok' => 0,
+                'message' => 'DB helper missing.',
+                'created' => 0,
+                'seen' => 0,
+                'sample' => [],
+                'applied' => 0,
+                'dry' => $dry ? 1 : 0,
+            ], false);
+            wp_safe_redirect(admin_url('admin.php?page=ia-auth&tab=migration&applied=0&err=1'));
+            exit;
+        }
+
+        $rows = (array)($res['rows'] ?? []);
+        $seen = count($rows);
+        $applied = 0;
+
+        $opt = $this->opts();
+
+        foreach ($rows as $r) {
+            $phpbb_uid = (int)($r['user_id'] ?? 0);
+            if ($phpbb_uid <= 0) continue;
+
+            $user_type = (int)($r['user_type'] ?? 0);
+            if ($user_type === 2) continue; // bots
+
+            $wp_user_id = 0;
+            if (method_exists($this->ia->db, 'ensure_wp_shadow_user')) {
+                $wp_user_id = (int)$this->ia->db->ensure_wp_shadow_user($r, $opt);
+            }
+
+            if ($dry) {
+                $applied++;
+                continue;
+            }
+
+            $ok = $this->ia->db->upsert_identity([
+                'phpbb_user_id'        => $phpbb_uid,
+                'phpbb_username_clean' => (string)($r['username_clean'] ?? ''),
+                'email'                => (string)($r['user_email'] ?? ''),
+                'wp_user_id'           => $wp_user_id > 0 ? $wp_user_id : null,
+                'status'               => $wp_user_id > 0 ? 'linked' : 'partial',
+                'last_error'           => '',
+            ]);
+
+            if ($ok) $applied++;
+        }
+
+        // Update last scan summary (keep the previous sample if present)
+        $prev = get_option(self::OPT_LAST_SCAN, []);
+        if (!is_array($prev)) $prev = [];
+
+        $prev['ts'] = time();
+        $prev['ok'] = 1;
+        $prev['message'] = $dry ? 'Dry-run complete (no data written).' : 'Apply complete.';
+        $prev['seen'] = $seen;
+        $prev['applied'] = $applied;
+        $prev['dry'] = $dry ? 1 : 0;
+        update_option(self::OPT_LAST_SCAN, $prev, false);
+
+        if (isset($this->ia->db) && method_exists($this->ia->db, 'audit')) {
+            $this->ia->db->audit('migration_apply', null, [
+                'seen' => $seen,
+                'applied' => $applied,
+                'dry_run' => $dry ? 1 : 0,
+            ]);
+        }
+
+        wp_safe_redirect(admin_url('admin.php?page=ia-auth&tab=migration&applied=1&dry=' . ($dry ? '1' : '0') . '&count=' . (int)$applied));
+        exit;
+    }
+
+    /**
+     * Cleanup legacy shadow users created by the earlier bootstrap implementation.
+     *
+     * Targets ONLY users whose login begins with "phpbb_" AND who carry ia_shadow_user=1.
+     * This avoids touching real/handmade WP users.
+     */
+    public function cleanup_legacy_shadow_users() {
+        if (!current_user_can('manage_options')) wp_die('Forbidden');
+        check_admin_referer('ia_auth_cleanup_legacy_shadow_users');
+
+        require_once ABSPATH . 'wp-admin/includes/user.php';
+
+        $q = new WP_User_Query([
+            'number' => 5000,
+            'fields' => 'ids',
+            'meta_key' => 'ia_shadow_user',
+            'meta_value' => '1',
+        ]);
+
+        $ids = (array)$q->get_results();
+        $deleted = 0;
+
+        foreach ($ids as $id) {
+            $id = (int)$id;
+            if ($id <= 0) continue;
+            $u = get_user_by('id', $id);
+            if (!$u || !$u->exists()) continue;
+            if (strpos($u->user_login, 'phpbb_') !== 0) continue;
+            // Extra guard: never delete the current user.
+            if (get_current_user_id() === $id) continue;
+            wp_delete_user($id);
+            $deleted++;
+        }
+
+        // Clear last scan preview so the UI doesn't point at removed accounts.
+        delete_option(self::OPT_LAST_SCAN);
+
+        if (isset($this->ia->db) && method_exists($this->ia->db, 'audit')) {
+            $this->ia->db->audit('cleanup_legacy_shadow_users', null, [
+                'deleted' => $deleted,
+            ]);
+        }
+
+        wp_safe_redirect(admin_url('admin.php?page=ia-auth&tab=migration&cleaned=1&deleted=' . (int)$deleted));
         exit;
     }
 
@@ -371,6 +598,14 @@ class IA_Auth_Admin {
         }
 
         $candidates = $this->candidate_shadow_users(300);
+
+        if (empty($candidates)) {
+            echo '<div class="notice notice-warning inline" style="padding:12px 14px;margin:12px 0;">';
+            echo '<strong>No phpBB-linked shadow users found yet.</strong> ';
+            echo 'Run <a href="' . esc_url(admin_url('admin.php?page=ia-auth&tab=migration')) . '">Migration tools → Scan &amp; Preview</a> first to pull phpBB users and create shadow users. ';
+            echo 'Once scanned, come back here to select the admin.';
+            echo '</div>';
+        }
 
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="max-width:900px">';
         echo '<input type="hidden" name="action" value="ia_auth_define_admin">';
@@ -509,11 +744,77 @@ class IA_Auth_Admin {
         echo '<h2>Migration tools</h2>';
         echo '<p>Scan phpBB users and apply changes in batches.</p>';
 
+        $last = get_option(self::OPT_LAST_SCAN, []);
+        if (is_array($last) && !empty($last)) {
+            $ts = !empty($last['ts']) ? (int)$last['ts'] : 0;
+            $when = $ts ? date_i18n('Y-m-d H:i:s', $ts) : '';
+            $ok = !empty($last['ok']);
+            $msg = (string)($last['message'] ?? '');
+            echo '<div class="notice ' . ($ok ? 'notice-success' : 'notice-error') . '" style="padding:10px 12px;margin-top:12px;">';
+            echo '<p style="margin:0"><strong>Last run:</strong> ' . esc_html($when) . ' — ' . esc_html($msg) . '</p>';
+            if (isset($last['seen']))   echo '<p style="margin:6px 0 0 0">phpBB users seen: <strong>' . (int)$last['seen'] . '</strong></p>';
+            if (isset($last['created'])) echo '<p style="margin:6px 0 0 0">WP shadow users created: <strong>' . (int)$last['created'] . '</strong></p>';
+            if (isset($last['applied'])) echo '<p style="margin:6px 0 0 0">Identity rows ' . (!empty($last['dry']) ? 'would be written (dry run)' : 'written') . ': <strong>' . (int)$last['applied'] . '</strong></p>';
+            echo '</div>';
+
+            if (!empty($last['sample']) && is_array($last['sample'])) {
+                echo '<h3 style="margin-top:18px;">Preview sample (first ' . count($last['sample']) . ')</h3>';
+                echo '<table class="widefat striped" style="max-width:1100px">';
+                echo '<thead><tr><th>phpBB ID</th><th>Username</th><th>Email</th><th>Shadow WP user</th></tr></thead><tbody>';
+                foreach ($last['sample'] as $r) {
+                    $pid = (int)($r['user_id'] ?? 0);
+                    $uname = (string)($r['username'] ?? '');
+                    $email = (string)($r['user_email'] ?? '');
+                    $shadow = '';
+                    if ($pid > 0) {
+                        $ids = get_users([
+                            'number' => 1,
+                            'fields' => 'ids',
+                            'meta_key' => 'ia_phpbb_user_id',
+                            'meta_value' => $pid,
+                        ]);
+                        if (!empty($ids)) {
+                            $u = get_user_by('id', (int)$ids[0]);
+                            if ($u && $u->exists()) $shadow = $u->user_login . ' (WP ' . (int)$u->ID . ')';
+                        }
+                    }
+
+                    echo '<tr>';
+                    echo '<td>' . (int)$pid . '</td>';
+                    echo '<td>' . esc_html($uname) . '</td>';
+                    echo '<td>' . esc_html($email) . '</td>';
+                    echo '<td>' . esc_html($shadow) . '</td>';
+                    echo '</tr>';
+                }
+                echo '</tbody></table>';
+            }
+        }
+
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="margin-top:10px;">';
         echo '<input type="hidden" name="action" value="ia_auth_migration_scan">';
         wp_nonce_field('ia_auth_migration_scan');
         echo '<button class="button button-primary" type="submit">Scan &amp; Preview</button>';
         echo '</form>';
+
+        // Legacy cleanup (only shows if there are users that match the legacy prefix)
+        $legacy = new WP_User_Query([
+            'number' => 1,
+            'fields' => 'ids',
+            'meta_key' => 'ia_shadow_user',
+            'meta_value' => '1',
+            'search' => 'phpbb_',
+            'search_columns' => ['user_login'],
+        ]);
+        if (!empty((array)$legacy->get_results())) {
+            echo '<hr style="margin:18px 0;">';
+            echo '<h3>Cleanup legacy shadow users</h3>';
+            echo '<p style="max-width:900px;color:#555">If you previously ran a bootstrap build that created WP users with a <code>phpbb_*</code> prefix, you can remove them safely here. This does not touch real WP accounts.</p>';
+            echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" onsubmit="return confirm(\'Delete legacy phpbb_* shadow users? This cannot be undone.\');">';
+            echo '<input type="hidden" name="action" value="ia_auth_cleanup_legacy_shadow_users">';
+            wp_nonce_field('ia_auth_cleanup_legacy_shadow_users');
+            echo '<button class="button" type="submit">Delete legacy phpbb_* shadow users</button>';
+            echo '</form>';
+        }
 
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="margin-top:10px;">';
         echo '<input type="hidden" name="action" value="ia_auth_migration_apply">';
@@ -521,6 +822,11 @@ class IA_Auth_Admin {
         echo '<label style="margin-right:10px;"><input type="checkbox" name="dry_run" value="1" checked> Dry run only</label>';
         echo '<button class="button button-primary" type="submit">Apply in batches</button>';
         echo '</form>';
+
+        echo '<p style="margin-top:14px;color:#555;max-width:900px">';
+        echo 'Bootstrap note: you can run <strong>Scan &amp; Preview</strong> before defining the IA Auth admin. '; 
+        echo 'Scan creates WP shadow users for phpBB accounts so the <em>Define Admin</em> dropdown can be populated.';
+        echo '</p>';
     }
 
     private function render_security() {

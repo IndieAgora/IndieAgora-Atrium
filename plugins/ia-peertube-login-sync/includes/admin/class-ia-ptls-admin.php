@@ -42,6 +42,8 @@ final class IA_PTLS_Admin {
 
         $auto_apply = (get_option('ia_ptls_auto_apply', '0') === '1');
 
+        $require_verified = (get_option('ia_ptls_require_verified', '0') === '1');
+
         $batch_size = (int)get_option('ia_ptls_batch_size', 50);
         if ($batch_size < 1) $batch_size = 1;
         if ($batch_size > 500) $batch_size = 500;
@@ -70,6 +72,15 @@ final class IA_PTLS_Admin {
                         <li><strong>Total PeerTube users:</strong> <?php echo esc_html((string)($counts['total'] ?? '—')); ?></li>
                         <li><strong>Mapped:</strong> <?php echo esc_html((string)($counts['mapped'] ?? '—')); ?></li>
                         <li><strong>Unmapped:</strong> <?php echo esc_html((string)($counts['unmapped'] ?? '—')); ?></li>
+                        <?php if (isset($counts['missing_email'])): ?>
+                            <li><strong>Missing email:</strong> <?php echo esc_html((string)$counts['missing_email']); ?></li>
+                        <?php endif; ?>
+                        <?php if (isset($counts['unverified'])): ?>
+                            <li><strong>Unverified email:</strong> <?php echo esc_html((string)$counts['unverified']); ?></li>
+                        <?php endif; ?>
+                        <?php if (isset($counts['blocked'])): ?>
+                            <li><strong>Blocked:</strong> <?php echo esc_html((string)$counts['blocked']); ?></li>
+                        <?php endif; ?>
                     </ul>
 
                     <?php if (!empty($last['message'])): ?>
@@ -104,6 +115,13 @@ final class IA_PTLS_Admin {
                             <label>
                                 <input type="checkbox" name="auto_apply" value="1" <?php checked($auto_apply); ?>>
                                 Automatically map new PeerTube users (so they can log in)
+                            </label>
+                        </p>
+
+                        <p>
+                            <label>
+                                <input type="checkbox" name="require_verified" value="1" <?php checked($require_verified); ?>>
+                                Require email verified (skip unverified PeerTube accounts)
                             </label>
                         </p>
 
@@ -170,6 +188,8 @@ final class IA_PTLS_Admin {
 
         $auto_apply = !empty($_POST['auto_apply']);
 
+        $require_verified = !empty($_POST['require_verified']);
+
         $batch = (int)($_POST['batch_size'] ?? 50);
         if ($batch < 1) $batch = 1;
         if ($batch > 500) $batch = 500;
@@ -177,6 +197,7 @@ final class IA_PTLS_Admin {
         update_option('ia_ptls_enable_cron', $enable ? '1' : '0', false);
         update_option('ia_ptls_cron_minutes', (string)$minutes, false);
         update_option('ia_ptls_auto_apply', $auto_apply ? '1' : '0', false);
+        update_option('ia_ptls_require_verified', $require_verified ? '1' : '0', false);
         update_option('ia_ptls_batch_size', (string)$batch, false);
 
         // Reschedule according to new settings
@@ -236,8 +257,9 @@ final class IA_PTLS_Admin {
             // Optional safety: skip blocked
             if (!empty($r['blocked'])) continue;
 
-            // Optional safety: require email verified
-            if (isset($r['emailVerified']) && (int)$r['emailVerified'] !== 1) continue;
+            // Optional safety: require email verified (toggle in settings)
+            $require_verified = (get_option('ia_ptls_require_verified', '0') === '1');
+            if ($require_verified && isset($r['emailVerified']) && (int)$r['emailVerified'] !== 1) continue;
 
             $phpbb = IA_PTLS::instance()->phpbb_find_or_create_user($pt_username, $pt_email);
             if (!empty($phpbb['ok'])) {

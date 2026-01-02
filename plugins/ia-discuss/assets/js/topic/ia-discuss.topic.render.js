@@ -43,7 +43,8 @@
     link:  `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M10 13a5 5 0 0 1 0-7l1.5-1.5a5 5 0 0 1 7 7L17 13" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 11a5 5 0 0 1 0 7L12.5 19.5a5 5 0 0 1-7-7L7 11" fill="none" stroke="currentColor" stroke-width="2"/></svg>`,
     edit:  `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M3 17.25V21h3.75L17.8 9.95l-3.75-3.75L3 17.25z" fill="currentColor"/><path d="M20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>`,
     del:   `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M6 7h12l-1 14H7L6 7zm3-3h6l1 2H8l1-2z" fill="currentColor"/></svg>`,
-    kick:  `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-8 2-8 6h2c0-3 3-4 6-4s6 1 6 4h2c0-4-4-6-8-6z" fill="currentColor"/><path d="M19 8h4v2h-4z" fill="currentColor"/></svg>`
+    kick:  `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-8 2-8 6h2c0-3 3-4 6-4s6 1 6 4h2c0-4-4-6-8-6z" fill="currentColor"/><path d="M19 8h4v2h-4z" fill="currentColor"/></svg>`,
+    add:   `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-8 2-8 6h2c0-3 3-4 6-4s6 1 6 4h2c0-4-4-6-8-6z" fill="currentColor"/><path d="M19 7h2v4h4v2h-4v4h-2v-4h-4v-2h4z" fill="currentColor"/></svg>`
   };
 
   function renderPostHTML(p, index, baseIndex) {
@@ -73,6 +74,7 @@
     const canEdit = String(p.can_edit || 0) === "1";
     const canDelete = String(p.can_delete || 0) === "1";
     const canBan = String(p.can_ban || 0) === "1";
+    const isBanned = String(p.is_banned || 0) === "1";
 
     const rawB64 = b64utf8(p.raw_text || "");
     const forumId = parseInt(p.forum_id || "0", 10) || 0;
@@ -84,7 +86,16 @@
             ${author}
           </button>
 
-          ${canBan ? `
+          ${canBan ? (isBanned ? `
+            <button type="button" class="iad-iconbtn iad-iconbtn-mini"
+              data-iad-unban
+              data-user-id="${esc(String(posterId || 0))}"
+              data-forum-id="${esc(String(forumId || 0))}"
+              data-username="${esc(p.poster_username || p.username || "")}"
+              title="Reinstate user in this Agora">
+              ${I.add}
+            </button>
+          ` : `
             <button type="button" class="iad-iconbtn iad-iconbtn-mini"
               data-iad-kick
               data-user-id="${esc(String(posterId || 0))}"
@@ -93,7 +104,7 @@
               title="Block user from this Agora">
               ${I.kick}
             </button>
-          ` : ``}
+          `) : ``}
 
           ${adminBadge}${modBadge}
           <span class="iad-dotsep">•</span>

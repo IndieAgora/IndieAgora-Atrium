@@ -66,39 +66,126 @@
         window.IA_DISCUSS_UI_SHELL.setActiveTab("agoras");
         setParam("iad_topic", "");
 
-        mountEl.innerHTML = `<div class="iad-loading">Loading…</div>`;
+                mountEl.innerHTML = `<div class="iad-loading">Loading…</div>`;
 
-        window.IA_DISCUSS_API.post("ia_discuss_agoras", { offset: 0, q: "" }).then((res) => {
+        const CORE = window.IA_DISCUSS_CORE || {};
+        const esc = CORE.esc || function (s) { return String(s || ""); };
+
+        let agOffset = 0;
+        let agHasMore = true;
+        let agLoading = false;
+
+        function agRowHTML(f) {
+          const fid = parseInt(f.forum_id || "0", 10) || 0;
+          const name = String(f.forum_name || "");
+
+          // Prefer pre-sanitised HTML from the API; fall back to plain text.
+          const descHtml = (f.forum_desc_html !== undefined && f.forum_desc_html !== null) ? String(f.forum_desc_html) : "";
+          const descText = (f.forum_desc !== undefined && f.forum_desc !== null) ? String(f.forum_desc) : "";
+
+          const topics = parseInt(String(
+            (f.topics !== undefined && f.topics !== null) ? f.topics :
+            ((f.topics_count !== undefined && f.topics_count !== null) ? f.topics_count :
+            ((f.forum_topics !== undefined && f.forum_topics !== null) ? f.forum_topics : 0))
+          ), 10) || 0;
+
+          const posts = parseInt(String(
+            (f.posts !== undefined && f.posts !== null) ? f.posts :
+            ((f.posts_count !== undefined && f.posts_count !== null) ? f.posts_count :
+            ((f.forum_posts !== undefined && f.forum_posts !== null) ? f.forum_posts : 0))
+          ), 10) || 0;
+
+          // NOTE: descHtml is already sanitised server-side; do not escape it again.
+          const descBlock = descHtml
+            ? `<div class="iad-agora-row__desc">${descHtml}</div>`
+            : (descText ? `<div class="iad-agora-row__desc">${esc(descText)}</div>` : ``);
+
+          return `
+            <button
+              type="button"
+              class="iad-agora-row"
+              data-forum-id="${fid}"
+              data-forum-name="${esc(name)}"
+            >
+              <div class="iad-agora-row__name">${esc(name)}</div>
+              ${descBlock}
+              <div class="iad-agora-row__meta">${topics} topics • ${posts} posts</div>
+            </button>
+          `;
+        }
+
+        function renderShell() {
+          mountEl.innerHTML = `
+            <div class="iad-agoras">
+              <div class="iad-agoras-list"></div>
+              <div class="iad-agoras-more"></div>
+            </div>
+          `;
+        }
+
+        function renderMoreButton() {
+          const wrap = mountEl.querySelector(".iad-agoras-more");
+          if (!wrap) return;
+          if (!agHasMore) { wrap.innerHTML = ""; return; }
+          wrap.innerHTML = `<button type="button" class="iad-more" data-iad-agoras-more>Load more</button>`;
+        }
+
+        async function loadAgorasNext() {
+          if (agLoading) return;
+          agLoading = true;
+
+          const moreBtn = mountEl.querySelector("[data-iad-agoras-more]");
+          if (moreBtn) { moreBtn.disabled = true; moreBtn.textContent = "Loading…"; }
+
+          const res = await window.IA_DISCUSS_API.post("ia_discuss_agoras", { offset: agOffset, q: "" });
           if (!res || !res.success) {
-            mountEl.innerHTML = `<div class="iad-empty">Failed to load agoras.</div>`;
+            agLoading = false;
+            if (moreBtn) { moreBtn.disabled = false; moreBtn.textContent = "Load more"; }
+            if (!mountEl.querySelector(".iad-agoras-list")) mountEl.innerHTML = `<div class="iad-empty">Failed to load agoras.</div>`;
             return;
           }
 
-          const items = (res.data && res.data.items) ? res.data.items : [];
+          const d = res.data || {};
+          const items = Array.isArray(d.items) ? d.items : [];
 
-          mountEl.innerHTML = `
-            <div class="iad-agoras">
-              ${items.map((f) => `
-                <button
-                  type="button"
-                  class="iad-agora-row"
-                  data-forum-id="${f.forum_id}"
-                  data-forum-name="${(f.forum_name || "")}">
-                  <div class="iad-agora-row-name">agora/${(f.forum_name || "")}</div>
-                  <div class="iad-agora-row-sub">${(f.topics || 0)} topics • ${(f.posts || 0)} posts</div>
-                </button>
-              `).join("")}
-            </div>
-          `;
+          if (!mountEl.querySelector(".iad-agoras-list")) renderShell();
 
-          mountEl.querySelectorAll("[data-forum-id]").forEach((b) => {
-            b.addEventListener("click", () => {
-              const id = parseInt(b.getAttribute("data-forum-id") || "0", 10);
-              const nm = b.getAttribute("data-forum-name") || "";
-              render("agora", id, nm);
-            });
-          });
-        });
+          const list = mountEl.querySelector(".iad-agoras-list");
+          if (list) {
+            list.insertAdjacentHTML("beforeend", items.map(agRowHTML).join(""));
+            if (!list.children.length) list.innerHTML = `<div class="iad-empty">No agoras.</div>`;
+          }
+
+          agHasMore = !!d.has_more || (items.length === 50);
+          agOffset = (typeof d.next_offset === "number") ? d.next_offset : (agOffset + items.length);
+
+          renderMoreButton();
+          agLoading = false;
+        }
+
+        mountEl.onclick = function (e) {
+          const t = e.target;
+
+          const more = t.closest && t.closest("[data-iad-agoras-more]");
+          if (more) {
+            e.preventDefault();
+            e.stopPropagation();
+            loadAgorasNext();
+            return;
+          }
+
+          const row = t.closest && t.closest("[data-forum-id]");
+          if (row) {
+            e.preventDefault();
+            e.stopPropagation();
+            const id = parseInt(row.getAttribute("data-forum-id") || "0", 10);
+            const nm = row.getAttribute("data-forum-name") || "";
+            render("agora", id, nm);
+          }
+        };
+
+        renderShell();
+        loadAgorasNext();
 
         return;
       }
@@ -171,9 +258,13 @@
       const scrollPostId = d.scroll_post_id ? parseInt(d.scroll_post_id, 10) : 0;
       const highlight = d.highlight_new ? 1 : 0;
 
+      // Allow callers (e.g. feed reply icon) to request opening the reply composer.
+      const openReply = d.open_reply ? 1 : 0;
+
       openTopicPage(tid, {
         scroll_post_id: scrollPostId || 0,
-        highlight_new: highlight ? 1 : 0
+        highlight_new: highlight ? 1 : 0,
+        open_reply: openReply ? 1 : 0
       });
     });
 
@@ -261,6 +352,40 @@
               }
               window.dispatchEvent(new CustomEvent("iad:close_composer_modal"));
               openTopicPage(d.topic_id, {});
+            });
+            return;
+          }
+
+          // Topic (new thread) flow
+          if (payload.mode === "topic") {
+            const forumId = parseInt(d.forum_id || "0", 10) || 0;
+            const title = (payload.title || "").trim();
+            if (!forumId) { ui.setError("Missing forum_id"); return; }
+            if (!title) { ui.setError("Title required"); return; }
+            if (!body.trim()) { ui.setError("Body required"); return; }
+
+            window.IA_DISCUSS_API.post("ia_discuss_new_topic", {
+              forum_id: forumId,
+              title,
+              body
+            }).then((res) => {
+              if (!res || !res.success) {
+                ui.setError((res && res.data && res.data.message) ? res.data.message : "New topic failed");
+                return;
+              }
+
+              const topicId = res.data && res.data.topic_id ? parseInt(res.data.topic_id, 10) : 0;
+              ui.clear();
+
+              // After creating, open the topic view.
+              if (topicId) {
+                openTopicPage(topicId, {});
+              } else {
+                // Fallback: return to current forum feed.
+                window.dispatchEvent(new CustomEvent("iad:render_feed", {
+                  detail: { view: "new", forum_id: forumId }
+                }));
+              }
             });
             return;
           }

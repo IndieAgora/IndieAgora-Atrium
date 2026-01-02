@@ -81,10 +81,21 @@
           const cm = qs("[data-iad-topic-composer]", mount);
           if (cm) {
             window.dispatchEvent(new CustomEvent("iad:mount_composer", {
-              detail: { mount: cm, mode: "reply", topic_id: topicId }
+              detail: { mount: cm, mode: "reply", topic_id: topicId, start_open: !!opts.open_reply }
             }));
           }
         } catch (e2) {}
+
+        // If requested (e.g. feed reply icon), bring the composer into view.
+        try {
+          if (opts.open_reply) {
+            setTimeout(() => {
+              const el = qs("[data-iad-topic-composer]", mount);
+              if (!el) return;
+              try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e4) {}
+            }, 80);
+          }
+        } catch (e4) {}
 
         // After a new reply submit, router can request a scroll + temporary highlight.
         try {

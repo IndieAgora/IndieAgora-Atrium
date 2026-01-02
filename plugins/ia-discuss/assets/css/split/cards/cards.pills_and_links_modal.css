@@ -1,0 +1,90 @@
+
+.iad-vthumb-fallback{
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 25% 25%, rgba(255,69,0,0.25), transparent 55%),
+    radial-gradient(circle at 80% 20%, rgba(71,179,255,0.18), transparent 55%),
+    linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.55));
+}
+
+.iad-vthumb-overlay{
+  position:absolute;
+  inset: 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0.25), rgba(0,0,0,0.55));
+}
+
+.iad-vthumb-play{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.35);
+  color: rgba(255,255,255,0.92);
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Links pill row */
+.iad-mediastrip{
+  display:flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+/* Pills */
+.iad-pill{
+  appearance:none;
+  border: 1px solid rgba(255,69,0,0.30);
+  background: rgba(255,69,0,0.10);
+  color: rgba(255,255,255,0.90);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor:pointer;
+  font-size: var(--iad-fs-12);
+  line-height: var(--iad-lh-ui);
+  font-family: var(--iad-font-sans);
+}
+.iad-pill:hover{
+  background: rgba(255,69,0,0.16);
+  border-color: rgba(255,69,0,0.42);
+}
+.iad-pill.is-muted{
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+}
+
+/* Stack cleanly on narrow screens */
+@media (max-width: 560px){
+  .iad-media-row{ flex-direction: column; }
+  .iad-vthumb.is-compact{ width: 100%; max-width: 100%; }
+}
+
+/* -----------------------------
+   Links modal (unchanged)
+----------------------------- */
+.iad-linksmodal[hidden]{ display:none; }
+
+.iad-linksmodal{
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  font-family: var(--iad-font-sans);
+}
+
+.iad-linksmodal-backdrop{
+  position:absolute;
+  inset:0;
+  background: rgba(0,0,0,0.62);
+}
+
+.iad-linksmodal-sheet{
+  position:absolute;
+  left: 50%;

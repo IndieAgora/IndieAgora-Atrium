@@ -60,11 +60,20 @@ final class IA_Discuss_Render_BBCode {
     $s = preg_replace('~</?(r|t|s|e|l|i|b|u|quote|code|img|url)[^>]*>~i', '', $s);
     // Also strip any leftover <br /> variants that came through as text-y wrappers
     $s = str_replace(["\xC2\xA0"], ' ', $s);
+
+    // Some stored content contains brace-style remnants like {size} or {colour}.
+    // We strip the tags only, keeping the inner text.
+    $s = preg_replace('~\{\/?\s*(size|colour|color)\b[^}]*\}~i', '', $s);
     return (string)$s;
   }
 
   private function bbcode_to_html(string $s): string {
     $s = html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    // Strip style-only tags we don't render (avoid raw BBCode showing).
+    // We intentionally drop styling in Discuss while preserving content.
+    // [size=...][/size] / [color=...][/color] / [colour=...][/colour]
+    $s = preg_replace('~\[(size|color|colour)(?:=[^\]]+)?\](.*?)\[/\1\]~is', '$2', $s);
 
     // [url=]
     $s = preg_replace_callback('~\[url=(.+?)\](.*?)\[/url\]~is', function($m){

@@ -1,21 +1,20 @@
-(function () {
   "use strict";
-  const CORE = window.IA_DISCUSS_CORE || {};
-  const esc = CORE.esc || function (s) {
+  var CORE = window.IA_DISCUSS_CORE || {};
+  var esc = CORE.esc || function (s) {
     return String(s || "").replace(/[&<>"']/g, (c) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
     }[c]));
   };
-  const timeAgo = CORE.timeAgo || function () { return ""; };
+  var timeAgo = CORE.timeAgo || function () { return ""; };
 
-  const API = window.IA_DISCUSS_API;
-  const STATE = window.IA_DISCUSS_STATE;
+  var API = window.IA_DISCUSS_API;
+  var STATE = window.IA_DISCUSS_STATE;
 
   function currentUserId() {
     // If your localized IA_DISCUSS includes userId later, we’ll pick it up.
     // Otherwise edit buttons just won’t show.
     try {
-      const v = (window.IA_DISCUSS && (IA_DISCUSS.userId || IA_DISCUSS.user_id || IA_DISCUSS.wpUserId)) || 0;
+      var v = (window.IA_DISCUSS && (IA_DISCUSS.userId || IA_DISCUSS.user_id || IA_DISCUSS.wpUserId)) || 0;
       return parseInt(v, 10) || 0;
     } catch (e) {
       return 0;
@@ -24,17 +23,16 @@
 
   function makeTopicUrl(topicId) {
     try {
-      const u = new URL(window.location.href);
+      var u = new URL(window.location.href);
       u.searchParams.set("iad_topic", String(topicId));
       return u.toString();
     } catch (e) {
-      const base = String(window.location.origin || "") + String(window.location.pathname || "");
-      return base + "?iad_topic=" + encodeURIComponent(String(topicId || ""));
+      return window.location.href;
     }
   }
 
   async function copyToClipboard(text) {
-    const t = String(text || "");
+    var t = String(text || "");
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(t);
@@ -42,7 +40,7 @@
       }
     } catch (e) {}
     try {
-      const ta = document.createElement("textarea");
+      var ta = document.createElement("textarea");
       ta.value = t;
       ta.setAttribute("readonly", "");
       ta.style.position = "fixed";
@@ -57,9 +55,9 @@
   }
 
   function openConnectProfile(payload) {
-    const p = payload || {};
-    const username = (p.username || "").trim();
-    const user_id = parseInt(p.user_id || "0", 10) || 0;
+    var p = payload || {};
+    var username = (p.username || "").trim();
+    var user_id = parseInt(p.user_id || "0", 10) || 0;
 
     try {
       localStorage.setItem("ia_connect_last_profile", JSON.stringify({
@@ -73,7 +71,7 @@
       window.dispatchEvent(new CustomEvent("ia:open_profile", { detail: { username, user_id } }));
     } catch (e) {}
 
-    const tabBtn = document.querySelector('.ia-tab[data-target="connect"]');
+    var tabBtn = document.querySelector('.ia-tab[data-target="connect"]');
     if (tabBtn) tabBtn.click();
   }
 
@@ -81,7 +79,7 @@
   // Icons (inline SVG)
   // -----------------------------
   function ico(name) {
-    const common = `width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"`;
+    var common = `width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"`;
     if (name === "reply") return `<svg ${common}><path d="M9 17l-4-4 4-4"/><path d="M20 19v-2a4 4 0 0 0-4-4H5"/></svg>`;
     if (name === "link")  return `<svg ${common}><path d="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1"/><path d="M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1"/></svg>`;
     if (name === "share") return `<svg ${common}><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>`;
@@ -94,10 +92,10 @@
   // Links modal (New feed only)
   // -----------------------------
   function ensureLinksModal() {
-    let m = document.querySelector("[data-iad-linksmodal]");
+    var m = document.querySelector("[data-iad-linksmodal]");
     if (m) return m;
 
-    const wrap = document.createElement("div");
+    var wrap = document.createElement("div");
     wrap.innerHTML = `
       <div class="iad-linksmodal" data-iad-linksmodal hidden>
         <div class="iad-linksmodal-backdrop" data-iad-linksmodal-close></div>
@@ -127,11 +125,11 @@
   }
 
   function openLinksModal(urls, topicTitle) {
-    const m = ensureLinksModal();
-    const title = m.querySelector("[data-iad-linksmodal-title]");
-    const body = m.querySelector("[data-iad-linksmodal-body]");
+    var m = ensureLinksModal();
+    var title = m.querySelector("[data-iad-linksmodal-title]");
+    var body = m.querySelector("[data-iad-linksmodal-body]");
 
-    const safe = Array.isArray(urls) ? urls.filter(Boolean).map(String) : [];
+    var safe = Array.isArray(urls) ? urls.filter(Boolean).map(String) : [];
     title.textContent = topicTitle ? `Links — ${topicTitle}` : "Links";
 
     if (!safe.length) {
@@ -140,7 +138,7 @@
       body.innerHTML = `
         <div class="iad-linkslist">
           ${safe.map((u) => {
-            const label = u.length > 80 ? (u.slice(0, 80) + "…") : u;
+            var label = u.length > 80 ? (u.slice(0, 80) + "…") : u;
             return `
               <a class="iad-linksitem" href="${esc(u)}" target="_blank" rel="noopener noreferrer">
                 <span class="iad-linksitem-ico">↗</span>
@@ -159,16 +157,16 @@
   // Video viewer (Atrium-styled)
   // -----------------------------
   function lockPageScroll(lock) {
-    const cls = "iad-modal-open";
+    var cls = "iad-modal-open";
     if (lock) document.documentElement.classList.add(cls);
     else document.documentElement.classList.remove(cls);
   }
 
   function ensureVideoModal() {
-    let m = document.querySelector("[data-iad-videomodal]");
+    var m = document.querySelector("[data-iad-videomodal]");
     if (m) return m;
 
-    const wrap = document.createElement("div");
+    var wrap = document.createElement("div");
     wrap.innerHTML = `
       <div class="iad-videomodal" data-iad-videomodal hidden>
         <div class="iad-videomodal-backdrop" data-iad-videomodal-close></div>
@@ -203,10 +201,10 @@
   }
 
   function closeVideoModal() {
-    const m = document.querySelector("[data-iad-videomodal]");
+    var m = document.querySelector("[data-iad-videomodal]");
     if (!m) return;
 
-    const body = m.querySelector("[data-iad-videomodal-body]");
+    var body = m.querySelector("[data-iad-videomodal-body]");
     if (body) body.innerHTML = ""; // stop playback
     m.setAttribute("hidden", "");
     lockPageScroll(false);
@@ -214,13 +212,13 @@
 
   function parseYouTubeId(url) {
     try {
-      const u = new URL(url);
+      var u = new URL(url);
       if (u.hostname.includes("youtu.be")) {
-        const id = u.pathname.replace(/^\/+/, "").split("/")[0];
+        var id = u.pathname.replace(/^\/+/, "").split("/")[0];
         return id || null;
       }
       if (u.hostname.includes("youtube.com")) {
-        const id = u.searchParams.get("v");
+        var id = u.searchParams.get("v");
         return id || null;
       }
       return null;
@@ -231,8 +229,8 @@
 
   function parsePeerTubeUuid(url) {
     try {
-      const u = new URL(url);
-      const m = u.pathname.match(/\/videos\/watch\/([^\/\?\#]+)/i);
+      var u = new URL(url);
+      var m = u.pathname.match(/\/videos\/watch\/([^\/\?\#]+)/i);
       if (m && m[1]) return m[1];
       return null;
     } catch (e) {
@@ -241,10 +239,10 @@
   }
 
   function buildVideoMeta(videoUrl) {
-    const url = String(videoUrl || "").trim();
+    var url = String(videoUrl || "").trim();
     if (!url) return null;
 
-    const yid = parseYouTubeId(url);
+    var yid = parseYouTubeId(url);
     if (yid) {
       return {
         kind: "youtube",
@@ -254,11 +252,11 @@
       };
     }
 
-    const uuid = parsePeerTubeUuid(url);
+    var uuid = parsePeerTubeUuid(url);
     if (uuid) {
       try {
-        const u = new URL(url);
-        const origin = u.origin;
+        var u = new URL(url);
+        var origin = u.origin;
         return {
           kind: "peertube",
           url,
@@ -268,7 +266,7 @@
       } catch (e) {}
     }
 
-    const lu = url.toLowerCase();
+    var lu = url.toLowerCase();
     if (/\.(mp4|webm|mov)(\?|$)/i.test(lu)) {
       return { kind: "file", url, embedUrl: url, thumbUrl: "" };
     }
@@ -279,10 +277,10 @@
   function openVideoModal(meta, titleText) {
     if (!meta) return;
 
-    const m = ensureVideoModal();
-    const title = m.querySelector("[data-iad-videomodal-title]");
-    const body = m.querySelector("[data-iad-videomodal-body]");
-    const openLink = m.querySelector("[data-iad-videomodal-open]");
+    var m = ensureVideoModal();
+    var title = m.querySelector("[data-iad-videomodal-title]");
+    var body = m.querySelector("[data-iad-videomodal-body]");
+    var openLink = m.querySelector("[data-iad-videomodal-open]");
 
     title.textContent = titleText ? titleText : "Video";
     if (openLink) openLink.href = meta.url;
@@ -322,15 +320,15 @@
   // Attachment media helpers (ADDED)
   // -----------------------------
   function isImageAtt(a) {
-    const mime = String((a && a.mime) || "").toLowerCase();
-    const url = String((a && a.url) || "").toLowerCase();
+    var mime = String((a && a.mime) || "").toLowerCase();
+    var url = String((a && a.url) || "").toLowerCase();
     if (mime.startsWith("image/")) return true;
     return /\.(png|jpe?g|gif|webp|bmp|svg)(\?|#|$)/i.test(url);
   }
 
   function isVideoAtt(a) {
-    const mime = String((a && a.mime) || "").toLowerCase();
-    const url = String((a && a.url) || "").toLowerCase();
+    var mime = String((a && a.mime) || "").toLowerCase();
+    var url = String((a && a.url) || "").toLowerCase();
     if (mime.startsWith("video/")) return true;
     return /\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/i.test(url);
   }
@@ -339,13 +337,13 @@
     // Show uploaded media inline WITHOUT inserting into body:
     // - first video (if present)
     // - then first image (if present)
-    const atts = (item && item.media && item.media.attachments) ? item.media.attachments : [];
+    var atts = (item && item.media && item.media.attachments) ? item.media.attachments : [];
     if (!atts || !atts.length) return "";
 
-    let firstVideo = null;
-    let firstImage = null;
+    var firstVideo = null;
+    var firstImage = null;
 
-    for (const a of atts) {
+    for (var a of atts) {
       if (!firstVideo && isVideoAtt(a)) firstVideo = a;
       if (!firstImage && isImageAtt(a)) firstImage = a;
       if (firstVideo && firstImage) break;
@@ -353,7 +351,7 @@
 
     if (!firstVideo && !firstImage) return "";
 
-    const parts = [];
+    var parts = [];
     if (firstVideo && firstVideo.url) {
       parts.push(`
         <div class="iad-att-media">
@@ -380,19 +378,19 @@
   function mediaBlockHTML(item, view) {
     if (view !== "new") return "";
 
-    const media = (item && item.media) ? item.media : {};
-    const urls = Array.isArray(media.urls) ? media.urls.filter(Boolean).map(String) : [];
+    var media = (item && item.media) ? item.media : {};
+    var urls = Array.isArray(media.urls) ? media.urls.filter(Boolean).map(String) : [];
 
-    const videoUrl = media.video_url ? String(media.video_url) : "";
-    const videoMeta = videoUrl ? buildVideoMeta(videoUrl) : null;
+    var videoUrl = media.video_url ? String(media.video_url) : "";
+    var videoMeta = videoUrl ? buildVideoMeta(videoUrl) : null;
 
-    const linkUrls = urls.filter((u) => u && u !== videoUrl);
+    var linkUrls = urls.filter((u) => u && u !== videoUrl);
 
     if (!videoMeta && (!linkUrls || !linkUrls.length)) return "";
 
-    const thumb = videoMeta && videoMeta.thumbUrl ? videoMeta.thumbUrl : "";
+    var thumb = videoMeta && videoMeta.thumbUrl ? videoMeta.thumbUrl : "";
 
-    const host = (function () {
+    var host = (function () {
       try { return new URL(videoMeta ? videoMeta.url : linkUrls[0]).hostname.replace(/^www\./, ""); }
       catch (e) { return ""; }
     })();
@@ -439,12 +437,12 @@
   }
 
   function attachmentPillsHTML(item) {
-    const atts = (item.media && item.media.attachments) ? item.media.attachments : [];
+    var atts = (item.media && item.media.attachments) ? item.media.attachments : [];
     if (!atts || !atts.length) return "";
 
-    const pills = atts.slice(0, 4).map((a) => {
-      const url = a.url ? String(a.url) : "";
-      const filename = a.filename ? String(a.filename) : "attachment";
+    var pills = atts.slice(0, 4).map((a) => {
+      var url = a.url ? String(a.url) : "";
+      var filename = a.filename ? String(a.filename) : "attachment";
       if (!url) {
         return `<span class="iad-attachpill is-error" title="Missing URL">${esc(filename)}</span>`;
       }
@@ -464,20 +462,20 @@
   }
 
   function feedCard(item, view) {
-    const author = item.topic_poster_username || ("user#" + (item.topic_poster_id || 0));
-    const authorId = parseInt(item.topic_poster_id || "0", 10) || 0;
-    const me = currentUserId();
+    var author = item.topic_poster_username || ("user#" + (item.topic_poster_id || 0));
+    var authorId = parseInt(item.topic_poster_id || "0", 10) || 0;
+    var me = currentUserId();
 
-    const ago = timeAgo(item.last_post_time || item.topic_time);
+    var ago = timeAgo(item.last_post_time || item.topic_time);
 
-    const forumId = parseInt(item.forum_id || "0", 10) || 0;
-    const forumName = item.forum_name || "agora";
+    var forumId = parseInt(item.forum_id || "0", 10) || 0;
+    var forumName = item.forum_name || "agora";
 
-    const canEdit = !!(me && authorId && me === authorId);
+    var canEdit = !!(me && authorId && me === authorId);
 
     // ✅ ADDED: inline uploaded media (video first, then image)
     // This does NOT replace your link-based media block; it only renders attachments.
-    const inlineAttMedia = attachmentInlineMediaHTML(item);
+    var inlineAttMedia = attachmentInlineMediaHTML(item);
 
     return `
       <article class="iad-card"
@@ -554,237 +552,176 @@
     `;
   }
 
-  async function loadFeed(view, forumId, offset) {
-    const tab = "new_posts";
-    const res = await API.post("ia_discuss_feed", {
+  async function loadFeed(view, forumId) {
+    var tab = "new_posts";
+    var res = await API.post("ia_discuss_feed", {
       tab,
-      offset: offset || 0,
+      offset: 0,
       forum_id: forumId || 0
     });
 
-    if (!res || !res.success) return { items: [], has_more: false, next_offset: (offset || 0), error: true };
-    return res.data || {};
+    if (!res || !res.success) return { items: [], error: true };
+    return res.data;
   }
 
   function renderFeedInto(mount, view, forumId) {
     if (!mount) return;
 
-    const pageSize = 20;
-    let serverOffset = 0;
-    let hasMore = false;
-    let loading = false;
+    mount.innerHTML = `<div class="iad-loading">Loading…</div>`;
 
-    function renderShell() {
-      mount.innerHTML = `
-        <div class="iad-feed">
-          <div class="iad-feed-list"></div>
-          <div class="iad-feed-more"></div>
-        </div>
-      `;
-    }
+    loadFeed(view, forumId).then((data) => {
+      var items = data.items || [];
 
-    function setMoreButton() {
-      const moreWrap = mount.querySelector(".iad-feed-more");
-      if (!moreWrap) return;
-      if (!hasMore) {
-        moreWrap.innerHTML = "";
-        return;
-      }
-      moreWrap.innerHTML = `<button type="button" class="iad-more" data-iad-feed-more>Load more</button>`;
-    }
-
-    function appendItems(items, feedView) {
-      const list = mount.querySelector(".iad-feed-list");
-      if (!list) return;
-
-      if (feedView === "unread") {
+      if (view === "unread") {
         items = items.filter((it) => !STATE.isRead(it.topic_id));
       }
 
-      if (!items.length && !list.children.length) {
-        list.innerHTML = `<div class="iad-empty">Nothing here yet.</div>`;
-        return;
-      }
+      mount.innerHTML = `
+        <div class="iad-feed">
+          <div class="iad-feed-list">
+            ${items.length ? items.map((it) => feedCard(it, view)).join("") : `<div class="iad-empty">Nothing here yet.</div>`}
+          </div>
+        </div>
+      `;
 
-      // If first append and empty placeholder exists, clear it
-      if (list.querySelector(".iad-empty")) list.innerHTML = "";
-
-      list.insertAdjacentHTML("beforeend", items.map((it) => feedCard(it, feedView)).join(""));
-    }
-
-    async function loadNext() {
-      if (loading) return;
-      loading = true;
-
-      const moreBtn = mount.querySelector("[data-iad-feed-more]");
-      if (moreBtn) { moreBtn.disabled = true; moreBtn.textContent = "Loading…"; }
-
-      const data = await loadFeed(view, forumId, serverOffset);
-      const items = Array.isArray(data.items) ? data.items : [];
-
-      hasMore = !!data.has_more || (items.length === pageSize);
-      serverOffset = (typeof data.next_offset === "number") ? data.next_offset : (serverOffset + items.length);
-
-      // Initial render shell if needed
-      if (!mount.querySelector(".iad-feed-list")) renderShell();
-
-      appendItems(items, view);
-      setMoreButton();
-
-      loading = false;
-    }
-
-    // Event delegation (works for appended items too)
-    mount.onclick = function (e) {
-      const t = e.target;
-
-      // Load more
-      const more = t.closest && t.closest("[data-iad-feed-more]");
-      if (more) {
+      function openTopicFromEvent(e, scroll) {
         e.preventDefault();
         e.stopPropagation();
-        loadNext();
-        return;
+        var card = e.target.closest("[data-topic-id]");
+        if (!card) return;
+        var tid = parseInt(card.getAttribute("data-topic-id") || "0", 10);
+        if (!tid) return;
+
+        window.dispatchEvent(new CustomEvent("iad:open_topic_page", {
+          detail: { topic_id: tid, scroll: scroll || "" }
+        }));
       }
+
+      // title/excerpt -> open topic (top)
+      mount.querySelectorAll("[data-open-topic-title]").forEach((el) => el.addEventListener("click", (e) => openTopicFromEvent(e, "")));
+      mount.querySelectorAll("[data-open-topic-excerpt]").forEach((el) => el.addEventListener("click", (e) => openTopicFromEvent(e, "")));
+
+      // comments icon -> open topic AND scroll to comments
+      mount.querySelectorAll("[data-open-topic-comments]").forEach((btn) => btn.addEventListener("click", (e) => openTopicFromEvent(e, "comments")));
+
+      // open agora
+      mount.querySelectorAll("[data-open-agora]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          var fid = parseInt(btn.getAttribute("data-forum-id") || "0", 10);
+          if (!fid) return;
+
+          var forumName = "";
+          var card = btn.closest("[data-topic-id]");
+          if (card) forumName = card.getAttribute("data-forum-name") || "";
+
+          window.dispatchEvent(new CustomEvent("iad:open_agora", {
+            detail: { forum_id: fid, forum_name: forumName }
+          }));
+        });
+      });
+
+      // open user
+      mount.querySelectorAll("[data-open-user]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openConnectProfile({
+            username: btn.getAttribute("data-username") || "",
+            user_id: btn.getAttribute("data-user-id") || "0"
+          });
+        });
+      });
+
+      // Links pill
+      mount.querySelectorAll("[data-iad-open-links]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          var urls = [];
+          try { urls = JSON.parse(btn.getAttribute("data-links") || "[]"); }
+          catch (err) { urls = []; }
+
+          var card = btn.closest("[data-topic-id]");
+          var title = card ? (card.querySelector(".iad-card-title")?.textContent || "") : "";
+          openLinksModal(urls, title);
+        });
+      });
+
+      // Video thumbnail -> viewer
+      mount.querySelectorAll("[data-iad-open-video]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          var videoUrl = btn.getAttribute("data-video-url") || "";
+          var meta = buildVideoMeta(videoUrl);
+
+          var card = btn.closest("[data-topic-id]");
+          var title = card ? (card.querySelector(".iad-card-title")?.textContent || "") : "Video";
+          openVideoModal(meta, title);
+        });
+      });
 
       // Copy link
-      const copyBtn = t.closest && t.closest("[data-copy-topic-link]");
-      if (copyBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const card = copyBtn.closest("[data-topic-id]");
-        const tid = card ? parseInt(card.getAttribute("data-topic-id") || "0", 10) : 0;
-        if (tid) {
-          copyToClipboard(makeTopicUrl(tid)).then(() => {
-            copyBtn.classList.add("is-pressed");
-            setTimeout(() => copyBtn.classList.remove("is-pressed"), 450);
-          });
-        }
-        return;
-      }
+      mount.querySelectorAll("[data-copy-topic-link]").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
 
-      // Share to Connect (UI hook)
-      const shareBtn = t.closest && t.closest("[data-share-topic]");
-      if (shareBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const card = shareBtn.closest("[data-topic-id]");
-        const tid = card ? parseInt(card.getAttribute("data-topic-id") || "0", 10) : 0;
-        const title = card ? (card.querySelector("[data-open-topic-title]")?.textContent || "") : "";
-        // For now: open Connect tab and drop a lightweight share payload into localStorage.
-        try {
-          localStorage.setItem("ia_connect_share_draft", JSON.stringify({
-            kind: "discuss_topic",
-            topic_id: tid,
-            title: String(title || "").trim(),
-            url: tid ? makeTopicUrl(tid) : "",
-            ts: Math.floor(Date.now() / 1000)
-          }));
-        } catch (e2) {}
+          var card = btn.closest("[data-topic-id]");
+          var tid = card ? parseInt(card.getAttribute("data-topic-id") || "0", 10) : 0;
+          if (!tid) return;
 
-        const tabBtn = document.querySelector('.ia-tab[data-target="connect"]');
-        if (tabBtn) tabBtn.click();
-        return;
-      }
+          var url = makeTopicUrl(tid);
+          var ok = await copyToClipboard(url);
 
-      // Feed reply icon (open topic + open composer)
-      const openComments = t.closest && t.closest("[data-open-topic-comments]");
-      if (openComments) {
-        e.preventDefault();
-        e.stopPropagation();
-        const card = openComments.closest("[data-topic-id]");
-        const tid = card ? parseInt(card.getAttribute("data-topic-id") || "0", 10) : 0;
-        if (tid) {
-          window.dispatchEvent(new CustomEvent("iad:open_topic_page", { detail: { topic_id: tid, open_reply: 1 } }));
-        }
-        return;
-      }
+          btn.classList.add("is-pressed");
+          setTimeout(() => btn.classList.remove("is-pressed"), 450);
 
-      // Open user profile
-      const userBtn = t.closest && t.closest("[data-open-user]");
-      if (userBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        openConnectProfile({
-          username: userBtn.getAttribute("data-username") || "",
-          user_id: userBtn.getAttribute("data-user-id") || "0"
+          if (!ok) alert("Could not copy link on this browser.");
         });
-        return;
-      }
+      });
 
-      // Open links modal
-      const linksBtn = t.closest && t.closest("[data-iad-open-links]");
-      if (linksBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const raw = linksBtn.getAttribute("data-links-json") || "[]";
-        try { openLinksModal(raw); } catch (err) {}
-        return;
-      }
+      // Share to Connect (event only — Connect will implement)
+      mount.querySelectorAll("[data-share-topic]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
 
-      // Open video modal
-      const videoBtn = t.closest && t.closest("[data-iad-open-video]");
-      if (videoBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const url = videoBtn.getAttribute("data-video-url") || "";
-        if (url) {
-          try { openVideoModal(url); } catch (err) {}
-        }
-        return;
-      }
+          var card = btn.closest("[data-topic-id]");
+          if (!card) return;
+          var tid = parseInt(card.getAttribute("data-topic-id") || "0", 10);
+          if (!tid) return;
 
-      // Legacy hooks (if present elsewhere): open reply composer
-      const quoteBtn = t.closest && t.closest("[data-quote-topic]");
-      if (quoteBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const card = quoteBtn.closest("[data-topic-id]");
-        const tid = card ? parseInt(card.getAttribute("data-topic-id") || "0", 10) : 0;
-        if (tid) window.dispatchEvent(new CustomEvent("iad:open_topic_page", { detail: { topic_id: tid, open_reply: 1 } }));
-        return;
-      }
+          var title = card.querySelector(".iad-card-title")?.textContent || "";
+          var url = makeTopicUrl(tid);
 
-      const replyBtn = t.closest && t.closest("[data-reply-topic]");
-      if (replyBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const card = replyBtn.closest("[data-topic-id]");
-        const tid = card ? parseInt(card.getAttribute("data-topic-id") || "0", 10) : 0;
-        if (tid) window.dispatchEvent(new CustomEvent("iad:open_topic_page", { detail: { topic_id: tid, open_reply: 1 } }));
-        return;
-      }
+          window.dispatchEvent(new CustomEvent("ia:share_to_connect", {
+            detail: { type: "discuss_topic", topic_id: tid, title, url }
+          }));
 
-      const editBtn = t.closest && t.closest("[data-edit-topic]");
-      if (editBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        alert("Edit is wired into UI, but saving edits isn’t implemented yet.");
-        return;
-      }
+          btn.classList.add("is-pressed");
+          setTimeout(() => btn.classList.remove("is-pressed"), 450);
+        });
+      });
 
-      // Default: open topic when clicking title/excerpt/card area
-      const openTitle = t.closest && t.closest("[data-open-topic-title],[data-open-topic-excerpt],[data-open-topic]");
-      if (openTitle) {
-        e.preventDefault();
-        e.stopPropagation();
-        const card = openTitle.closest("[data-topic-id]");
-        const tid = card ? parseInt(card.getAttribute("data-topic-id") || "0", 10) : 0;
-        if (tid) {
-          window.dispatchEvent(new CustomEvent("iad:open_topic_page", { detail: { topic_id: tid, scroll: "" } }));
-        }
-      }
-    };
-
-    // Start
-    renderShell();
-    loadNext();
+      // Edit (UI hook only)
+      mount.querySelectorAll("[data-edit-topic]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          alert("Edit is wired into UI, but saving edits isn’t implemented yet.");
+        });
+      });
+    });
   }
 
   function renderFeed(root, view, forumId) {
-    const mount = root ? root.querySelector("[data-iad-view]") : null;
+    var mount = root ? root.querySelector("[data-iad-view]") : null;
     renderFeedInto(mount, view, forumId);
   }
 
   window.IA_DISCUSS_UI_FEED = { renderFeed, renderFeedInto };
-})();

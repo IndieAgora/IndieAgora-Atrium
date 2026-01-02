@@ -355,3 +355,15 @@ html, body {
     font-size: 15px !important;
   }
 }
+/* IA Discuss: keep the top action pills on-screen on small viewports */
+@media (max-width: 640px){
+  .iad-top .iad-tabs{
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  .iad-top .iad-tab{
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+}

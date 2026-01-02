@@ -36,7 +36,11 @@ final class IA_Discuss_Module_Feed implements IA_Discuss_Module_Interface {
 
     if (!$this->phpbb->is_ready()) ia_discuss_json_err('phpBB adapter not available (check IA Engine creds)', 503);
 
-    $rows = $this->phpbb->get_feed_rows($tab, $offset, 20, $q, $forum);
+    $limit = 20;
+    $rows = $this->phpbb->get_feed_rows($tab, $offset, $limit + 1, $q, $forum);
+
+    $has_more = count($rows) > $limit;
+    if ($has_more) $rows = array_slice($rows, 0, $limit);
 
     $items = [];
     foreach ($rows as $r) {
@@ -75,10 +79,13 @@ final class IA_Discuss_Module_Feed implements IA_Discuss_Module_Interface {
     }
 
     ia_discuss_json_ok([
-      'tab'      => $tab,
-      'offset'   => $offset,
-      'forum_id' => $forum,
-      'items'    => $items,
+      'tab'       => $tab,
+      'offset'    => $offset,
+      'limit'     => $limit,
+      'next_offset' => $offset + count($items),
+      'has_more'  => $has_more ? 1 : 0,
+      'forum_id'  => $forum,
+      'items'     => $items,
     ]);
   }
 }

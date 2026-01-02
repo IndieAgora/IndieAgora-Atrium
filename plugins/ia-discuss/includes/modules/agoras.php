@@ -27,7 +27,11 @@ final class IA_Discuss_Module_Agoras implements IA_Discuss_Module_Interface {
       ia_discuss_json_err('phpBB adapter not available (check IA Engine creds)', 503);
     }
 
-    $rows = $this->phpbb->get_agoras_rows($offset, 50, $q);
+    $limit = 50;
+    $rows = $this->phpbb->get_agoras_rows($offset, $limit + 1, $q);
+
+    $has_more = count($rows) > $limit;
+    if ($has_more) $rows = array_slice($rows, 0, $limit);
 
     $items = [];
     foreach ($rows as $r) {
@@ -42,6 +46,12 @@ final class IA_Discuss_Module_Agoras implements IA_Discuss_Module_Interface {
       ];
     }
 
-    ia_discuss_json_ok(['offset' => $offset, 'items' => $items]);
+    ia_discuss_json_ok([
+      'offset'      => $offset,
+      'limit'       => $limit,
+      'next_offset' => $offset + count($items),
+      'has_more'    => $has_more ? 1 : 0,
+      'items'       => $items,
+    ]);
   }
 }

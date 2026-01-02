@@ -225,9 +225,10 @@ final class IA_PTLS {
                 continue;
             }
 
-            // Optional safety: only map email-verified accounts
-            // If you want to allow unverified too, delete this block:
-            if (isset($r['emailVerified']) && (int)$r['emailVerified'] !== 1) {
+            // Optional safety: only map email-verified accounts.
+            // Controlled by admin setting "Require email verified".
+            $require_verified = (get_option('ia_ptls_require_verified', '0') === '1');
+            if ($require_verified && isset($r['emailVerified']) && (int)$r['emailVerified'] !== 1) {
                 $skipped++;
                 continue;
             }
@@ -345,6 +346,8 @@ final class IA_PTLS {
             return ['ok' => false, 'message' => 'Could not connect to PeerTube Postgres.'];
         }
 
+        // PeerTube table name is quoted ("user").
+        // pg_fetch_assoc typically returns booleans as 't'/'f' strings.
         $sql = 'SELECT id, username, email, blocked, "emailVerified" FROM public."user" ORDER BY id ASC';
         $result = @pg_query($conn, $sql);
         if (!$result) {
@@ -358,6 +361,9 @@ final class IA_PTLS {
         $total = 0;
         $mapped = 0;
         $unmapped = 0;
+        $missing_email = 0;
+        $blocked_count = 0;
+        $unverified = 0;
 
         $rows = [];
         while ($r = pg_fetch_assoc($result)) {
@@ -365,8 +371,16 @@ final class IA_PTLS {
             $pt_user_id = (int)($r['id'] ?? 0);
             $email = (string)($r['email'] ?? '');
             $username = (string)($r['username'] ?? '');
-            $blocked = !empty($r['blocked']);
-            $email_verified = !empty($r['emailVerified']);
+            // booleans can come back as 't'/'f' or 1/0 depending on postgres settings.
+            $blocked_raw = $r['blocked'] ?? null;
+            $blocked = ($blocked_raw === true || $blocked_raw === 1 || $blocked_raw === '1' || $blocked_raw === 't' || $blocked_raw === 'true');
+
+            $ev_raw = $r['emailVerified'] ?? null;
+            $email_verified = ($ev_raw === true || $ev_raw === 1 || $ev_raw === '1' || $ev_raw === 't' || $ev_raw === 'true');
+
+            if ($email === '') $missing_email++;
+            if ($blocked) $blocked_count++;
+            if (!$email_verified) $unverified++;
 
             $exists = $wpdb->get_var($wpdb->prepare("SELECT phpbb_user_id FROM $map WHERE peertube_user_id=%d LIMIT 1", $pt_user_id));
             if ($exists) {
@@ -390,7 +404,14 @@ final class IA_PTLS {
 
         return [
             'ok' => true,
-            'counts' => ['total' => $total, 'mapped' => $mapped, 'unmapped' => $unmapped],
+            'counts' => [
+                'total' => $total,
+                'mapped' => $mapped,
+                'unmapped' => $unmapped,
+                'missing_email' => $missing_email,
+                'blocked' => $blocked_count,
+                'unverified' => $unverified,
+            ],
             'rows' => $rows,
         ];
     }

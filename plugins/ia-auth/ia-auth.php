@@ -2,14 +2,14 @@
 /**
  * Plugin Name: IA Auth
  * Description: Atrium identity + session layer. phpBB is canonical. WP is shadow sessions. PeerTube tokens via API.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Author: IndieAgora
  * Text Domain: ia-auth
  */
 
 if (!defined('ABSPATH')) { exit; }
 
-define('IA_AUTH_VERSION', '0.1.0');
+define('IA_AUTH_VERSION', '0.1.1');
 define('IA_AUTH_PATH', plugin_dir_path(__FILE__));
 define('IA_AUTH_URL', plugin_dir_url(__FILE__));
 

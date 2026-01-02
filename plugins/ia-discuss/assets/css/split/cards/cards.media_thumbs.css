@@ -1,0 +1,90 @@
+/* -----------------------------
+   Media area (New feed)
+   - Compact inline row
+----------------------------- */
+.iad-mediawrap{
+  margin-top: 10px;
+  max-width: 100%;
+}
+
+.iad-media-row{
+  display:flex;
+  gap: 10px;
+  align-items:flex-start;
+  max-width: 100%;
+}
+
+.iad-media-meta{
+  flex: 1 1 auto;
+  min-width: 0;
+  display:flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.iad-media-line{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.iad-media-tag{
+  display:inline-flex;
+  align-items:center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,69,0,0.30);
+  background: rgba(255,69,0,0.10);
+  color: rgba(255,255,255,0.90);
+  font-size: var(--iad-fs-12);
+  line-height: var(--iad-lh-ui);
+  flex: 0 0 auto;
+}
+
+.iad-media-host{
+  color: rgba(255,255,255,0.72);
+  font-size: var(--iad-fs-12);
+  line-height: var(--iad-lh-ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Compact video thumbnail */
+.iad-vthumb{
+  appearance:none;
+  border: 1px solid var(--iad-border);
+  background: rgba(255,255,255,0.03);
+  border-radius: 14px;
+  padding: 0;
+  cursor:pointer;
+  overflow:hidden;
+  flex: 0 0 auto;
+}
+.iad-vthumb:hover{
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.12);
+}
+
+/* THIS is the key: small inline size */
+.iad-vthumb.is-compact{
+  width: 190px;
+  max-width: 42vw;   /* stays compact on desktop, adapts on small screens */
+}
+
+.iad-vthumb-inner{
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: rgba(0,0,0,0.25);
+}
+
+.iad-vthumb-img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display:block;
+  transform: scale(1.01);
+  filter: saturate(1.05) contrast(1.02);
+}

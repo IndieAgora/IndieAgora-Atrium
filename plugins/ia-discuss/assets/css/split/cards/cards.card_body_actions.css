@@ -1,0 +1,90 @@
+  max-width: 100%;
+  display: block;
+}
+
+/* Avoid excerpt HTML injecting margins that push layout weirdly */
+.iad-card-excerpt{
+  max-width: 100%;
+}
+.iad-card-excerpt *{
+  max-width: 100%;
+}
+
+/* Meta */
+.iad-card-meta{
+  font-size: var(--iad-fs-12);
+  color: var(--iad-muted);
+  line-height: var(--iad-lh-ui);
+}
+.iad-sub{ color: rgba(255,255,255,0.85); }
+
+.iad-card-title{
+  margin: 6px 0 6px;
+  font-size: var(--iad-fs-16);
+  line-height: var(--iad-lh-tight);
+  letter-spacing: 0.2px;
+}
+
+.iad-card-excerpt p{
+  margin: 0;
+  color: rgba(255,255,255,0.80);
+  font-size: var(--iad-fs-14);
+  line-height: 1.45;
+}
+
+.iad-card-actions{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Attachments */
+.iad-attachrow{
+  display:flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  max-width: 100%;
+}
+.iad-attachpill{
+  display:inline-flex;
+  align-items:center;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(71,179,255,0.25);
+  background: rgba(71,179,255,0.10);
+  color: rgba(255,255,255,0.88);
+  font-size: var(--iad-fs-12);
+  text-decoration: none;
+  line-height: var(--iad-lh-ui);
+}
+.iad-attachpill:hover{
+  background: rgba(71,179,255,0.16);
+  border-color: rgba(71,179,255,0.35);
+}
+.iad-attachpill.is-loading{ border-color: rgba(255,204,0,0.35); background: rgba(255,204,0,0.10); }
+.iad-attachpill.is-error{ border-color: rgba(255,60,60,0.40); background: rgba(255,60,60,0.10); }
+
+.iad-agora-link{
+  appearance:none;
+  border:0;
+  background:transparent;
+  padding:0;
+  margin:0;
+  display:inline;
+  font: inherit;
+  color: rgba(255,255,255,0.85);
+  cursor:pointer;
+}
+.iad-agora-link:hover{ text-decoration: underline; }
+
+/* Make title/excerpt feel clickable */
+.iad-card-title,
+.iad-card-excerpt{ cursor: pointer; }
+.iad-card-title:hover{ text-decoration: underline; }
+

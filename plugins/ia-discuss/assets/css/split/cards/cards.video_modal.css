@@ -1,0 +1,90 @@
+
+.iad-videomodal-backdrop{
+  position:absolute;
+  inset:0;
+  background: rgba(0,0,0,0.72);
+}
+
+/* IMPORTANT:
+   We DO NOT go full-screen to bottom.
+   We leave a fixed "nav safe" gap so Atrium bottom nav remains visible/usable.
+*/
+.iad-videomodal-sheet{
+  position:absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  width: min(980px, calc(100% - 18px));
+  height: calc(100% - 12px - 86px); /* bottom-safe gap for Atrium nav */
+  border-radius: var(--iad-radius2);
+  border: 1px solid var(--iad-border);
+  background: linear-gradient(180deg, rgba(15,19,26,0.96), rgba(10,12,16,0.98));
+  box-shadow: 0 22px 60px rgba(0,0,0,0.60);
+  overflow: hidden;
+  display:flex;
+  flex-direction: column;
+}
+
+/* On very short viewports, reduce bottom gap a bit */
+@media (max-height: 560px){
+  .iad-videomodal-sheet{ height: calc(100% - 12px - 70px); }
+}
+
+.iad-videomodal-top{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  background: rgba(10,12,16,0.75);
+  backdrop-filter: blur(8px);
+}
+
+.iad-videomodal-title{
+  font-size: var(--iad-fs-14);
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
+  overflow:hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iad-videomodal-actions{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.iad-videomodal-open{
+  display:inline-flex;
+  align-items:center;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--iad-border);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.86);
+  text-decoration:none;
+  font-size: var(--iad-fs-13);
+  line-height: var(--iad-lh-ui);
+}
+.iad-videomodal-open:hover{
+  background: rgba(255,255,255,0.08);
+  color: var(--iad-text);
+}
+
+.iad-videomodal-body{
+  flex: 1 1 auto;
+  display:flex;
+  padding: 12px;
+}
+
+/* "stage" gives Atrium look + keeps player centered */
+.iad-video-stage{
+  flex: 1 1 auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,69,0,0.18), transparent 55%),
