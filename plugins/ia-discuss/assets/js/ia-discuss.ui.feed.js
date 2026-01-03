@@ -164,7 +164,38 @@
     else document.documentElement.classList.remove(cls);
   }
 
-  function ensureVideoModal() {
+  
+  function openAttachmentsModal(urls, topicTitle) {
+    const m = ensureLinksModal();
+    const title = m.querySelector("[data-iad-linksmodal-title]");
+    const body = m.querySelector("[data-iad-linksmodal-body]");
+
+    const safe = Array.isArray(urls) ? urls.filter(Boolean).map(String) : [];
+    title.textContent = topicTitle ? `Attachments — ${topicTitle}` : "Attachments";
+
+    if (!safe.length) {
+      body.innerHTML = `<div class="iad-empty">No attachments found.</div>`;
+    } else {
+      body.innerHTML = `
+        <div class="iad-linkslist">
+          ${safe.map((u) => {
+            const label = u.length > 80 ? (u.slice(0, 80) + "…") : u;
+            return `
+              <a class="iad-linksitem" href="${esc(u)}" target="_blank" rel="noopener noreferrer">
+                <span class="iad-linksitem-ico">↗</span>
+                <span class="iad-linksitem-txt">${esc(label)}</span>
+              </a>
+            `;
+          }).join("")}
+        </div>
+      `;
+    }
+
+    m.removeAttribute("hidden");
+    lockPageScroll(true);
+  }
+
+function ensureVideoModal() {
     let m = document.querySelector("[data-iad-videomodal]");
     if (m) return m;
 
@@ -397,6 +428,21 @@
       catch (e) { return ""; }
     })();
 
+    function linkLabel(u) {
+      try {
+        const U = new URL(u);
+        const h = U.hostname.replace(/^www\./, "");
+        const p = (U.pathname && U.pathname !== "/") ? U.pathname.replace(/\/$/, "") : "";
+        return (p && p.length <= 18) ? (h + p) : h;
+      } catch (e) {
+        return String(u || "link").slice(0, 24);
+      }
+    }
+
+    const maxInlineLinks = 3;
+    const inlineLinks = linkUrls.slice(0, maxInlineLinks);
+    const remaining = Math.max(0, linkUrls.length - inlineLinks.length);
+
     return `
       <div class="iad-mediawrap">
         <div class="iad-media-row">
@@ -423,13 +469,18 @@
             ${videoMeta ? `<div class="iad-media-line"><span class="iad-media-tag">video</span><span class="iad-media-host">${esc(host || "video")}</span></div>` : ""}
             ${linkUrls.length ? `
               <div class="iad-mediastrip">
-                <button
-                  type="button"
-                  class="iad-pill is-muted"
-                  data-iad-open-links
-                  data-links="${esc(JSON.stringify(linkUrls))}">
-                  Links (${linkUrls.length})
-                </button>
+                ${inlineLinks.map((u) => {
+                  return `<a class="iad-pill is-muted" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(linkLabel(u))}</a>`;
+                }).join("")}
+                ${remaining ? `
+                  <button
+                    type="button"
+                    class="iad-pill is-muted"
+                    data-iad-open-links
+                    data-links-json="${esc(JSON.stringify(linkUrls))}">
+                    +${remaining}
+                  </button>
+                ` : ``}
               </div>
             ` : ""}
           </div>
@@ -442,25 +493,21 @@
     const atts = (item.media && item.media.attachments) ? item.media.attachments : [];
     if (!atts || !atts.length) return "";
 
-    const pills = atts.slice(0, 4).map((a) => {
-      const url = a.url ? String(a.url) : "";
-      const filename = a.filename ? String(a.filename) : "attachment";
-      if (!url) {
-        return `<span class="iad-attachpill is-error" title="Missing URL">${esc(filename)}</span>`;
-      }
-      return `
-        <a
-          class="iad-attachpill"
-          href="${esc(url)}"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="${esc(filename)}">
-          ${esc(filename)}
-        </a>
-      `;
-    }).join("");
+    const urls = atts.map((a) => (a && a.url ? String(a.url) : "")).filter(Boolean);
+    const count = urls.length;
 
-    return pills ? `<div class="iad-attachrow">${pills}</div>` : "";
+    // Single pill that opens a modal listing all attachments.
+    return `
+      <div class="iad-attachrow">
+        <button
+          type="button"
+          class="iad-attachpill"
+          data-iad-open-attachments
+          data-attachments-json="${esc(JSON.stringify(urls))}">
+          Attachments (${count})
+        </button>
+      </div>
+    `;
   }
 
   function feedCard(item, view) {
@@ -493,6 +540,7 @@
               class="iad-sub iad-agora-link"
               data-open-agora
               data-forum-id="${forumId}"
+              data-forum-name="${esc(forumName)}"
               aria-label="Open agora ${esc(forumName)}"
               title="Open agora">
               agora/${esc(forumName)}
@@ -638,6 +686,10 @@
     mount.onclick = function (e) {
       const t = e.target;
 
+      // Never hijack real hyperlinks (attachments, external anchors, etc.)
+      const a = t.closest && t.closest('a[href]');
+      if (a) return;
+
       // Load more
       const more = t.closest && t.closest("[data-iad-feed-more]");
       if (more) {
@@ -712,13 +764,42 @@
         return;
       }
 
+      // Open Agora (forum)
+      const agoraBtn = t.closest && t.closest("[data-open-agora]");
+      if (agoraBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const card = agoraBtn.closest && agoraBtn.closest("[data-topic-id]");
+        const fid = parseInt(agoraBtn.getAttribute("data-forum-id") || (card ? (card.getAttribute("data-forum-id") || "0") : "0"), 10) || 0;
+        const nm = (agoraBtn.getAttribute("data-forum-name") || (card ? (card.getAttribute("data-forum-name") || "") : "")) || "";
+        if (fid) {
+          window.dispatchEvent(new CustomEvent("iad:open_agora", { detail: { forum_id: fid, forum_name: nm } }));
+        }
+        return;
+      }
+
       // Open links modal
       const linksBtn = t.closest && t.closest("[data-iad-open-links]");
       if (linksBtn) {
         e.preventDefault();
         e.stopPropagation();
-        const raw = linksBtn.getAttribute("data-links-json") || "[]";
+        const raw = linksBtn.getAttribute("data-links-json") || linksBtn.getAttribute("data-links") || "[]";
         try { openLinksModal(raw); } catch (err) {}
+        return;
+      }
+      // Open attachments modal (single pill)
+      const attBtn = t.closest && t.closest("[data-iad-open-attachments]");
+      if (attBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const raw = attBtn.getAttribute("data-attachments-json") || "[]";
+        try {
+          const urls = JSON.parse(raw);
+          const card = attBtn.closest && attBtn.closest("[data-topic-id]");
+          const tEl = card ? card.querySelector(".iad-title,[data-open-topic-title]") : null;
+          const titleText = tEl ? (tEl.textContent || '').trim() : '';
+          openAttachmentsModal(urls, titleText);
+        } catch (err) {}
         return;
       }
 
@@ -729,7 +810,13 @@
         e.stopPropagation();
         const url = videoBtn.getAttribute("data-video-url") || "";
         if (url) {
-          try { openVideoModal(url); } catch (err) {}
+          try {
+          const card = videoBtn.closest && videoBtn.closest('[data-topic-id]');
+          const tEl = card ? card.querySelector('.iad-title,[data-open-topic-title]') : null;
+          const titleText = tEl ? (tEl.textContent || '').trim() : '';
+          const meta = detectVideoMeta(url);
+          if (meta) openVideoModal(meta, titleText);
+        } catch (err) {}
         }
         return;
       }

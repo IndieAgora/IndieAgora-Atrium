@@ -2,6 +2,7 @@
   "use strict";
   const { qs, esc } = window.IA_DISCUSS_CORE;
   const API = window.IA_DISCUSS_API;
+  const escapeHtml = (typeof esc === 'function') ? esc : (s) => String(s||'').replace(/[&<>"']/g, (c)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
 
   function wrapSelection(textarea, before, after) {
     const el = textarea;
@@ -139,10 +140,26 @@
         const file = input.files[0];
 
         attachList.innerHTML = `<div class="iad-attachpill is-loading">Uploading…</div>`;
-        const res = await API.uploadFile(file);
+        let res = null;
+        try {
+          if (!API || !API.uploadFile) throw new Error("Upload API missing");
+          res = await API.uploadFile(file);
+        } catch (e) {
+          const msg = (e && e.name === "AbortError") ? "Upload timed out" : (e && e.message ? e.message : "Upload failed");
+          attachList.innerHTML = `<div class="iad-attachpill is-error">${escapeHtml(msg)}</div>`;
+          return;
+        }
 
         if (!res || !res.success) {
-          attachList.innerHTML = `<div class="iad-attachpill is-error">Upload failed</div>`;
+          const msg = (res && res.data && res.data.message) ? String(res.data.message)
+                    : (res && res.message) ? String(res.message)
+                    : "Upload failed";
+          // If server returned non-JSON content, surface a short snippet for diagnosis.
+          const raw = (res && res.data && res.data.raw) ? String(res.data.raw) : "";
+          if (raw) {
+            try { console.warn("[IA_DISCUSS] upload failed (raw)", raw); } catch (e) {}
+          }
+          attachList.innerHTML = `<div class="iad-attachpill is-error">${escapeHtml(msg)}</div>`;
           return;
         }
 

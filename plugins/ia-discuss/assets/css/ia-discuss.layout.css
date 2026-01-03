@@ -35,3 +35,11 @@
 }
 
 .iad-body{ padding: 12px 10px 20px; }
+
+/* Mobile tidy-up: reduce "squashed" feel + allow pills/tabs to wrap */
+@media (max-width: 640px){
+  .iad-top{ padding: 8px 8px 6px; }
+  .iad-body{ padding: 12px 8px 18px; }
+  .iad-tabs{ flex-wrap: wrap; gap: 8px; }
+  .iad-tab{ padding: 9px 12px; }
+}
