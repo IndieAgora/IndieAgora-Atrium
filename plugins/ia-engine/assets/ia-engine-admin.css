@@ -27,6 +27,21 @@
 .ia-engine-secret { display: flex; flex-direction: column; gap: 6px; }
 .ia-engine-secret-meta { font-size: 12px; color: #646970; }
 
+.ia-engine-grid-sep {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: #dcdcde;
+  margin: 10px 0;
+}
+
+.ia-engine-secret-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #50575e;
+}
+
 .ia-engine-tests {
   display: flex;
   align-items: center;

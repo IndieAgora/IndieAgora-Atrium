@@ -215,7 +215,12 @@ class IA_Auth_DB {
         return (int)$wp_user_id;
     }
 
-    private function find_wp_user_by_phpbb_id(int $phpbb_user_id): int {
+	/**
+	 * Find the linked WP user ID for a phpBB user ID (via usermeta ia_phpbb_user_id).
+	 *
+	 * Public because IA_Auth uses it during verification/approval flows.
+	 */
+	public function find_wp_user_by_phpbb_id(int $phpbb_user_id): int {
         $meta_key = 'ia_phpbb_user_id';
         $found = $this->wpdb->get_var($this->wpdb->prepare(
             "SELECT user_id FROM {$this->wpdb->usermeta} WHERE meta_key=%s AND meta_value=%s LIMIT 1",
@@ -223,6 +228,35 @@ class IA_Auth_DB {
             (string)$phpbb_user_id
         ));
         return $found ? (int)$found : 0;
+    }
+
+    /**
+     * Lookup the identity map row for a given WordPress user ID.
+     * Returns associative array or null if not found.
+     */
+    public function get_identity_by_wp_user_id(int $wp_user_id): ?array {
+        $wp_user_id = (int) $wp_user_id;
+        if ($wp_user_id <= 0) return null;
+
+        $this->maybe_install();
+        $table = $this->wpdb->prefix . 'ia_identity_map';
+
+        // Primary lookup by wp_user_id if present.
+        $row = $this->wpdb->get_row(
+            $this->wpdb->prepare("SELECT * FROM $table WHERE wp_user_id=%d LIMIT 1", $wp_user_id),
+            ARRAY_A
+        );
+        if (is_array($row) && !empty($row)) return $row;
+
+        // Fallback: resolve phpbb_user_id from usermeta then look up by primary key.
+        $phpbb_user_id = (int) get_user_meta($wp_user_id, 'ia_phpbb_user_id', true);
+        if ($phpbb_user_id <= 0) return null;
+
+        $row = $this->wpdb->get_row(
+            $this->wpdb->prepare("SELECT * FROM $table WHERE phpbb_user_id=%d LIMIT 1", $phpbb_user_id),
+            ARRAY_A
+        );
+        return is_array($row) && !empty($row) ? $row : null;
     }
 
     public function upsert_identity(array $row) {
@@ -356,4 +390,57 @@ class IA_Auth_DB {
             ARRAY_A
         );
     }
+
+    // ===========================
+    // Email verification helpers
+    // ===========================
+
+    public function create_email_verification_job(int $phpbb_user_id, string $token, string $payload_json): bool {
+        $queue = $this->wpdb->prefix . 'ia_auth_queue';
+        $now = current_time('mysql');
+        $ok = $this->wpdb->insert($queue, [
+            'phpbb_user_id' => $phpbb_user_id,
+            'type'          => 'email_verify',
+            'payload_json'  => $payload_json,
+            'status'        => 'pending',
+            'attempts'      => 0,
+            'next_run_at'   => null,
+            'last_error'    => '',
+            'created_at'    => $now,
+            'updated_at'    => $now,
+        ], ['%d','%s','%s','%s','%d','%s','%s','%s','%s']);
+
+        if (!$ok) return false;
+
+        // Also store token in audit for quick lookup? We embed token into payload_json,
+        // but we additionally add a lightweight index table by using wp_options style lookup.
+        // Here we use a deterministic option key.
+        update_option('ia_auth_verify_' . $token, (string)$this->wpdb->insert_id, false);
+        return true;
+    }
+
+    public function find_email_verification_job(string $token): ?array {
+        $job_id = (int) get_option('ia_auth_verify_' . $token, 0);
+        if ($job_id <= 0) return null;
+
+        $queue = $this->wpdb->prefix . 'ia_auth_queue';
+        $row = $this->wpdb->get_row($this->wpdb->prepare("SELECT * FROM $queue WHERE job_id=%d", $job_id), ARRAY_A);
+        if (!$row) return null;
+        if (($row['type'] ?? '') !== 'email_verify') return null;
+        return $row;
+    }
+
+    public function mark_email_verification_job_done(string $token, string $status, string $err = ''): void {
+        $job_id = (int) get_option('ia_auth_verify_' . $token, 0);
+        if ($job_id > 0) {
+            $queue = $this->wpdb->prefix . 'ia_auth_queue';
+            $this->wpdb->update($queue, [
+                'status'     => $status,
+                'last_error' => (string)$err,
+                'updated_at' => current_time('mysql'),
+            ], ['job_id' => $job_id], ['%s','%s','%s'], ['%d']);
+        }
+        delete_option('ia_auth_verify_' . $token);
+    }
+
 }

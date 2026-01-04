@@ -15,7 +15,9 @@ define('IA_ENGINE_URL', plugin_dir_url(__FILE__));
 require_once IA_ENGINE_PATH . 'includes/class-ia-engine-crypto.php';
 require_once IA_ENGINE_PATH . 'includes/class-ia-engine.php';
 require_once IA_ENGINE_PATH . 'includes/class-ia-engine-admin.php';
+require_once IA_ENGINE_PATH . 'includes/class-ia-engine-pt-token.php';
 
 add_action('plugins_loaded', function () {
     IA_Engine::instance();
+    IA_Engine_PeerTube_Token::boot();
 });

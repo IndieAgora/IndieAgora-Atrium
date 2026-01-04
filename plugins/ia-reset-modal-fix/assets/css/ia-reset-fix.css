@@ -1,0 +1,3 @@
+/* Minimal safety: hide non-active panels when our script uses inline display toggles */
+#ia-atrium-auth .ia-auth-panel { display:none; }
+#ia-atrium-auth .ia-auth-panel.active { display:block; }

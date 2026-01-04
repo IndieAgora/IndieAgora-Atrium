@@ -19,9 +19,88 @@ final class IA_User {
         add_action('wp_ajax_ia_user_register', [$this, 'ajax_register']);
         add_action('wp_ajax_nopriv_ia_user_register', [$this, 'ajax_register']);
 
+        // Forgot password (modal flow): send WordPress reset email.
+        // Always return generic success to avoid user enumeration.
+        add_action('wp_ajax_ia_user_forgot', [$this, 'ajax_forgot']);
+        add_action('wp_ajax_nopriv_ia_user_forgot', [$this, 'ajax_forgot']);
+
+        // Password reset (from email link -> Atrium modal)
+        add_action('wp_ajax_ia_user_reset', [$this, 'ajax_reset']);
+        add_action('wp_ajax_nopriv_ia_user_reset', [$this, 'ajax_reset']);
+
+        // Rewrite WP reset email links to Atrium modal route
+        add_filter('retrieve_password_message', [$this, 'filter_retrieve_password_message'], 10, 4);
+
         add_action('wp_ajax_ia_user_logout', [$this, 'ajax_logout']);
         add_action('wp_ajax_nopriv_ia_user_logout', [$this, 'ajax_logout']);
     }
+
+    public function ajax_forgot() {
+        $this->guard_nonce();
+
+        $login = isset($_POST['login']) ? trim((string)$_POST['login']) : '';
+        $login = sanitize_text_field($login);
+
+        // WP core reads from $_POST['user_login'].
+        $_POST['user_login'] = $login;
+
+        $res = retrieve_password();
+        if (is_wp_error($res)) {
+            error_log('[IA_USER] retrieve_password failed: ' . $res->get_error_code() . ' ' . $res->get_error_message());
+        }
+
+		wp_send_json_success([
+			'message' => 'If that account exists, a reset email has been sent.',
+		]);
+	}
+
+	public function filter_retrieve_password_message($message, $key, $user_login, $user_data) {
+		// Send users to a dedicated IA Auth route. IA Auth will redirect into the Atrium modal reset flow.
+		$url = add_query_arg([
+			'key'   => $key,
+			'login' => $user_login,
+		], home_url('/ia-reset/'));
+
+		// Replace the default wp-login reset link with our Atrium reset route.
+		// Replace any wp-login reset URL (WordPress can reorder query params).
+		$message2 = preg_replace('#https?://[^\s]+/wp-login\.php\?[^\s]*#', $url, $message, 1);
+		$message2 = preg_replace('#/wp-login\.php\?[^\s]*#', $url, $message2, 1);
+
+		// Fallback: append our URL if we didn't find/replace anything.
+		if (strpos($message2, $url) === false) {
+			$message2 .= "\n\n" . $url . "\n";
+		}
+
+		return $message2;
+	}
+
+	public function ajax_reset() {
+		$this->guard_nonce();
+
+		$login = isset($_POST['login']) ? sanitize_text_field((string)$_POST['login']) : '';
+		$key   = isset($_POST['key']) ? sanitize_text_field((string)$_POST['key']) : '';
+		$pass1 = isset($_POST['pass1']) ? (string)$_POST['pass1'] : '';
+		$pass2 = isset($_POST['pass2']) ? (string)$_POST['pass2'] : '';
+
+		if ($login === '' || $key === '' || $pass1 === '' || $pass2 === '') {
+			wp_send_json_error(['message' => 'Missing required fields.'], 400);
+		}
+		if ($pass1 !== $pass2) {
+			wp_send_json_error(['message' => 'Passwords do not match.'], 400);
+		}
+
+		$user = check_password_reset_key($key, $login);
+		if (is_wp_error($user)) {
+			wp_send_json_error(['message' => 'Reset link is invalid or expired. Please request a new one.'], 400);
+		}
+
+		reset_password($user, $pass1);
+
+		wp_send_json_success([
+			'message' => 'Password reset successful. You can now log in.',
+			'login'   => $user->user_login,
+		]);
+	}
 
   public function enqueue_assets() {
     if (is_admin()) return;
@@ -215,28 +294,65 @@ final class IA_User {
             wp_send_json_error(['message' => 'Missing username/password.'], 400);
         }
 
-        $cfg = $this->phpbb_cfg();
-        if (empty($cfg['host']) || empty($cfg['name']) || empty($cfg['user'])) {
-            wp_send_json_error(['message' => 'phpBB database is not configured (ia-engine).'], 500);
-        }
+$cfg = $this->phpbb_cfg();
 
-        $phpbb = new IA_User_PHPBB();
-        $auth = $phpbb->authenticate($id, $pw, $cfg);
+// Prefer phpBB auth when configured, but fall back to native WP auth for WP-only accounts.
+$phpbb_user = [];
+$wp_user_id = 0;
 
-        if (empty($auth['ok'])) {
-            wp_send_json_error(['message' => $auth['message'] ?? 'Login failed.'], 401);
-        }
+$phpbb_configured = !empty($cfg['host']) && !empty($cfg['name']) && !empty($cfg['user']);
+if ($phpbb_configured) {
+    $phpbb = new IA_User_PHPBB();
+    $auth = $phpbb->authenticate($id, $pw, $cfg);
 
+    if (!empty($auth['ok'])) {
         $phpbb_user = (array)($auth['user'] ?? []);
         $wp_user_id = $this->ensure_wp_shadow_user($phpbb_user);
         if ($wp_user_id <= 0) {
             wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
         }
+    }
+}
 
-        wp_set_current_user($wp_user_id);
-        wp_set_auth_cookie($wp_user_id, true);
+// Fallback: try WordPress auth (covers users created by Atrium/WP that do not exist in phpBB).
+if ($wp_user_id <= 0) {
+    $login = $id;
+    if (is_email($id)) {
+        $u = get_user_by('email', $id);
+        if ($u && !is_wp_error($u)) $login = $u->user_login;
+    }
 
-        $this->maybe_mint_peertube_token($id, $pw, (int)($phpbb_user['user_id'] ?? 0));
+    $user = wp_signon([
+        'user_login'    => $login,
+        'user_password' => $pw,
+        'remember'      => true,
+    ], is_ssl());
+
+    if (is_wp_error($user) || empty($user->ID)) {
+        wp_send_json_error(['message' => 'Invalid username/email or password.'], 401);
+    }
+
+    $wp_user_id = (int)$user->ID;
+
+    // If we have a mapped phpBB id, keep the do_action payload consistent.
+    $maybe_phpbb_id = (int)get_user_meta($wp_user_id, 'ia_phpbb_user_id', true);
+    if ($maybe_phpbb_id > 0) {
+        $phpbb_user = ['user_id' => $maybe_phpbb_id, 'username' => $user->user_login, 'user_email' => $user->user_email];
+    } else {
+        $phpbb_user = ['user_id' => 0, 'username' => $user->user_login, 'user_email' => $user->user_email];
+    }
+}
+
+$verified = (string)get_user_meta($wp_user_id, self::META_EMAIL_VERIFIED, true);
+if ($verified !== '1') {
+    wp_send_json_error(['message' => 'Please verify your email to activate this account.'], 403);
+}
+
+wp_set_current_user($wp_user_id);
+wp_set_auth_cookie($wp_user_id, true);
+
+// If PeerTube provisioning is enabled, mint/refresh an admin token for follow-on calls when needed.
+$this->maybe_mint_peertube_token((string)($phpbb_user['username'] ?? $id), $pw, (int)($phpbb_user['user_id'] ?? 0));
 
         do_action('ia_user_after_login', $phpbb_user, $wp_user_id);
 
@@ -286,14 +402,27 @@ final class IA_User {
         if ($wp_user_id <= 0) {
             wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
         }
+// Registration now requires email verification.
+update_user_meta($wp_user_id, self::META_EMAIL_VERIFIED, '0');
 
-        wp_set_current_user($wp_user_id);
-        wp_set_auth_cookie($wp_user_id, true);
+// Delegate verification + PeerTube provisioning to IA Auth (it owns /ia-verify/{token})
+if (class_exists('IA_Auth') && method_exists(IA_Auth::instance(), 'create_verification_for_existing')) {
+    $res = IA_Auth::instance()->create_verification_for_existing(
+        $phpbb_user_id,
+        $wp_user_id,
+        $username,
+        $email,
+        $pw
+    );
+    if (empty($res['ok'])) {
+        wp_send_json_error(['message' => 'Could not send verification email: ' . ($res['message'] ?? 'Unknown error')], 500);
+    }
+} else {
+    wp_send_json_error(['message' => 'IA Auth is required for email verification.'], 500);
+}
 
-        // Mint PeerTube token using the new account credentials.
-        $this->maybe_mint_peertube_token($username, $pw, $phpbb_user_id);
-
-        do_action('ia_user_after_register', $phpbb_user, $wp_user_id);
+        // Do NOT auto-login until verified.
+do_action('ia_user_after_register', $phpbb_user, $wp_user_id);
 
         wp_send_json_success([
             'message'     => 'OK',
@@ -301,7 +430,170 @@ final class IA_User {
         ]);
     }
 
-    public function ajax_logout() {
+    
+    // ===========================
+    // Email verification + PeerTube provisioning
+    // ===========================
+    private const META_EMAIL_VERIFIED = 'ia_email_verified';
+    private const META_VERIFY_TOKEN   = 'ia_verify_token';
+    private const META_VERIFY_EXPIRES = 'ia_verify_expires';
+    private const META_PENDING_PW     = 'ia_pending_pw_enc';
+
+    public function boot_email_verify_routes(): void {
+        add_action('init', [$this, 'register_verify_rewrite']);
+        add_action('template_redirect', [$this, 'maybe_handle_verify']);
+        add_filter('query_vars', function($vars){ $vars[]='ia_verify'; return $vars; });
+    }
+
+    public function register_verify_rewrite(): void {
+        add_rewrite_rule('^ia-verify/([A-Za-z0-9_-]+)/?$', 'index.php?ia_verify=$matches[1]', 'top');
+        add_rewrite_tag('%ia_verify%', '([A-Za-z0-9_-]+)');
+    }
+
+    private function new_verify_token(): string {
+        return rtrim(strtr(base64_encode(random_bytes(24)), '+/', '-_'), '=');
+    }
+
+    private function send_verify_email(int $wp_user_id, string $email): bool {
+        $token = get_user_meta($wp_user_id, self::META_VERIFY_TOKEN, true);
+        if (!$token) return false;
+
+        $url = home_url('/ia-verify/' . rawurlencode($token) . '/');
+        $subject = apply_filters('ia_user_verify_email_subject', 'Verify your IndieAgora account', $wp_user_id, $url);
+        $body = apply_filters('ia_user_verify_email_body',
+            "Hi\n\nPlease verify your email to activate your account:\n{$url}\n\nIf you didn't create this account, you can ignore this email.",
+            $wp_user_id, $url
+        );
+
+        return wp_mail($email, $subject, $body);
+    }
+
+    private function provision_peertube_user(string $username, string $email, string $password): array {
+        if (!class_exists('IA_Engine')) {
+            return [false, 'IA Engine not available'];
+        }
+
+        $token = IA_Engine::peertube_api_token();
+        if (!$token) {
+            return [false, 'PeerTube API token not configured'];
+        }
+
+        $base = rtrim(IA_Engine::peertube_internal_base_url(), '/');
+        if (!$base) {
+            return [false, 'PeerTube base URL not configured'];
+        }
+
+        $endpoint = $base . '/api/v1/users';
+
+        // PeerTube: create user (admin)
+        $payload = [
+            'username'    => $username,
+            'email'       => $email,
+            'password'    => $password,
+            'role'        => 2, // typically USER; admin token decides
+            'videoQuota'  => -1,
+            'videoQuotaDaily' => -1,
+            'channelName' => $username,
+            'displayName' => $username,
+        ];
+
+        $res = wp_remote_post($endpoint, [
+            'timeout' => 20,
+            'headers' => [
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type'  => 'application/json',
+                'Accept'        => 'application/json',
+            ],
+            'body' => wp_json_encode($payload),
+        ]);
+
+        if (is_wp_error($res)) {
+            return [false, $res->get_error_message()];
+        }
+
+        $code = (int) wp_remote_retrieve_response_code($res);
+        $body = (string) wp_remote_retrieve_body($res);
+        $data = json_decode($body, true);
+
+        if ($code < 200 || $code >= 300) {
+            $msg = 'PeerTube create user failed';
+            if (is_array($data)) {
+                $msg = $data['message'] ?? $data['error'] ?? $msg;
+            }
+            return [false, $msg . ' (HTTP ' . $code . ')'];
+        }
+
+        // Response usually includes the created user info.
+        $pt_user_id = 0;
+        if (is_array($data)) {
+            $pt_user_id = (int)($data['user']['id'] ?? $data['id'] ?? 0);
+        }
+
+        return [true, $pt_user_id];
+    }
+
+    public function maybe_handle_verify(): void {
+        $token = get_query_var('ia_verify');
+        if (!$token) return;
+
+        // Find user by token
+        $users = get_users([
+            'meta_key'   => self::META_VERIFY_TOKEN,
+            'meta_value' => sanitize_text_field((string)$token),
+            'number'     => 1,
+            'fields'     => 'ID',
+        ]);
+
+        if (empty($users)) {
+            wp_die('Invalid or expired verification link.', 'Verification', 400);
+        }
+
+        $wp_user_id = (int)$users[0];
+        $expires = (int) get_user_meta($wp_user_id, self::META_VERIFY_EXPIRES, true);
+        if ($expires && time() > $expires) {
+            wp_die('This verification link has expired. Please register again.', 'Verification', 400);
+        }
+
+        $email = (string) get_userdata($wp_user_id)->user_email;
+        $username = (string) get_userdata($wp_user_id)->user_login;
+
+        $enc = (string) get_user_meta($wp_user_id, self::META_PENDING_PW, true);
+        $pw = '';
+        if ($enc && class_exists('IA_Engine_Crypto')) {
+            $pw = IA_Engine_Crypto::decrypt($enc);
+        }
+
+        if (!$pw) {
+            wp_die('Verification failed (missing pending password). Please register again.', 'Verification', 500);
+        }
+
+        // Provision PeerTube user now
+        [$ok, $pt_user_id_or_msg] = $this->provision_peertube_user($username, $email, $pw);
+        if (!$ok) {
+            wp_die('Verification failed: ' . esc_html((string)$pt_user_id_or_msg), 'Verification', 500);
+        }
+
+        // Mark verified + cleanup token + pending pw
+        update_user_meta($wp_user_id, self::META_EMAIL_VERIFIED, '1');
+        delete_user_meta($wp_user_id, self::META_VERIFY_TOKEN);
+        delete_user_meta($wp_user_id, self::META_VERIFY_EXPIRES);
+        delete_user_meta($wp_user_id, self::META_PENDING_PW);
+
+        // Store peertube_user_id in identity map if available
+        if (method_exists($this, 'identity_set_peertube_user_id')) {
+            $this->identity_set_peertube_user_id($wp_user_id, (int)$pt_user_id_or_msg);
+        }
+
+        // Log them in
+        wp_set_current_user($wp_user_id);
+        wp_set_auth_cookie($wp_user_id, true);
+
+        wp_safe_redirect(home_url('/?verified=1'));
+        exit;
+    }
+
+
+public function ajax_logout() {
         $this->guard_nonce();
         wp_logout();
         wp_send_json_success([

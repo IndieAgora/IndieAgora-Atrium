@@ -34,6 +34,9 @@ class IA_Auth_Admin {
             'dashicons-shield',
             58
         );
+
+        add_submenu_page('ia-auth', 'Users', 'Users', 'manage_options', 'ia-auth-users', [$this, 'render_users']);
+
     }
 
     private function tab() {
@@ -223,6 +226,17 @@ class IA_Auth_Admin {
 
         $new['peertube_oauth_method'] = sanitize_key($_POST['peertube_oauth_method'] ?? 'password_grant');
         $new['peertube_fail_policy'] = sanitize_key($_POST['peertube_fail_policy'] ?? 'allow_login');
+
+        // Optional PeerTube API credentials (used for privileged API calls).
+        // NOTE: These are stored in wp_options (not encrypted).
+        $new['peertube_api_base'] = esc_url_raw($_POST['peertube_api_base'] ?? '');
+        $new['peertube_oauth_client_id'] = sanitize_text_field($_POST['peertube_oauth_client_id'] ?? '');
+        $new['peertube_oauth_client_secret'] = sanitize_text_field($_POST['peertube_oauth_client_secret'] ?? '');
+        $new['peertube_api_username'] = sanitize_text_field($_POST['peertube_api_username'] ?? '');
+        // Keep as-is (sanitize_text_field is fine, but we don't want to trim special chars unexpectedly).
+        $new['peertube_api_password'] = isset($_POST['peertube_api_password']) ? (string) $_POST['peertube_api_password'] : '';
+        $new['peertube_api_access_token'] = preg_replace('/[^a-f0-9]/i', '', (string) ($_POST['peertube_api_access_token'] ?? ''));
+        $new['peertube_api_refresh_token'] = preg_replace('/[^a-f0-9]/i', '', (string) ($_POST['peertube_api_refresh_token'] ?? ''));
 
         // Keep any existing primary-admin/dismiss flags
         $opt = $this->opts();
@@ -663,6 +677,21 @@ class IA_Auth_Admin {
         echo '<option value="block_login" ' . selected($fp, 'block_login', false) . '>Block login</option>';
         echo '</select></p>';
 
+        echo '<h4>PeerTube API credentials (optional)</h4>';
+        echo '<p style="max-width:760px;">If you want IA Auth to make privileged PeerTube API calls (for example creating/syncing accounts), paste your OAuth client credentials and/or an API access token here. These are stored in <code>wp_options</code> (not encrypted), so only use this on a trusted server.</p>';
+
+        echo '<p><label>OAuth client id</label><br>';
+        echo '<input type="text" name="peertube_client_id" style="width:420px" value="' . esc_attr((string)($opt['peertube_client_id'] ?? '')) . '" placeholder="e.g. lfq72p6fbgsvxo9bsx3h6srolvhhtp7b"></p>';
+
+        echo '<p><label>OAuth client secret</label><br>';
+        echo '<input type="text" name="peertube_client_secret" style="width:420px" value="' . esc_attr((string)($opt['peertube_client_secret'] ?? '')) . '" placeholder="e.g. Wxo4tyJiegJKXIcLsYOBMVBbp0IQSDPk"></p>';
+
+        echo '<p><label>API access token (Bearer)</label><br>';
+        echo '<input type="text" name="peertube_api_token" style="width:760px" value="' . esc_attr((string)($opt['peertube_api_token'] ?? '')) . '" placeholder="e.g. 8574..."></p>';
+
+        echo '<p><label>API refresh token (optional)</label><br>';
+        echo '<input type="text" name="peertube_refresh_token" style="width:760px" value="' . esc_attr((string)($opt['peertube_refresh_token'] ?? '')) . '" placeholder="e.g. 1d29..."></p>';
+
         echo '<h3>Entry points</h3>';
         $rwl = !empty($opt['redirect_wp_login']);
         $dwr = !empty($opt['disable_wp_registration']);
@@ -838,4 +867,156 @@ class IA_Auth_Admin {
         echo '<h2>Logs</h2>';
         echo '<p>No logs yet.</p>';
     }
+
+    public function render_users() {
+        if (!current_user_can('manage_options')) return;
+
+        global $wpdb;
+
+        // Handle actions
+        if (!empty($_POST['ia_auth_action']) && check_admin_referer('ia_auth_users_action', 'ia_auth_nonce')) {
+            $action = sanitize_text_field((string)$_POST['ia_auth_action']);
+            $phpbb_user_id = (int)($_POST['phpbb_user_id'] ?? 0);
+
+            $identity = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}ia_identity_map WHERE phpbb_user_id=%d",
+                $phpbb_user_id
+            ), ARRAY_A);
+
+            if ($identity) {
+                $wp_user_id = (int)($identity['wp_user_id'] ?? 0);
+                $email = (string)($identity['email'] ?? '');
+
+                if ($action === 'resend') {
+                    $user = $wp_user_id ? get_userdata($wp_user_id) : null;
+                    $username = $user ? $user->user_login : '';
+                    $pw_enc = $wp_user_id ? (string)get_user_meta($wp_user_id, 'ia_pw_enc_pending', true) : '';
+                    if ($username && $email && $pw_enc) {
+                        $token = bin2hex(random_bytes(16));
+                        $payload = wp_json_encode([
+                            'token'    => $token,
+                            'username' => $username,
+                            'email'    => $email,
+                            'pw_enc'   => $pw_enc,
+                            'created'  => time(),
+                        ]);
+                        $this->ia->db->create_email_verification_job($phpbb_user_id, $token, (string)$payload);
+                        $verify_url = home_url('/ia-verify/' . $token);
+                        $subject = apply_filters('ia_auth_verify_email_subject', 'Activate your IndieAgora account');
+                        $body    = apply_filters('ia_auth_verify_email_body',
+                            "Hi {$username},\n\nPlease activate your account by clicking the link below:\n\n{$verify_url}\n",
+                            $username, $verify_url
+                        );
+                        $sent = wp_mail($email, $subject, $body);
+                        if (!$sent) {
+                            error_log('[IA Auth] wp_mail returned false when resending verification email to ' . $email);
+                            echo '<div class="notice notice-error"><p>Could not send email (wp_mail failed). Check your SMTP / mail setup.</p></div>';
+                        } else {
+                            echo '<div class="notice notice-success"><p>Verification email resent.</p></div>';
+                        }
+                    } else {
+                        echo '<div class="notice notice-error"><p>Could not resend (missing pending password or email).</p></div>';
+                    }
+                }
+
+                if ($action === 'approve') {
+                    // Manual approve = provision PeerTube now using pending password, then mark verified.
+                    if ($wp_user_id) {
+                        $user = get_userdata($wp_user_id);
+                        $username = $user ? $user->user_login : '';
+                        $pw_enc = (string)get_user_meta($wp_user_id, 'ia_pw_enc_pending', true);
+                        $pw = $this->ia->crypto->decrypt($pw_enc);
+
+                        if ($username && $email && $pw) {
+                            $pt_cfg = class_exists('IA_Engine') ? IA_Engine::peertube_api() : [];
+                            // PeerTube constraint: channelName must NOT be the same as username.
+                            // Build a deterministic channel slug from the username.
+                            $chan_base = strtolower((string)$username);
+                            $chan_base = preg_replace('/[^a-z0-9_]+/', '_', $chan_base);
+                            $chan_base = trim($chan_base, '_');
+                            if ($chan_base === '') $chan_base = 'user';
+                            $channel_name = substr($chan_base . '_channel', 0, 50);
+
+                            $pt_create = $this->ia->peertube->admin_create_user($username, $email, $pw, $channel_name, $pt_cfg);
+
+                            if (!empty($pt_create['ok'])) {
+                                update_user_meta($wp_user_id, 'ia_email_verified', 1);
+                                delete_user_meta($wp_user_id, 'ia_pw_enc_pending');
+
+                                $this->ia->db->upsert_identity([
+                                    'phpbb_user_id'        => $phpbb_user_id,
+                                    'phpbb_username_clean' => (string)($identity['phpbb_username_clean'] ?? ''),
+                                    'email'                => $email,
+                                    'wp_user_id'           => $wp_user_id,
+                                    'peertube_user_id'     => (int)$pt_create['peertube_user_id'],
+                                    'peertube_account_id'  => (int)$pt_create['peertube_account_id'],
+                                    'status'               => 'linked',
+                                    'last_error'           => '',
+                                ]);
+
+                                echo '<div class="notice notice-success"><p>User approved and PeerTube account provisioned.</p></div>';
+                            } else {
+                                $msg = (string)($pt_create['message'] ?? '');
+                                if ($msg === '') $msg = 'Unknown error';
+                                error_log('[IA Auth] PeerTube provisioning failed: ' . $msg);
+                                echo '<div class="notice notice-error"><p>PeerTube provisioning failed: ' . esc_html($msg) . '</p></div>';
+                            }
+                        } else {
+                            echo '<div class="notice notice-error"><p>Could not approve (missing pending password).</p></div>';
+                        }
+                    }
+                }
+            }
+        }
+
+        $rows = $wpdb->get_results(
+            "SELECT * FROM {$wpdb->prefix}ia_identity_map WHERE status='pending_email' ORDER BY created_at DESC LIMIT 500",
+            ARRAY_A
+        );
+
+        echo '<div class="wrap"><h1>IA Users — Pending Email Verification</h1>';
+        echo '<p>These accounts exist in phpBB/WP but cannot log in until verified.</p>';
+
+        if (empty($rows)) {
+            echo '<p><em>No pending users.</em></p></div>';
+            return;
+        }
+
+        echo '<table class="widefat striped"><thead><tr>';
+        echo '<th>phpBB ID</th><th>WP User</th><th>Email</th><th>Created</th><th>Actions</th>';
+        echo '</tr></thead><tbody>';
+
+        foreach ($rows as $r) {
+            $phpbb_id = (int)$r['phpbb_user_id'];
+            $wp_id = (int)($r['wp_user_id'] ?? 0);
+            $email = esc_html((string)($r['email'] ?? ''));
+            $created = esc_html((string)($r['created_at'] ?? ''));
+            $wp_label = $wp_id ? ('#' . $wp_id . ' ' . esc_html((string)(get_userdata($wp_id)->user_login ?? ''))) : '—';
+
+            echo '<tr>';
+            echo '<td>' . $phpbb_id . '</td>';
+            echo '<td>' . $wp_label . '</td>';
+            echo '<td>' . $email . '</td>';
+            echo '<td>' . $created . '</td>';
+            echo '<td>';
+            echo '<form method="post" style="display:inline-block;margin-right:6px;">';
+            wp_nonce_field('ia_auth_users_action', 'ia_auth_nonce');
+            echo '<input type="hidden" name="phpbb_user_id" value="' . esc_attr((string)$phpbb_id) . '">';
+            echo '<input type="hidden" name="ia_auth_action" value="resend">';
+            echo '<button class="button">Resend email</button>';
+            echo '</form>';
+
+            echo '<form method="post" style="display:inline-block;">';
+            wp_nonce_field('ia_auth_users_action', 'ia_auth_nonce');
+            echo '<input type="hidden" name="phpbb_user_id" value="' . esc_attr((string)$phpbb_id) . '">';
+            echo '<input type="hidden" name="ia_auth_action" value="approve">';
+            echo '<button class="button button-primary">Approve</button>';
+            echo '</form>';
+            echo '</td>';
+            echo '</tr>';
+        }
+
+        echo '</tbody></table></div>';
+    }
+
 }

@@ -72,6 +72,10 @@
     document.documentElement.classList.remove("ia-no-scroll");
   }
 
+  // Defensive: ensure scroll is never stuck disabled across reloads.
+  // If a prior crash left ia-no-scroll on <html>, clear it on boot.
+  try { document.documentElement.classList.remove("ia-no-scroll"); } catch (e) {}
+
   function escapeHtml(str) {
     return (str || "")
       .replaceAll("&", "&amp;")
@@ -301,6 +305,15 @@
         btn.addEventListener("click", function () {
           setAuthTab(authModal, btn.dataset.authTab);
         });
+      });
+
+      // In-panel links/buttons that request a tab/panel change (e.g. "Forgot password?" / "Continue")
+      authModal.addEventListener("click", function (e) {
+        const go = e.target.closest("[data-ia-auth-goto]");
+        if (!go) return;
+        e.preventDefault();
+        const target = go.getAttribute("data-ia-auth-goto") || "login";
+        setAuthTab(authModal, target);
       });
     }
 

@@ -67,18 +67,61 @@ final class IA_Engine_Admin {
         $basePath = trim($basePath);
         $basePath = $basePath !== '' ? ltrim($basePath, '/') : '';
 
+        // Keep non-secret settings in the main settings store.
+        $existing_ptapi = IA_Engine::peertube_api();
+
+        $oauth_client_id = sanitize_text_field($_POST['pt_oauth_client_id'] ?? '');
+        if ($oauth_client_id === '') $oauth_client_id = (string)($existing_ptapi['oauth_client_id'] ?? '');
+
+        $admin_username = sanitize_text_field($_POST['pt_admin_username'] ?? '');
+        if ($admin_username === '' && empty($_POST['pt_admin_username_clear'])) {
+            $admin_username = (string)($existing_ptapi['admin_username'] ?? '');
+        }
+        if (!empty($_POST['pt_admin_username_clear'])) {
+            $admin_username = '';
+        }
+
         $peertube_api = [
             'scheme'     => $scheme,
             'host'       => sanitize_text_field($_POST['pt_api_host'] ?? '127.0.0.1'),
             'port'       => (int)($_POST['pt_api_port'] ?? 9000),
             'base_path'  => $basePath,
             'public_url' => esc_url_raw($_POST['pt_public_url'] ?? ''),
-            'token'      => (string)($_POST['pt_api_token'] ?? ''), // blank => keep existing
+            // Optional OAuth client id (secret stored separately)
+            'oauth_client_id' => $oauth_client_id,
+            // Optional admin username (password secret stored separately)
+            'admin_username'  => $admin_username,
         ];
 
         IA_Engine::set('phpbb', $phpbb);
         IA_Engine::set('peertube', $peertube);
         IA_Engine::set('peertube_api', $peertube_api);
+
+        // Store secrets encrypted (kept if blank).
+        // Token / access token
+        if (!empty($_POST['pt_api_token_clear'])) {
+            IA_Engine::set('peertube_api.token', '__CLEAR__', true);
+        } else {
+            IA_Engine::set('peertube_api.token', (string)($_POST['pt_api_token'] ?? ''), true);
+        }
+
+        // OAuth client secret
+        if (!empty($_POST['pt_oauth_client_secret_clear'])) {
+            IA_Engine::set('peertube_api.oauth_client_secret', '__CLEAR__', true);
+        } else {
+            IA_Engine::set('peertube_api.oauth_client_secret', (string)($_POST['pt_oauth_client_secret'] ?? ''), true);
+        }
+
+        // Admin password
+        if (!empty($_POST['pt_admin_password_clear'])) {
+            IA_Engine::set('peertube_api.admin_password', '__CLEAR__', true);
+        } else {
+            IA_Engine::set('peertube_api.admin_password', (string)($_POST['pt_admin_password'] ?? ''), true);
+        }
+
+        // Clear minted tokens if requested
+        if (!empty($_POST['pt_admin_access_token_clear']))  IA_Engine::set('peertube_api.admin_access_token', '__CLEAR__', true);
+        if (!empty($_POST['pt_admin_refresh_token_clear'])) IA_Engine::set('peertube_api.admin_refresh_token', '__CLEAR__', true);
 
         wp_safe_redirect(admin_url('admin.php?page=ia-engine&saved=1'));
         exit;
@@ -202,11 +245,57 @@ final class IA_Engine_Admin {
                         <label>Public URL</label>
                         <input type="text" name="pt_public_url" value="<?php echo esc_attr($ptapi_raw['public_url'] ?? 'https://stream.indieagora.com'); ?>"/>
 
-                        <label>API token (optional)</label>
+                        <label>API token / access token (optional)</label>
                         <div class="ia-engine-secret">
-                            <input type="password" name="pt_api_token" placeholder="Leave blank to keep existing"/>
+                            <input type="password" name="pt_api_token" placeholder="Paste a token, or leave blank to keep existing"/>
+                            <label class="ia-engine-inline">
+                              <input type="checkbox" name="pt_api_token_clear" value="1" /> Clear stored token
+                            </label>
                             <div class="ia-engine-secret-meta">Stored encrypted. Existing: <strong><?php echo esc_html($ptapi_safe['token'] ?? 'not set'); ?></strong></div>
                         </div>
+
+                        <div class="ia-engine-grid-sep"></div>
+
+                        <label>OAuth client id (optional)</label>
+                        <input type="text" name="pt_oauth_client_id" value="<?php echo esc_attr($ptapi_raw['oauth_client_id'] ?? ''); ?>" placeholder="Leave blank to auto-discover"/>
+
+                        <label>OAuth client secret (optional)</label>
+                        <div class="ia-engine-secret">
+                            <input type="password" name="pt_oauth_client_secret" placeholder="Leave blank to keep existing"/>
+                            <label class="ia-engine-inline">
+                              <input type="checkbox" name="pt_oauth_client_secret_clear" value="1" /> Clear stored secret
+                            </label>
+                            <div class="ia-engine-secret-meta">Stored encrypted. Existing: <strong><?php echo esc_html($ptapi_safe['oauth_client_secret'] ?? 'not set'); ?></strong></div>
+                        </div>
+
+                        <label>PeerTube admin username (for token refresh)</label>
+                        <div class="ia-engine-secret">
+                            <input type="text" name="pt_admin_username" value="<?php echo esc_attr($ptapi_raw['admin_username'] ?? ''); ?>" placeholder="e.g. root"/>
+                            <label class="ia-engine-inline">
+                              <input type="checkbox" name="pt_admin_username_clear" value="1" /> Clear stored username
+                            </label>
+                        </div>
+
+                        <label>PeerTube admin password (for token refresh)</label>
+                        <div class="ia-engine-secret">
+                            <input type="password" name="pt_admin_password" placeholder="Leave blank to keep existing"/>
+                            <label class="ia-engine-inline">
+                              <input type="checkbox" name="pt_admin_password_clear" value="1" /> Clear stored password
+                            </label>
+                            <div class="ia-engine-secret-meta">Stored encrypted. Existing: <strong><?php echo esc_html($ptapi_safe['admin_password'] ?? 'not set'); ?></strong></div>
+                        </div>
+
+                        <div class="ia-engine-pt-token-status">
+                            <strong>Admin access token:</strong>
+                            <span><?php echo esc_html(!empty($ptapi_safe['admin_access_token']) ? $ptapi_safe['admin_access_token'] : 'not set'); ?></span>
+                        </div>
+                        <div class="ia-engine-pt-token-status">
+                            <strong>Admin refresh token:</strong>
+                            <span><?php echo esc_html(!empty($ptapi_safe['admin_refresh_token']) ? $ptapi_safe['admin_refresh_token'] : 'not set'); ?></span>
+                        </div>
+
+                        <button id="ia-engine-pt-refresh-btn" type="button" class="button ia-engine-pt-refresh" data-action="ia_engine_pt_refresh_now">Refresh admin token now</button>
+                        <span class="ia-engine-pt-refresh-result" aria-live="polite"></span>
                     </div>
 
                     <div class="ia-engine-tests">

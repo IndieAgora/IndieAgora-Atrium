@@ -65,46 +65,100 @@ final class IA_Engine {
     }
 
     /**
-     * Save a service config. Secrets are encrypted if provided.
-     * If a secret field is missing from $cfg, it is preserved (not overwritten).
+     * Save a service config.
+     *
+     * Normal usage (service-level array):
+     *   IA_Engine::set('peertube_api', ['host' => '127.0.0.1', ...])
+     *
+     * Admin helper usage (single secret field):
+     *   IA_Engine::set('peertube_api.token', '...', true)
+     *   IA_Engine::set('peertube_api.admin_password', '__CLEAR__', true)
      */
-    public static function set(string $service, array $cfg): bool {
+    public static function set(string $service, $cfg, bool $is_secret_field = false): bool {
         if (!current_user_can('manage_options')) return false;
+
+        // Support legacy admin calls that set one secret at a time:
+        //   IA_Engine::set('peertube_api.token', '...', true)
+        if ($is_secret_field || (is_string($cfg) && strpos($service, '.') !== false)) {
+            $svc = strtolower(trim((string)$service));
+            $parts = explode('.', $svc, 2);
+            $svcName = $parts[0] ?? '';
+            $field = $parts[1] ?? '';
+            if ($svcName === '' || $field === '') return false;
+
+            // Re-enter service-level setter with an array payload.
+            return self::set($svcName, [ $field => (string)$cfg ], false);
+        }
+
+        if (!is_array($cfg)) return false;
 
         $service = strtolower(trim($service));
         $all = self::get_all();
         $prev = $all[$service] ?? [];
         if (!is_array($prev)) $prev = [];
 
-        // Preserve existing secrets unless explicitly provided
-        foreach (self::secret_fields($service) as $field) {
-            if (array_key_exists($field, $cfg)) {
-                $val = (string)$cfg[$field];
-                if ($val === '') {
-                    // blank means keep existing (admin UI uses "leave blank to keep existing")
-                    if (isset($prev[$field])) {
-                        $cfg[$field] = $prev[$field];
-                    } else {
-                        unset($cfg[$field]);
-                    }
-                } else {
-                    $cfg[$field] = IA_Engine_Crypto::encrypt($val);
+        // IMPORTANT:
+        // When admin UI saves a single secret field (via service.field), we must NOT
+        // overwrite the whole service config with only that one field.
+        // Merge incoming keys on top of existing config.
+        $new = $prev;
+
+        $secretFields = self::secret_fields($service);
+
+        foreach ($cfg as $k => $v) {
+            $k = (string)$k;
+            if (in_array($k, $secretFields, true)) {
+                $val = (string)$v;
+                if ($val === '__CLEAR__') {
+                    unset($new[$k]);
+                    continue;
                 }
+                if ($val === '') {
+                    // blank means keep existing
+                    continue;
+                }
+                $new[$k] = IA_Engine_Crypto::encrypt($val);
             } else {
-                // Not provided => preserve existing
-                if (isset($prev[$field])) $cfg[$field] = $prev[$field];
+                // Non-secret: set as-is (empty string is a valid value)
+                $new[$k] = $v;
             }
         }
 
-        $all[$service] = $cfg;
-        return (bool) update_option(self::OPTION_KEY, $all, true);
+        $all[$service] = $new;
+        $ok = (bool) update_option(self::OPTION_KEY, $all, true);
+
+        // Back-compat / integration shim: some plugins expect PeerTube API settings
+        // in the legacy option key 'engine_peertube_api'. Keep it in sync.
+        if ($ok && $service === 'peertube_api') {
+            $pt = self::peertube_api();
+            update_option('engine_peertube_api', [
+                'internal_base_url' => $pt['internal_base_url'],
+                'public_base_url'   => $pt['public_base_url'],
+                'oauth_client_id'   => (string)($pt['oauth_client_id'] ?? ''),
+                'oauth_client_secret' => (string)($pt['oauth_client_secret'] ?? ''),
+                'admin_username'    => (string)($pt['admin_username'] ?? ''),
+                'admin_password'    => (string)($pt['admin_password'] ?? ''),
+                'admin_access_token' => (string)($pt['admin_access_token'] ?? ''),
+                'admin_refresh_token' => (string)($pt['admin_refresh_token'] ?? ''),
+            ], true);
+        }
+
+        return $ok;
     }
 
     private static function secret_fields(string $service): array {
         $service = strtolower(trim($service));
         if ($service === 'phpbb') return ['password'];
         if ($service === 'peertube') return ['password'];        // DB password
-        if ($service === 'peertube_api') return ['token'];       // API token
+        if ($service === 'peertube_api') {
+            return [
+                'token',
+                'oauth_client_secret',
+                'admin_password',
+                'admin_access_token',
+                'admin_refresh_token'
+            ];
+        }
         return [];
     }
 
@@ -141,7 +195,24 @@ final class IA_Engine {
             'port'       => (int)($c['port'] ?? 9000),
             'base_path'  => (string)($c['base_path'] ?? ''),
             'public_url' => (string)($c['public_url'] ?? 'https://stream.indieagora.com'),
+            // Admin bearer token used for server-side API calls (eg. create users).
+            // This is auto-maintained by IA Engine via a scheduled refresh.
             'token'      => (string)($c['token'] ?? ''),
+
+            // OAuth client used to mint tokens (can be auto-detected from /api/v1/oauth-clients/local).
+            'oauth_client_id'     => (string)($c['oauth_client_id'] ?? ''),
+            'oauth_client_secret' => (string)($c['oauth_client_secret'] ?? ''),
+
+            // Admin account credentials used ONLY to (re)mint a long-lived refresh token if needed.
+            // Prefer providing a dedicated PeerTube admin/service account rather than your personal one.
+            'admin_username' => (string)($c['admin_username'] ?? ''),
+            'admin_password' => (string)($c['admin_password'] ?? ''),
+
+            // Stored refresh/access tokens + expiries (unix timestamps).
+            'admin_access_token'        => (string)($c['admin_access_token'] ?? ''),
+            'admin_refresh_token'       => (string)($c['admin_refresh_token'] ?? ''),
+            'admin_access_expires_at'   => (int)($c['admin_access_expires_at'] ?? 0),
+            'admin_refresh_expires_at'  => (int)($c['admin_refresh_expires_at'] ?? 0),
         ];
     }
 
@@ -164,14 +235,24 @@ final class IA_Engine {
     }
 
     public static function peertube_public_base_url(): string {
-        $c = self::peertube_api();
-        $u = trim((string)$c['public_url']);
+        if (!class_exists('IA_Engine')) return '';
+        $cfg = self::peertube_api();
+        $u = trim((string)($cfg['public_url'] ?? ''));
+
+        // If public URL is not set, fall back to internal base URL.
+        // This keeps server-side provisioning working even when you only configure internal access.
+        if ($u === '') {
+            return self::peertube_internal_base_url();
+        }
+
         return rtrim($u, '/');
     }
 
     public static function peertube_api_token(): string {
         $c = self::peertube_api();
-        return (string)$c['token'];
+        if (!empty($c['token'])) return (string)$c['token'];
+        if (!empty($c['admin_access_token'])) return (string)$c['admin_access_token'];
+        return '';
     }
 
     // ---------- AJAX test handlers ----------

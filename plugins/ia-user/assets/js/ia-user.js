@@ -24,9 +24,11 @@
         <div class="ia-auth-panels">
           <section class="ia-auth-panel active" data-auth-panel="login" role="tabpanel" aria-label="Login">
             <form class="ia-user-form" data-ia-user="login">
+  <div data-ia-login-core>
               <input type="hidden" name="nonce" value="${esc(window.IA_USER?.nonce || "")}">
               <input type="hidden" name="redirect_to" value="" data-ia-redirect-to />
 
+              <div data-ia-login-core>
               <label class="ia-field">
                 <span class="ia-label">Username or Email</span>
                 <input class="ia-input" type="text" name="identifier" autocomplete="username" required>
@@ -38,9 +40,44 @@
               </label>
 
               <button class="ia-user-submit" type="submit">Log in</button>
-              <div class="ia-user-meta">
+                </div>
+<div class="ia-user-meta">
                 <a class="ia-user-link" href="#" data-ia-user-forgot="1">Forgot password?</a>
               </div>
+              </div><!--/ia-login-core-->
+              <!-- Forgot-password mini-panel (same modal, no WP login page) -->
+              <div class="ia-forgot" data-ia-forgot-panel style="display:none">
+                <label class="ia-field">
+                  <span class="ia-label">Username or Email</span>
+                  <input class="ia-input" type="text" name="login" autocomplete="username">
+                </label>
+                <button class="ia-user-submit" type="button" data-ia-user-forgot-send="1">Send reset email</button>
+                <div class="ia-user-meta">
+                  <a class="ia-user-link" href="#" data-ia-user-forgot-back="1">Back to login</a>
+                </div>
+              
+<!-- Reset-password mini-panel (land here from email link) -->
+<div class="ia-reset" data-ia-reset-panel style="display:none">
+  <input type="hidden" value="" data-ia-rp-login>
+  <input type="hidden" value="" data-ia-rp-key>
+
+  <label class="ia-field">
+    <span class="ia-label">New password</span>
+    <input class="ia-input" type="password" autocomplete="new-password" data-ia-rp-pass1>
+  </label>
+
+  <label class="ia-field">
+    <span class="ia-label">Confirm new password</span>
+    <input class="ia-input" type="password" autocomplete="new-password" data-ia-rp-pass2>
+  </label>
+
+  <button class="ia-user-submit" type="button" data-ia-user-reset-send="1">Reset password</button>
+
+  <div class="ia-user-meta">
+    <a class="ia-user-link" href="#" data-ia-user-reset-back="1">Back to login</a>
+  </div>
+</div>
+</div>
               <div class="ia-user-msg" aria-live="polite"></div>
             </form>
           </section>
@@ -101,6 +138,24 @@
   function postForm(action, form) {
     const fd = new FormData(form);
     fd.append("action", action);
+
+    return fetch(window.IA_USER.ajax, {
+      method: "POST",
+      credentials: "same-origin",
+      body: fd
+    }).then(r => r.json());
+  }
+
+  function postForgot(form) {
+    // Uses WP admin-ajax.php endpoint from IA_USER.ajax
+    const fd = new FormData();
+    fd.append("action", "ia_user_forgot");
+    // Keep nonce naming aligned with the modal form
+    const nonceEl = qs('input[name="nonce"]', form);
+    if (nonceEl && nonceEl.value) fd.append("nonce", nonceEl.value);
+    // The input is named "login" in our forgot mini-panel
+    const loginEl = qs('input[name="login"]', form);
+    if (loginEl && loginEl.value) fd.append("login", loginEl.value);
 
     return fetch(window.IA_USER.ajax, {
       method: "POST",
@@ -180,6 +235,21 @@ function wireForms() {
         return;
       }
 
+      // Registration: keep the user in the modal and instruct them to verify email.
+      // (Actual verification + provisioning happens via ia-auth when they click the link.)
+      if (mode === "register") {
+        setMsg(
+          form,
+          "Check for a verification email in your inbox in order to log in. If you do not receive the email or are having issues logging in, contact admin@indieagora.com",
+          "ok"
+        );
+        // Switch user back to Login panel for convenience
+        const loginTab = qs('.ia-auth-tab[data-auth-tab="login"]', auth);
+        if (loginTab) loginTab.click();
+        setBusy(form, false);
+        return;
+      }
+
       const redirect = res.data && res.data.redirect_to ? res.data.redirect_to : (window.IA_USER?.home || "/");
       setMsg(form, "OK", "ok");
 
@@ -190,13 +260,67 @@ function wireForms() {
     }
   });
 
-  // Placeholder "forgot password" (non-functional for now)
-  auth.addEventListener("click", (e) => {
-    const a = e.target.closest("[data-ia-user-forgot]");
-    if (!a) return;
-    e.preventDefault();
-    const form = a.closest(".ia-user-form");
-    setMsg(form, "Password reset isn’t wired yet.", "error");
+  // Forgot password (fully wired via ia-auth AJAX)
+  auth.addEventListener("click", async (e) => {
+    // Open forgot panel
+    const open = e.target.closest("[data-ia-user-forgot]");
+    if (open) {
+      e.preventDefault();
+      const form = open.closest(".ia-user-form");
+      if (!form) return;
+      const forgot = qs("[data-ia-forgot-panel]", form);
+      if (forgot) {
+        forgot.style.display = "";
+        // Disable login submit while in forgot mode
+        const submit = qs('.ia-user-submit[type="submit"]', form);
+        if (submit) submit.style.display = "none";
+        // Hide the meta row containing the link
+        const meta = qs(".ia-user-meta", form);
+        if (meta) meta.style.display = "none";
+      }
+      setMsg(form, "", "");
+      const loginEl = qs('input[name="login"]', form);
+      if (loginEl) loginEl.focus();
+      return;
+    }
+
+    // Back to login
+    const back = e.target.closest("[data-ia-user-forgot-back]");
+    if (back) {
+      e.preventDefault();
+      const form = back.closest(".ia-user-form");
+      if (!form) return;
+      const forgot = qs("[data-ia-forgot-panel]", form);
+      if (forgot) forgot.style.display = "none";
+      const submit = qs('.ia-user-submit[type="submit"]', form);
+      if (submit) submit.style.display = "";
+      // Restore the first meta row (Forgot link)
+      const metas = qsa(".ia-user-meta", form);
+      if (metas[0]) metas[0].style.display = "";
+      setMsg(form, "", "");
+      const idEl = qs('input[name="identifier"]', form);
+      if (idEl) idEl.focus();
+      return;
+    }
+
+    // Send reset email
+    const send = e.target.closest("[data-ia-user-forgot-send]");
+    if (send) {
+      e.preventDefault();
+      const form = send.closest(".ia-user-form");
+      if (!form) return;
+      setMsg(form, "", "");
+      setBusy(form, true);
+      try {
+        const res = await postForgot(form);
+        // Always show a generic success message (avoid user enumeration)
+        const msg = (res && res.data && res.data.message) ? res.data.message : "If that account exists, a reset email has been sent.";
+        setMsg(form, msg, "ok");
+      } catch (err) {
+        setMsg(form, "Network error.", "error");
+      }
+      setBusy(form, false);
+    }
   });
 }
 
@@ -205,6 +329,138 @@ function wireForms() {
   document.addEventListener("DOMContentLoaded", () => {
     replaceAuthModalMarkup();
     wireForms();
+    setTimeout(() => { try { iaUserMaybeOpenResetFromUrl(); } catch(e) {} }, 0);
   });
+
+
+
+async function iaUserResetPassword(login, key, pass1, pass2){
+  const fd = new FormData();
+  fd.append("action","ia_user_reset");
+  fd.append("nonce", window.IA_USER?.nonce || "");
+  fd.append("login", login);
+  fd.append("key", key);
+  fd.append("pass1", pass1);
+  fd.append("pass2", pass2);
+  const res = await fetch(window.IA_USER?.ajaxUrl || "/wp-admin/admin-ajax.php", { method:"POST", credentials:"same-origin", body: fd });
+  const json = await res.json().catch(()=>null);
+  return json;
+}
+
+function iaUserShowReset(modal){
+  const loginForm = qs('form[data-ia-user="login"]', modal);
+  if (!loginForm) return;
+  const core  = qs('[data-ia-login-core]', loginForm);
+  const forgot = qs('[data-ia-forgot-panel]', loginForm);
+  const reset = qs('[data-ia-reset-panel]', loginForm);
+  if (core) core.style.display = "none";
+  if (forgot) forgot.style.display = "none";
+  if (reset) reset.style.display = "";
+}
+
+function iaUserHideReset(modal){
+  const loginForm = qs('form[data-ia-user="login"]', modal);
+  if (!loginForm) return;
+  const core  = qs('[data-ia-login-core]', loginForm);
+  const reset = qs('[data-ia-reset-panel]', loginForm);
+  if (reset) reset.style.display = "none";
+  if (core) core.style.display = "";
+}
+
+
+function iaUserReadResetParams(){
+  try{
+    const u = new URL(window.location.href);
+    const iaReset = u.searchParams.get("ia_reset");
+    const key = (u.searchParams.get("key") || "").trim();
+    const login = (u.searchParams.get("login") || "").trim();
+
+    const path = u.pathname.replace(/\/+$/,'');
+    const viaPath = (path === "/ia-reset");
+
+    if (key && login && (iaReset === "1" || viaPath)){
+      return { key, login };
+    }
+  }catch(e){}
+  return null;
+}
+
+// Capture params early, but DON'T open anything until after modal markup is injected.
+window.__IA_USER_RESET_PENDING = window.__IA_USER_RESET_PENDING || iaUserReadResetParams();
+
+function iaUserMaybeOpenResetFromUrl(){
+  const pending = window.__IA_USER_RESET_PENDING || iaUserReadResetParams();
+  if (!pending) return;
+
+  ensureModal();
+  openModal();
+  const modal = qs(".ia-modal-card");
+  if (!modal) return;
+
+  switchPanel("login");
+  const loginForm = qs('form[data-ia-user="login"]', modal);
+  if (!loginForm) return;
+
+  const rpLogin = qs("[data-ia-rp-login]", loginForm);
+  const rpKey   = qs("[data-ia-rp-key]", loginForm);
+  if (rpLogin) rpLogin.value = pending.login;
+  if (rpKey) rpKey.value = pending.key;
+
+  iaUserShowReset(modal);
+
+  // Clear URL params so refresh doesn't re-trigger
+  try{
+    const u = new URL(window.location.href);
+    u.searchParams.delete("ia_reset");
+    u.searchParams.delete("key");
+    u.searchParams.delete("login");
+    window.history.replaceState({}, "", u.toString());
+  }catch(e){}
+  window.__IA_USER_RESET_PENDING = null;
+}
+;
+
+document.addEventListener("click", async (e) => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  const modal = qs(".ia-modal-card");
+  if (!modal) return;
+
+  const send = t.closest('[data-ia-user-reset-send="1"]');
+  if (send){
+    e.preventDefault();
+    const loginForm = qs('form[data-ia-user="login"]', modal);
+    const msgEl = qs(".ia-user-msg", loginForm);
+    const rpLogin = qs("[data-ia-rp-login]", loginForm);
+    const rpKey   = qs("[data-ia-rp-key]", loginForm);
+    const p1      = qs("[data-ia-rp-pass1]", loginForm);
+    const p2      = qs("[data-ia-rp-pass2]", loginForm);
+
+    const login = rpLogin ? rpLogin.value.trim() : "";
+    const key   = rpKey ? rpKey.value.trim() : "";
+    const pass1 = p1 ? p1.value : "";
+    const pass2 = p2 ? p2.value : "";
+
+    if (msgEl) msgEl.textContent = "Resetting password...";
+    const json = await iaUserResetPassword(login, key, pass1, pass2);
+
+    if (json && json.success){
+      if (msgEl) msgEl.textContent = (json.data && json.data.message) ? json.data.message : "Password reset successful. You can now log in.";
+      iaUserHideReset(modal);
+      const userField = qs('input[name="username"]', loginForm);
+      if (userField && json.data && json.data.login) userField.value = json.data.login;
+    } else {
+      if (msgEl) msgEl.textContent = (json && json.data && json.data.message) ? json.data.message : "Could not reset password. Please request a new reset email.";
+    }
+    return;
+  }
+
+  const back = t.closest('[data-ia-user-reset-back="1"]');
+  if (back){
+    e.preventDefault();
+    iaUserHideReset(modal);
+    return;
+  }
+}, true);
 
 })();
