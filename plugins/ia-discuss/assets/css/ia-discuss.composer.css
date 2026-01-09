@@ -141,3 +141,19 @@
   border-color: rgba(255,60,60,0.40);
   background: rgba(255,60,60,0.12);
 }
+
+/* Upload progress (attachment uploader) */
+.iad-uploadbar{
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.10);
+  margin-top: 6px;
+  width: 140px;
+  max-width: 100%;
+}
+.iad-uploadbar-fill{
+  height: 100%;
+  width: 0%;
+  background: rgba(255,69,0,0.85);
+}

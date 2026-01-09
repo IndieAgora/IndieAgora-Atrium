@@ -145,17 +145,69 @@
     const avatarOverlay = qs(".ia-connect-avatar-overlay", root);
     if (avatarOverlay) avatarOverlay.style.display = self ? "" : "none";
 
-    // Follow/Message buttons: enabled only for non-self (placeholders)
+    // Follow/Message buttons
     const followBtn = qs('[data-ia-connect-action="follow"]', root);
     const msgBtn = qs('[data-ia-connect-action="message"]', root);
-    if (followBtn) followBtn.disabled = !(!self);
-    if (msgBtn) msgBtn.disabled = !(!self);
+
+    const viewingId = parseInt(p.wp_user_id || 0, 10) || 0;
+    const canAct = !!viewingId && !self;
+
+    if (followBtn) {
+      followBtn.disabled = !canAct;
+      followBtn.textContent = p.isFollowing ? "Unfollow" : "Follow";
+      followBtn.setAttribute("data-ia-connect-following", p.isFollowing ? "1" : "0");
+      followBtn.setAttribute("data-ia-connect-follow-target", String(viewingId));
+    }
+    if (msgBtn) {
+      // Message is implemented by ia-message; keep disabled for self, enabled for others.
+      msgBtn.disabled = !canAct;
+      // Store target identifiers for deep-link into ia-message.
+      const toPhpbb = parseInt(p.phpbb_user_id || 0, 10) || 0;
+      msgBtn.setAttribute("data-ia-connect-msg-to-phpbb", String(toPhpbb));
+      // Also store WP user id as fallback if phpbb id is missing.
+      msgBtn.setAttribute("data-ia-connect-msg-to-wp", String(viewingId));
+      msgBtn.setAttribute("data-ia-connect-msg-to-name", String(p.username || ""));
+    }
 
     // Stash on root for debugging/other plugins
-    root.setAttribute("data-ia-connect-viewing-wp", String(p.wp_user_id || 0));
+    root.setAttribute("data-ia-connect-viewing-wp", String(viewingId || 0));
+    root.setAttribute("data-ia-connect-viewing-phpbb", String(parseInt(p.phpbb_user_id || 0, 10) || 0));
   }
 
-  async function openProfile(root, target, source) {
+  
+  function setUnavailableProfile(root, message) {
+    const nameEl = qs("[data-ia-connect-name]", root);
+    if (nameEl) nameEl.textContent = "User unavailable";
+
+    const handleEl = qs("[data-ia-connect-handle]", root);
+    if (handleEl) handleEl.textContent = "";
+
+    const bioText = qs("[data-ia-connect-bio-text]", root);
+    if (bioText) bioText.textContent = message || "User not available.";
+
+    const followBtn = qs('[data-ia-connect-action="follow"]', root);
+    const msgBtn = qs('[data-ia-connect-action="message"]', root);
+    if (followBtn) followBtn.disabled = true;
+    if (msgBtn) msgBtn.disabled = true;
+
+    root.setAttribute("data-ia-connect-viewing-wp", "0");
+  }
+
+  async function toggleFollow(root, targetWpUserId) {
+    const fd = new FormData();
+    fd.append("nonce", IA_CONNECT.nonce);
+    fd.append("target_wp_user_id", String(targetWpUserId));
+
+    setLoading(root, true, "Updating follow…");
+    try {
+      const json = await postForm("ia_connect_follow_toggle", fd);
+      return json;
+    } finally {
+      setLoading(root, false);
+    }
+  }
+
+async function openProfile(root, target, source) {
     if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) {
       // Atrium handles the auth modal; keep intent persisted.
       if (target && target.user_id) setUrlParam("ia_profile", String(target.user_id));
@@ -291,9 +343,124 @@ function setIdentity(root) {
         <div class="ia-connect-card-body">This is a skeleton view. A future micro-plugin will render real content here.</div>
       </div>
     `;
+
   }
 
-  function closeModal(root) {
+  
+  // ---------------------------
+  // Privacy view (self only)
+  // ---------------------------
+  function renderPrivacyView(ctx, panel) {
+    const viewingId = (window.IA_CONNECT && IA_CONNECT._viewingWpUserId) ? IA_CONNECT._viewingWpUserId : 0;
+
+    // Only allow editing privacy on your own profile.
+    if (!isViewingSelf(viewingId)) {
+      panel.innerHTML = `
+        <div class="ia-connect-card">
+          <div class="ia-connect-card-title">Privacy</div>
+          <div class="ia-connect-card-body">Privacy settings are only available on your own profile.</div>
+        </div>`;
+      return;
+    }
+
+    const privacy = (window.IA_CONNECT && IA_CONNECT.privacy && typeof IA_CONNECT.privacy === "object") ? IA_CONNECT.privacy : {};
+    const vis = (privacy.profile_visibility || (privacy.hide_profile ? "hidden" : "public"));
+    const discourage = !!privacy.discourage_search;
+
+    panel.innerHTML = `
+      <div class="ia-connect-card">
+        <div class="ia-connect-card-title">Privacy</div>
+        <div class="ia-connect-card-body">
+
+          <div class="ia-connect-field">
+            <div class="ia-connect-muted" style="margin-bottom:8px;">Profile visibility</div>
+
+            <label class="ia-connect-radirow">
+              <input type="radio" name="ia_connect_vis" value="public" data-ia-connect-privacy-vis ${vis === "public" ? "checked" : ""}/>
+              <span>Everyone</span>
+            </label>
+
+            <label class="ia-connect-radirow">
+              <input type="radio" name="ia_connect_vis" value="friends" data-ia-connect-privacy-vis ${vis === "friends" ? "checked" : ""}/>
+              <span>Only friends</span>
+              <span class="ia-connect-muted" style="margin-left:6px;">(friends = mutual follows)</span>
+            </label>
+
+            <label class="ia-connect-radirow">
+              <input type="radio" name="ia_connect_vis" value="hidden" data-ia-connect-privacy-vis ${vis === "hidden" ? "checked" : ""}/>
+              <span>Hidden from everyone</span>
+            </label>
+
+            <div class="ia-connect-muted" style="margin-top:8px;">
+              If your profile is hidden (or friends-only), you won’t appear in user search and direct profile links will show:
+              <em>User not available due to their privacy settings.</em>
+            </div>
+          </div>
+
+          <hr class="ia-connect-hr" />
+
+          <label class="ia-connect-checkrow">
+            <input type="checkbox" data-ia-connect-privacy-noindex ${discourage ? "checked" : ""}/>
+            <span>Discourage search engines from my profile</span>
+          </label>
+          <div class="ia-connect-muted">
+            This adds a <em>noindex,nofollow</em> robots rule when your profile is viewed.
+          </div>
+
+        </div>
+      </div>`;
+
+    const visInputs = qsa("[data-ia-connect-privacy-vis]", panel);
+    const cbNoindex = qs("[data-ia-connect-privacy-noindex]", panel);
+    if (!visInputs.length || !cbNoindex) return;
+
+    async function savePrivacy(nextVis, nextNoindex) {
+      const fd = new FormData();
+      fd.append("nonce", IA_CONNECT.nonce);
+      fd.append("profile_visibility", nextVis);
+      fd.append("discourage_search", nextNoindex ? "1" : "0");
+
+      const root = document.getElementById("ia-connect-root") || panel.closest("[data-ia-connect-root]") || document.body;
+
+      setLoading(root, true, "Saving privacy…");
+      try {
+        const json = await postForm("ia_connect_update_privacy", fd);
+        if (json && json.success) {
+          IA_CONNECT.privacy = (json.data && json.data.privacy) ? json.data.privacy : Object.assign({}, privacy, { profile_visibility: nextVis, discourage_search: nextNoindex ? 1 : 0, hide_profile: (nextVis === "hidden") ? 1 : 0 });
+          toast(root, "Privacy updated.");
+          return;
+        }
+        toast(root, (json && json.data && json.data.message) ? json.data.message : "Privacy update failed.");
+      } catch (e) {
+        toast(root, "Privacy update failed.");
+      } finally {
+        setLoading(root, false);
+      }
+
+      // If save failed, reload current UI state from IA_CONNECT.privacy.
+      const p = (window.IA_CONNECT && IA_CONNECT.privacy) ? IA_CONNECT.privacy : {};
+      const curVis = (p.profile_visibility || (p.hide_profile ? "hidden" : "public"));
+      visInputs.forEach(i => { i.checked = (i.value === curVis); });
+      cbNoindex.checked = !!p.discourage_search;
+    }
+
+    visInputs.forEach(r => {
+      r.addEventListener("change", () => {
+        const nextVis = visInputs.find(x => x.checked)?.value || "public";
+        const nextNoindex = !!cbNoindex.checked;
+        savePrivacy(nextVis, nextNoindex);
+      });
+    });
+
+    cbNoindex.addEventListener("change", () => {
+      const nextVis = visInputs.find(x => x.checked)?.value || "public";
+      const nextNoindex = !!cbNoindex.checked;
+      savePrivacy(nextVis, nextNoindex);
+    });
+  }
+
+
+function closeModal(root) {
     qsa("[data-ia-connect-modal]", root).forEach(m => {
       m.classList.remove("open");
       m.setAttribute("aria-hidden", "true");
@@ -348,6 +515,13 @@ function setIdentity(root) {
           <div class="ia-connect-card-title">Privacy</div>
           <div class="ia-connect-card-body">
             <label class="ia-toggle">
+              <input type="checkbox" data-ia-privacy="hide_profile" ${p.hide_profile ? "checked" : ""} />
+              <span class="ia-toggle-text">
+                <div>Hide my profile</div>
+                <div class="ia-toggle-sub">Hide from search and direct profile access.</div>
+              </span>
+            </label>
+            <label class="ia-toggle">
               <input type="checkbox" data-ia-privacy="profile_public" ${p.profile_public ? "checked" : ""} />
               <span class="ia-toggle-text">
                 <div>Public profile</div>
@@ -392,30 +566,137 @@ function setIdentity(root) {
   }
 
   async function saveBio(root) {
+    // Back-compat: keep the old function name, but route through the unified account endpoint.
+    return saveAccount(root, { only: "bio" });
+  }
+
+  function cleanUsernameForLogin(raw) {
+    const s = String(raw || "").trim().replace(/\s+/g, "_").toLowerCase();
+    // Keep it close to WP sanitize_user (ASCII-ish)
+    return s.replace(/[^a-z0-9_\-\.@]/g, "");
+  }
+
+  function renderEditView(root, panel) {
+    const viewingWp = parseInt(root.getAttribute("data-ia-connect-viewing-wp") || "0", 10) || 0;
+    const meWp = (window.IA_CONNECT && IA_CONNECT.userId) ? (parseInt(IA_CONNECT.userId, 10) || 0) : 0;
+    const self = !!(viewingWp && meWp && viewingWp === meWp);
+
+    if (!self) {
+      panel.innerHTML = `
+        <div class="ia-connect-card">
+          <div class="ia-connect-card-title">Edit Profile</div>
+          <div class="ia-connect-muted">You can only edit your own profile.</div>
+        </div>
+      `;
+      return;
+    }
+
+    const uname = (window.IA_CONNECT && IA_CONNECT.username) ? String(IA_CONNECT.username) : "";
+    const email = (window.IA_CONNECT && IA_CONNECT.email) ? String(IA_CONNECT.email) : "";
+    const bio = (window.IA_CONNECT && IA_CONNECT.bio) ? String(IA_CONNECT.bio) : "";
+
+    panel.innerHTML = `
+      <div class="ia-connect-card">
+        <div class="ia-connect-card-title">Edit</div>
+
+        <label class="ia-field">
+          <div class="ia-label">Bio</div>
+          <textarea class="ia-textarea" rows="5" data-ia-connect-edit-bio placeholder="Write something about yourself…">${escapeHtml(bio)}</textarea>
+        </label>
+
+        <label class="ia-field" style="margin-top:14px;">
+          <div class="ia-label">Username</div>
+          <input type="text" class="ia-input" data-ia-connect-edit-username value="${escapeHtml(uname)}" />
+          <div class="ia-connect-muted" style="margin-top:6px;">Changing username syncs across WordPress, phpBB and PeerTube.</div>
+        </label>
+
+        <label class="ia-field" style="margin-top:14px;">
+          <div class="ia-label">Email</div>
+          <input type="email" class="ia-input" data-ia-connect-edit-email value="${escapeHtml(email)}" />
+          <div class="ia-connect-muted" style="margin-top:6px;">Changing email requires verification. We’ll email the new address.</div>
+        </label>
+
+        <div class="ia-field" style="margin-top:14px;">
+          <div class="ia-label">Password</div>
+          <button type="button" class="ia-btn ia-btn-secondary" data-ia-connect-password-reset>Send password reset email</button>
+          <div class="ia-connect-muted" style="margin-top:6px;">You’ll receive a reset link at your current verified email address.</div>
+        </div>
+
+        <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
+          <button type="button" class="ia-btn ia-btn-primary" data-ia-connect-save-account>Save</button>
+          <div class="ia-connect-muted" data-ia-connect-edit-status></div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function saveAccount(root, opts) {
     if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) return false;
 
-    const input = qs("[data-ia-connect-bio-input]", root);
-    const bio = input ? input.value : "";
+    const only = opts && opts.only ? String(opts.only) : "";
+    const panel = qs('[data-ia-connect-view="edit"]', root);
+    if (!panel) return false;
+
+    const uEl = qs("[data-ia-connect-edit-username]", panel);
+    const eEl = qs("[data-ia-connect-edit-email]", panel);
+    const bEl = qs("[data-ia-connect-edit-bio]", panel);
+
+    const usernameRaw = uEl ? (uEl.value || "") : "";
+    const email = eEl ? (eEl.value || "") : "";
+    const bio = bEl ? (bEl.value || "") : "";
 
     const fd = new FormData();
     fd.append("nonce", IA_CONNECT.nonce);
-    fd.append("bio", bio);
+    if (!only || only === "username") fd.append("username", usernameRaw);
+    if (!only || only === "email") fd.append("email", email);
+    if (!only || only === "bio") fd.append("bio", bio);
 
-    setLoading(root, true, "Saving bio…");
+    setLoading(root, true, "Saving…");
     try {
-      const json = await postForm("ia_connect_update_bio", fd);
-      if (json && json.success) {
-        IA_CONNECT.bio = (json.data && typeof json.data.bio === "string") ? json.data.bio : bio;
-        // If logged out, do not show profile content.
-    if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) {
-      showLoggedOutGate(root);
-    }
-
-    setIdentity(root);
-        toast(root, "Bio saved");
-        return true;
+      const json = await postForm("ia_connect_update_account", fd);
+      if (!json || !json.success) {
+        toast(root, (json && json.data && json.data.message) ? json.data.message : "Save failed");
+        return false;
       }
-      toast(root, (json && json.data && json.data.message) ? json.data.message : "Bio save failed");
+
+      const data = json.data || {};
+
+      if (typeof data.bio === "string") {
+        IA_CONNECT.bio = data.bio;
+        const bioEl = qs("[data-ia-connect-bio-text]", root);
+        if (bioEl) bioEl.textContent = (IA_CONNECT.bio || "").trim() ? IA_CONNECT.bio : "No bio yet.";
+      }
+
+      if (typeof data.username === "string" && data.username.trim()) {
+        // data.username is the display username; the login is a clean variant.
+        IA_CONNECT.display = data.username;
+        IA_CONNECT.username = cleanUsernameForLogin(data.username);
+        IA_CONNECT.handle = "agorian/" + IA_CONNECT.username;
+
+        const nameEl = qs("[data-ia-connect-name]", root);
+        if (nameEl) nameEl.textContent = IA_CONNECT.display;
+        const handleEl = qs("[data-ia-connect-handle]", root);
+        if (handleEl) handleEl.textContent = IA_CONNECT.handle;
+      }
+
+      if (typeof data.email === "string") {
+        // If verification is required, we keep IA_CONNECT.email as-is until verified.
+        if (data.email_verification_sent) {
+          toast(root, "Verification email sent");
+        } else {
+          IA_CONNECT.email = data.email;
+        }
+      }
+
+      if (data.message && typeof data.message === "string") {
+        toast(root, data.message);
+      } else {
+        toast(root, "Saved");
+      }
+
+      return true;
+    } catch (e) {
+      toast(root, "Save failed");
       return false;
     } finally {
       setLoading(root, false);
@@ -436,6 +717,7 @@ function setIdentity(root) {
     fd.append("profile_public", getVal("profile_public"));
     fd.append("show_activity", getVal("show_activity"));
     fd.append("allow_mentions", getVal("allow_mentions"));
+    fd.append("hide_profile", getVal("hide_profile"));
 
     setLoading(root, true, "Saving privacy…");
     try {
@@ -452,7 +734,34 @@ function setIdentity(root) {
     }
   }
 
-  async function uploadImage(root, kind, file) {
+  
+
+  async function requestPasswordReset(root) {
+    if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) return false;
+
+    const fd = new FormData();
+    fd.append("action", "ia_connect_password_reset");
+    fd.append("nonce", IA_CONNECT.nonce);
+
+    setLoading(root, true, "Sending reset email…");
+    try {
+      const res = await fetch(IA_CONNECT.ajaxUrl, { method: "POST", body: fd });
+      const json = await res.json();
+      if (!json || !json.success) {
+        toast(root, (json && json.data && json.data.message) ? json.data.message : "Could not send reset email");
+        return false;
+      }
+      toast(root, (json.data && json.data.message) ? json.data.message : "Reset email sent");
+      return true;
+    } catch (e) {
+      toast(root, "Network error");
+      return false;
+    } finally {
+      setLoading(root, false);
+    }
+  }
+
+async function uploadImage(root, kind, file) {
     if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) return false;
 
     const fd = new FormData();
@@ -469,12 +778,25 @@ function setIdentity(root) {
         if (isAvatar && json.data && json.data.avatarUrl) IA_CONNECT.avatarUrl = json.data.avatarUrl;
         if (!isAvatar && json.data && json.data.coverUrl) IA_CONNECT.coverUrl = json.data.coverUrl;
 
-        // If logged out, do not show profile content.
-    if (!window.IA_CONNECT || !IA_CONNECT.isLoggedIn) {
-      showLoggedOutGate(root);
-    }
+        // Only update the displayed media if we're currently viewing our own profile.
+        const viewingWp = parseInt(root.getAttribute("data-ia-connect-viewing-wp") || "0", 10) || 0;
+        const meWp = (window.IA_CONNECT && IA_CONNECT.userId) ? (parseInt(IA_CONNECT.userId, 10) || 0) : 0;
+        if (viewingWp && meWp && viewingWp === meWp) {
+          if (isAvatar) {
+            const avatarImg = qs("[data-ia-connect-avatar-img]", root);
+            if (avatarImg && IA_CONNECT.avatarUrl) {
+              avatarImg.src = IA_CONNECT.avatarUrl;
+              avatarImg.style.display = "block";
+            }
+          } else {
+            const coverImg = qs("[data-ia-connect-cover-img]", root);
+            if (coverImg && IA_CONNECT.coverUrl) {
+              coverImg.src = IA_CONNECT.coverUrl;
+              coverImg.style.display = "block";
+            }
+          }
+        }
 
-    setIdentity(root);
         toast(root, isAvatar ? "Avatar updated" : "Cover updated");
         return true;
       }
@@ -747,6 +1069,38 @@ function boot() {
     setIdentity(root);
     fillModalBodies(root);
     bindUserSearch(root);
+    // Follow toggle
+    const followBtn = qs('[data-ia-connect-action="follow"]', root);
+    if (followBtn) {
+      followBtn.addEventListener("click", async function () {
+        try {
+          const targetId = parseInt(followBtn.getAttribute("data-ia-connect-follow-target") || "0", 10) || 0;
+          if (!targetId) return;
+          if (isViewingSelf(targetId)) return;
+
+          const json = await toggleFollow(root, targetId);
+          if (json && json.success) {
+            const isF = !!(json.data && json.data.isFollowing);
+            followBtn.setAttribute("data-ia-connect-following", isF ? "1" : "0");
+            followBtn.textContent = isF ? "Unfollow" : "Follow";
+            toast(root, (json.data && json.data.message) ? json.data.message : (isF ? "Followed" : "Unfollowed"));
+          } else {
+            const msg = (json && json.data && json.data.message) ? json.data.message : "Follow failed";
+            toast(root, msg);
+            if (msg.indexOf("privacy") !== -1) setUnavailableProfile(root, msg);
+          }
+        } catch (e) {
+          toast(root, "Follow failed");
+        }
+      });
+    }
+
+        
+    // Message click is handled via delegated handler on root (button can be re-rendered).
+
+    registry.registerView("edit", renderEditView);
+    registry.registerView("privacy", renderPrivacyView);
+
     setActiveView(root, "wall", { source: "init" });
 
     qsa("[data-ia-connect-view-btn]", root).forEach(btn => {
@@ -759,18 +1113,45 @@ function boot() {
     root.addEventListener("click", async (e) => {
       if (root.classList.contains("ia-is-busy")) return;
 
+      // Message -> IA Message (deep-link)
+      const msgBtn = e.target.closest('[data-ia-connect-action="message"]');
+      if (msgBtn) {
+        // Disabled buttons don't fire clicks, but keep this guard anyway.
+        if (msgBtn.disabled) return;
+        try {
+          const toPhpbb = parseInt(msgBtn.getAttribute("data-ia-connect-msg-to-phpbb") || "0", 10) || 0;
+          const toWp    = parseInt(msgBtn.getAttribute("data-ia-connect-msg-to-wp") || "0", 10) || 0;
+          const to = toPhpbb || toWp;
+          if (!to) return;
+
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", "messages");
+          url.searchParams.set("ia_msg_to", String(to));
+
+          const toName = (msgBtn.getAttribute("data-ia-connect-msg-to-name") || "").trim();
+          if (toName) url.searchParams.set("ia_msg_name", toName);
+
+          // Hard navigate (do not depend on SPA router).
+          window.location.href = url.toString();
+        } catch (err) {
+          // no-op
+        }
+        return;
+      }
+
       if (e.target.closest("[data-ia-connect-close]")) {
         closeModal(root);
         return;
       }
 
-      if (e.target.closest("[data-ia-connect-edit-bio]")) {
-        setActiveView(root, "edit", { source: "edit_bio_button" });
+      
+      if (e.target.closest("[data-ia-connect-password-reset]")) {
+        await requestPasswordReset(root);
         return;
       }
 
-      if (e.target.closest("[data-ia-connect-save-bio]")) {
-        await saveBio(root);
+if (e.target.closest("[data-ia-connect-save-account]")) {
+        await saveAccount(root);
         return;
       }
 

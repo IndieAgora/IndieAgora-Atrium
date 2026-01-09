@@ -92,18 +92,23 @@
     const atts = (media && media.attachments) ? media.attachments : [];
     if (!atts || !atts.length) return "";
 
-    const pills = atts.slice(0, 12).map((a) => {
+    const items = atts.map((a) => {
       const url = a && a.url ? String(a.url) : "";
       const filename = a && a.filename ? String(a.filename) : "attachment";
-      if (!url) return `<span class="iad-attachpill is-error">${esc(filename)}</span>`;
-      return `
-        <a class="iad-attachpill" href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="${esc(filename)}">
-          ${esc(filename)}
-        </a>
-      `;
-    }).join("");
+      return { url: url, label: filename };
+    }).filter((x) => !!x.url);
 
-    return pills ? `<div class="iad-attachrow">${pills}</div>` : "";
+    const count = items.length;
+    if (!count) return "";
+
+    // Single pill that opens a modal listing all attachments
+    return `
+      <div class="iad-attachrow">
+        <button type="button" class="iad-attachpill" data-iad-open-attachments data-attachments-json="${esc(JSON.stringify(items))}">
+          Attachments (${count})
+        </button>
+      </div>
+    `;
   }
 
   function inlineMediaHTML(media) {

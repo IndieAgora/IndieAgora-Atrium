@@ -14,6 +14,8 @@
             <button class="iad-tab" data-view="unread" aria-selected="false">Unread</button>
             <button class="iad-tab" data-view="agoras" aria-selected="false">Agoras</button>
             <button class="iad-btn iad-tab-action" type="button" data-iad-create-agora hidden>Create Agora</button>
+            <!-- Theme toggle behaves like a pill/tab for consistent layout -->
+            <button class="iad-tab iad-tab-theme" type="button" data-iad-theme-toggle title="Toggle light/dark">Light</button>
           </div>
 
           <div class="iad-search" data-iad-search-wrap>
@@ -24,6 +26,29 @@
         <div class="iad-view" data-iad-view></div>
       </div>
     `;
+
+    // Apply saved theme
+    try {
+      const saved = localStorage.getItem("ia_discuss_theme") || "";
+      if (saved) root.setAttribute("data-iad-theme", saved);
+    } catch (e) {}
+
+    // Theme toggle
+    const tBtn = root.querySelector("[data-iad-theme-toggle]");
+    if (tBtn) {
+      const sync = () => {
+        const cur = root.getAttribute("data-iad-theme") || "dark";
+        tBtn.textContent = (cur === "light") ? "Dark" : "Light";
+      };
+      sync();
+      tBtn.addEventListener("click", () => {
+        const cur = root.getAttribute("data-iad-theme") || "dark";
+        const next = (cur === "light") ? "dark" : "light";
+        root.setAttribute("data-iad-theme", next);
+        try { localStorage.setItem("ia_discuss_theme", next); } catch (e) {}
+        sync();
+      });
+    }
 
     return root;
   }

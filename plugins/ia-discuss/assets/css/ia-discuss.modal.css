@@ -195,3 +195,24 @@
   .iad-modal-body{ padding: 12px; }
   .iad-post{ padding: 10px 10px; }
 }
+
+
+/* Fullscreen topic view (like ia-message chat) */
+.iad-topic-modal.is-fullscreen .iad-modal-sheet{
+  left: 0;
+  top: 0;
+  transform: none;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  border-radius: 0;
+}
+.iad-topic-modal.is-fullscreen .iad-modal-top{
+  border-radius: 0;
+}
+
+
+/* Allow scrolling to bottom above Atrium fixed nav (so Load more replies isn't hidden) */
+.iad-topic-modal.is-fullscreen .iad-modal-body{
+  padding-bottom: calc(14px + var(--ia-atrium-nav-height, 64px) + 24px);
+}

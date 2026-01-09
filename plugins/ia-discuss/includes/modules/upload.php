@@ -20,6 +20,10 @@ final class IA_Discuss_Module_Upload implements IA_Discuss_Module_Interface {
   public function ajax_upload(): void {
     if (!is_user_logged_in()) ia_discuss_json_err('Login required', 401);
 
+    // User-requested: allow long uploads (server must still permit this).
+    // Keep this Discuss-only and isolated.
+    try { @set_time_limit(1000); } catch (Throwable $e) {}
+
     try {
       $out = $this->upload->handle('file');
       ia_discuss_json_ok($out);

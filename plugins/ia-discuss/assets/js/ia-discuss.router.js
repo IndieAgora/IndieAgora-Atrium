@@ -320,6 +320,15 @@
       const d = e.detail || {};
       if (!d.mount) return;
 
+      // Capture a stable context for this composer instance.
+      // (Prevents stale topic/forum IDs being used if the user navigates while a composer remains mounted.)
+      const ctx = {
+        mode: d.mode || "topic",
+        forum_id: parseInt(d.forum_id || "0", 10) || 0,
+        topic_id: parseInt(d.topic_id || "0", 10) || 0,
+        edit_post_id: parseInt(d.edit_post_id || "0", 10) || 0
+      };
+
       const mode = d.mode || "topic";
       d.mount.innerHTML = window.IA_DISCUSS_UI_COMPOSER.composerHTML({ mode, submitLabel: d.submitLabel || null });
 
@@ -340,10 +349,20 @@
             body = body + "\n\n[ia_attachments]" + b64;
           }
 
+          // Prefer the URL topic when available (deep links / tab navigation)
+          let urlTopicId = 0;
+          try {
+            const u = new URL(window.location.href);
+            urlTopicId = parseInt(u.searchParams.get("iad_topic") || "0", 10) || 0;
+          } catch (e2) {}
+
+          const effectiveTopicId = urlTopicId || ctx.topic_id;
+          const effectiveForumId = ctx.forum_id;
+
           // Edit flow
-          if (d.edit_post_id) {
+          if (ctx.edit_post_id) {
             window.IA_DISCUSS_API.post("ia_discuss_edit_post", {
-              post_id: d.edit_post_id,
+              post_id: ctx.edit_post_id,
               body
             }).then((res) => {
               if (!res || !res.success) {
@@ -351,14 +370,14 @@
                 return;
               }
               window.dispatchEvent(new CustomEvent("iad:close_composer_modal"));
-              openTopicPage(d.topic_id, {});
+              openTopicPage(effectiveTopicId, {});
             });
             return;
           }
 
           // Topic (new thread) flow
           if (payload.mode === "topic") {
-            const forumId = parseInt(d.forum_id || "0", 10) || 0;
+            const forumId = effectiveForumId;
             const title = (payload.title || "").trim();
             if (!forumId) { ui.setError("Missing forum_id"); return; }
             if (!title) { ui.setError("Title required"); return; }
@@ -392,7 +411,7 @@
 
           // Reply flow
           window.IA_DISCUSS_API.post("ia_discuss_reply", {
-            topic_id: d.topic_id,
+            topic_id: effectiveTopicId,
             body
           }).then((res) => {
             if (!res || !res.success) {
@@ -404,7 +423,7 @@
 
             window.dispatchEvent(new CustomEvent("iad:close_composer_modal"));
 
-            openTopicPage(d.topic_id, {
+            openTopicPage(effectiveTopicId, {
               scroll_post_id: postId || 0,
               highlight_new: 1
             });
@@ -413,7 +432,35 @@
       });
     });
 
-    // initial view
+    // -----------------------------
+    // Initial view (supports deep links)
+    // -----------------------------
+    try {
+      const u = new URL(window.location.href);
+      const topicId = parseInt(u.searchParams.get("iad_topic") || "0", 10) || 0;
+      const postId  = parseInt(u.searchParams.get("iad_post") || "0", 10) || 0;
+      const forumId = parseInt(u.searchParams.get("iad_forum") || "0", 10) || 0;
+      const view    = String(u.searchParams.get("iad_view") || "").trim();
+
+      if (topicId) {
+        openTopicPage(topicId, {
+          scroll_post_id: postId || 0,
+          highlight_new: postId ? 1 : 0
+        });
+        return;
+      }
+
+      if (forumId) {
+        render("agora", forumId, "");
+        return;
+      }
+
+      if (view) {
+        render(view, 0, "");
+        return;
+      }
+    } catch (e) {}
+
     render("new", 0, "");
   }
 

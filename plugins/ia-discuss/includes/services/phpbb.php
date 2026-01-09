@@ -140,6 +140,7 @@ final class IA_Discuss_Service_PhpBB {
         t.topic_last_post_time,
         t.topic_views,
         t.topic_posts_approved,
+        t.topic_first_post_id,
         t.topic_poster,
         up.username AS topic_poster_username,
         t.topic_last_poster_id,

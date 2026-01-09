@@ -4,6 +4,65 @@
   const API = window.IA_DISCUSS_API;
   const escapeHtml = (typeof esc === 'function') ? esc : (s) => String(s||'').replace(/[&<>"']/g, (c)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
 
+  // Convert basic rich HTML (e.g., from Word) into BBCode-ish text.
+  // Preserves paragraphs + common inline formatting on paste.
+  function htmlToBbcode(html) {
+    const h = String(html || "");
+    if (!h) return "";
+
+    const doc = document.implementation.createHTMLDocument("");
+    doc.body.innerHTML = h;
+
+    // Strip dangerous/irrelevant nodes
+    doc.querySelectorAll("script,style,meta,link").forEach((n) => n.remove());
+
+    function walk(node) {
+      if (!node) return "";
+      if (node.nodeType === 3) return node.nodeValue || "";
+      if (node.nodeType !== 1) return "";
+
+      const tag = String(node.tagName || "").toLowerCase();
+
+      // Line breaks + block separation
+      if (tag === "br") return "\n";
+
+      const inner = Array.from(node.childNodes).map(walk).join("");
+
+      if (tag === "p" || tag === "div" || tag === "section" || tag === "article") {
+        const t = inner.replace(/\s+$/g, "");
+        return t + "\n\n";
+      }
+      if (tag === "li") {
+        return "- " + inner.replace(/\s+$/g, "") + "\n";
+      }
+      if (tag === "ul" || tag === "ol") {
+        return inner + "\n";
+      }
+
+      // Inline formatting
+      if (tag === "strong" || tag === "b") return "[b]" + inner + "[/b]";
+      if (tag === "em" || tag === "i") return "[i]" + inner + "[/i]";
+      if (tag === "u") return "[u]" + inner + "[/u]";
+
+      if (tag === "a") {
+        const href = node.getAttribute("href") || "";
+        const label = inner || href;
+        if (!href) return label;
+        return "[url=" + href + "]" + label + "[/url]";
+      }
+
+      return inner;
+    }
+
+    let out = walk(doc.body);
+    // normalize line endings
+    out = out.replace(/\r\n/g, "\n");
+    // collapse 3+ blank lines
+    out = out.replace(/\n{3,}/g, "\n\n");
+    return out.trimEnd();
+  }
+
+
   function wrapSelection(textarea, before, after) {
     const el = textarea;
     const start = el.selectionStart || 0;
@@ -109,6 +168,30 @@
       ta.value = prefillBody;
     }
 
+    // Smart paste: keep paragraphs + basic formatting when pasting rich text (Word, web pages, etc.)
+    if (ta) {
+      ta.addEventListener("paste", (ev) => {
+        try {
+          const cb = ev.clipboardData;
+          if (!cb) return;
+          const html = cb.getData("text/html") || "";
+          if (!html) {
+            // Ensure plain-text paste keeps paragraphs (some sources use \r\n)
+            const plain = cb.getData("text/plain") || "";
+            if (!plain) return;
+            const normalized = plain.replace(/\r\n/g, "\n");
+            ev.preventDefault();
+            insertAtCursor(ta, normalized);
+            return;
+          }
+          const converted = htmlToBbcode(html);
+          if (!converted) return;
+          ev.preventDefault();
+          insertAtCursor(ta, converted);
+        } catch (e) {}
+      });
+    }
+
     // Default: start collapsed on mount (keeps inline composer tidy).
     // Modal composers can request startOpen=true.
     try {
@@ -139,11 +222,23 @@
         if (!input.files || !input.files[0]) return;
         const file = input.files[0];
 
-        attachList.innerHTML = `<div class="iad-attachpill is-loading">Uploading…</div>`;
+        attachList.innerHTML = `
+          <div class="iad-attachpill is-loading">
+            Uploading…
+            <div class="iad-uploadbar"><div class="iad-uploadbar-fill" style="width:0%"></div></div>
+          </div>
+        `;
+        const fill = attachList.querySelector(".iad-uploadbar-fill");
         let res = null;
         try {
           if (!API || !API.uploadFile) throw new Error("Upload API missing");
-          res = await API.uploadFile(file);
+          if (typeof API.uploadFileWithProgress === "function") {
+            res = await API.uploadFileWithProgress(file, (pct) => {
+              try { if (fill) fill.style.width = String(pct) + "%"; } catch (e) {}
+            });
+          } else {
+            res = await API.uploadFile(file);
+          }
         } catch (e) {
           const msg = (e && e.name === "AbortError") ? "Upload timed out" : (e && e.message ? e.message : "Upload failed");
           attachList.innerHTML = `<div class="iad-attachpill is-error">${escapeHtml(msg)}</div>`;

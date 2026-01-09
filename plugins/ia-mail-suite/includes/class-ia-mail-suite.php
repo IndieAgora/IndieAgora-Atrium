@@ -48,6 +48,12 @@ final class IA_Mail_Suite {
       ],
       'templates' => $this->default_templates(),
       'matchers' => [],
+      'ia_message_new_message' => [
+        'label' => 'IA: New private message notification',
+        'enabled' => 1,
+        'subject' => '[{site_name}] New message from {from_username}',
+        'body' => "Hi {display_name},\n\nYou have a new private message from {from_username}:\n\n{message_preview}\n\nOpen Messages: {messages_url}\n",
+      ],
     ];
   }
 
@@ -94,6 +100,12 @@ final class IA_Mail_Suite {
         'enabled' => 1,
         'subject' => '[{site_name}] Message',
         'body' => "Hi {display_name},\n\n{message}\n\n— {site_name}\n",
+      ],
+      'ia_message_new_message' => [
+        'label' => 'IA: New private message notification',
+        'enabled' => 1,
+        'subject' => '[{site_name}] New message from {from_username}',
+        'body' => "Hi {display_name},\n\nYou have a new private message from {from_username}:\n\n{message_preview}\n\nOpen Messages: {messages_url}\n",
       ],
     ];
   }
@@ -348,6 +360,40 @@ final class IA_Mail_Suite {
     return !empty($o['templates'][$key]['enabled']);
   }
 
+
+  /**
+   * Render a template (subject + body) with token replacement.
+   * Returns ['subject'=>string,'body'=>string].
+   */
+  public function render_template(string $key, array $ctx = []): array {
+    $o = $this->get_opts();
+    if (empty($o['templates'][$key])) return ['subject'=>'', 'body'=>''];
+    $tpl = $o['templates'][$key];
+
+    $subject = $this->apply_tokens((string)($tpl['subject'] ?? ''), $ctx);
+    $body    = $this->apply_tokens((string)($tpl['body'] ?? ''), $ctx);
+    return ['subject' => $subject, 'body' => $body];
+  }
+
+  /**
+   * Send an email using a stored template key (if enabled).
+   */
+  public function send_template(string $key, string $to_email, array $ctx = [], $headers = []): bool {
+    $to_email = sanitize_email($to_email);
+    if ($to_email === '' || !is_email($to_email)) return false;
+
+    // If template exists but disabled, do nothing.
+    if (!$this->template_enabled($key)) return false;
+
+    $rendered = $this->render_template($key, $ctx);
+    $subject = $rendered['subject'] ?? '';
+    $body = $rendered['body'] ?? '';
+    if (trim((string)$subject) === '' || trim((string)$body) === '') return false;
+
+    return wp_mail($to_email, $subject, $body, $headers);
+  }
+
+
   private function apply_tokens(string $text, array $ctx): string {
     $tokens = [
       '{site_name}' => get_bloginfo('name') ?: 'WordPress',
@@ -355,7 +401,7 @@ final class IA_Mail_Suite {
       '{date}' => gmdate('c'),
       '{ip}' => $this->client_ip(),
     ];
-    foreach (['user_login','user_email','display_name','reset_url','verify_url','message'] as $k) {
+    foreach (['user_login','user_email','display_name','reset_url','verify_url','message','from_username','message_preview','messages_url'] as $k) {
       $tokens['{'.$k.'}'] = isset($ctx[$k]) ? (string)$ctx[$k] : '';
     }
 

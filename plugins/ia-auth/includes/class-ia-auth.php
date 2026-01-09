@@ -249,6 +249,8 @@ final class IA_Auth {
         add_rewrite_rule('^ia-verify/([^/]+)/?$', 'index.php?ia_auth_route=verify&ia_auth_token=$matches[1]', 'top');
         // Password reset landing (we redirect into Atrium modal reset flow)
         add_rewrite_rule('^ia-reset/?$', 'index.php?ia_auth_route=reset', 'top');
+        add_rewrite_rule('^ia-check-email/?$', 'index.php?ia_auth_route=check_email', 'top');
+        add_rewrite_rule('^ia-check-reset/?$', 'index.php?ia_auth_route=check_reset', 'top');
         add_rewrite_tag('%ia_auth_route%', '([^&]+)');
         add_rewrite_tag('%ia_auth_token%', '([^&]+)');
     }
@@ -279,7 +281,7 @@ final class IA_Auth {
         status_header(200);
         nocache_headers();
 
-        $title = ($route === 'register') ? 'Register' : (($route === 'verify') ? 'Verify email' : 'Login');
+        $title = ($route === 'register') ? 'Register' : (($route === 'verify') ? 'Verify email' : ((($route === 'check_email' || $route === 'check_reset') ? 'Check your email' : 'Login')));
 
 
         // IMPORTANT: the verify route may set auth cookies (headers).
@@ -326,6 +328,19 @@ final class IA_Auth {
             } else {
                 echo '<div class="ia-auth-card"><h2>Verification failed</h2><p>' . esc_html($out['message']) . '</p></div>';
             }
+        } elseif ($route === 'check_email') {
+            echo '<div class="ia-auth-card"><h2>Check your email</h2>';
+            echo '<p>Your account has been created. Please check your email inbox for your activation link.</p>';
+            echo '<p>You must activate your account before you can sign in.</p>';
+            echo '<p><a href="' . esc_url(home_url('/')) . '">Return to homepage</a></p>';
+            echo '</div>';
+        } elseif ($route === 'check_reset') {
+            echo '<div class="ia-auth-card"><h2>Check your email</h2>';
+            echo '<p>If an account exists for that email address, a password reset link has been sent.</p>';
+            echo '<p>Please check your inbox and follow the link to set a new password.</p>';
+            echo '<p><a href="' . esc_url(home_url('/')) . '">Return to homepage</a></p>';
+            echo '</div>';
+
         } else {
             echo '<div class="ia-auth-card"><h2>Login</h2>';
             echo '<form class="ia-auth-form" data-action="ia_auth_login">';

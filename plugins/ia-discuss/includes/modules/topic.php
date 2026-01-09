@@ -35,6 +35,9 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
 
   public function ajax_topic(): void {
     $topic_id = isset($_POST['topic_id']) ? (int)$_POST['topic_id'] : 0;
+    // Topic view should load ALL posts in one go (no pagination / offsets).
+    // Keep reading the legacy 'offset' param for backward compatibility, but ignore it.
+    // (Some older JS still sends it.)
     $offset   = isset($_POST['offset']) ? max(0, (int)$_POST['offset']) : 0;
 
     if ($topic_id <= 0) ia_discuss_json_err('Missing topic_id', 400);
@@ -43,11 +46,39 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
     $topic   = $this->phpbb->get_topic_row($topic_id);
     $forum_id = (int)($topic['forum_id'] ?? 0);
 
-    $limit = 25;
-    $rows  = $this->phpbb->get_topic_posts_rows($topic_id, $offset, $limit + 1);
+    // Fetch all topic posts. We page internally to avoid huge single queries,
+    // but we return everything to the client.
+    $rows = [];
+    $chunk = 500;
+    $max_posts = 20000; // safety cap to prevent runaway memory on pathological topics
+    $off = 0;
+    while (count($rows) < $max_posts) {
+      $batch = $this->phpbb->get_topic_posts_rows($topic_id, $off, $chunk);
+      if (!$batch || !is_array($batch) || count($batch) === 0) break;
+      foreach ($batch as $br) {
+        $rows[] = $br;
+        if (count($rows) >= $max_posts) break;
+      }
+      if (count($batch) < $chunk) break;
+      $off += $chunk;
+    }
 
-    $has_more = count($rows) > $limit;
-    if ($has_more) $rows = array_slice($rows, 0, $limit);
+    $has_more = 0;
+
+    // Total posts for pager / "last reply" jump
+    $posts_total = 0;
+    try {
+      $db = $this->phpbb->db();
+      $p  = $this->phpbb->prefix() . 'posts';
+      if ($db) {
+        $posts_total = (int)$db->get_var($db->prepare(
+          "SELECT COUNT(*) FROM {$p} WHERE topic_id = %d AND post_visibility = 1",
+          $topic_id
+        ));
+      }
+    } catch (\Throwable $e) {
+      $posts_total = 0;
+    }
 
     // Viewer context
     $viewer_phpbb_id = (int)$this->auth->current_phpbb_user_id();
@@ -170,6 +201,7 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
 
       'posts'          => $posts,
       'has_more'       => $has_more ? 1 : 0,
+      'posts_total'    => $posts_total,
 
       'viewer'         => [
         'phpbb_user_id' => $viewer_phpbb_id,

@@ -8,10 +8,16 @@ final class ia_connect_support_assets {
   }
 
   private static function has_atrium_shortcode(): bool {
+    // Atrium can be rendered either via the [ia-atrium] shortcode on a page,
+    // or via a front-page/tab shell (e.g. /?tab=connect&ia_profile=...).
+    // Connect must load its assets in both cases.
+    if (isset($_GET["tab"]) && $_GET["tab"] === "connect") return true;
+    if (isset($_GET["ia_profile"]) || isset($_GET["ia_profile_name"])) return true;
+
     if (!is_singular()) return false;
     global $post;
     if (!$post) return false;
-    return has_shortcode($post->post_content ?? '', 'ia-atrium');
+    return has_shortcode($post->post_content ?? "", "ia-atrium");
   }
 
   private static function media_id(int $user_id, string $meta_key): int {
@@ -29,13 +35,16 @@ final class ia_connect_support_assets {
 
   private static function avatar_url(int $user_id): string {
     $custom = self::media_url($user_id, 'ia_connect_avatar_id', 'thumbnail');
+    if (!$custom) $custom = self::media_url($user_id, 'ia_connect_avatar_id', 'full');
     if ($custom) return $custom;
     $fallback = get_avatar_url($user_id, ['size' => 160]);
     return $fallback ?: '';
   }
 
   private static function cover_url(int $user_id): string {
-    return self::media_url($user_id, 'ia_connect_cover_id', 'large') ?: '';
+    $url = self::media_url($user_id, 'ia_connect_cover_id', 'large');
+    if (!$url) $url = self::media_url($user_id, 'ia_connect_cover_id', 'full');
+    return $url ?: '';
   }
 
   private static function privacy_defaults(): array {
@@ -43,6 +52,7 @@ final class ia_connect_support_assets {
       'profile_public' => true,
       'show_activity'  => true,
       'allow_mentions' => true,
+      'hide_profile'  => false,
     ];
   }
 
@@ -55,6 +65,7 @@ final class ia_connect_support_assets {
       'profile_public' => !empty($raw['profile_public']),
       'show_activity'  => !empty($raw['show_activity']),
       'allow_mentions' => !empty($raw['allow_mentions']),
+      'hide_profile'  => !empty($raw['hide_profile']),
     ]);
   }
 
@@ -85,6 +96,8 @@ final class ia_connect_support_assets {
 
     $handle = '';
     $display = '';
+    $username = '';
+    $email = '';
     $bio = '';
     $avatar_url = '';
     $cover_url = '';
@@ -92,9 +105,12 @@ final class ia_connect_support_assets {
 
     if ($is_logged_in && $user_id) {
       $u = wp_get_current_user();
+      $username = (string)($u->user_login ?? '');
+      $email = (string)($u->user_email ?? '');
       $handle = 'agorian/' . ($u->user_login ?: '');
       $display = $u->display_name ?: $u->user_login;
-      $bio = (string) get_user_meta($user_id, 'description', true);
+      // Connect stores bio in user meta (not WP core description).
+      $bio = (string) get_user_meta($user_id, 'ia_connect_bio', true);
       $avatar_url = self::avatar_url($user_id);
       $cover_url = self::cover_url($user_id);
       $privacy = self::privacy_settings($user_id);
@@ -105,6 +121,8 @@ final class ia_connect_support_assets {
       'nonce'      => wp_create_nonce('ia_connect_nonce'),
       'isLoggedIn' => $is_logged_in,
       'userId'     => $user_id,
+      'username'   => $username,
+      'email'      => $email,
       'handle'     => $handle,
       'display'    => $display,
       'bio'        => $bio,

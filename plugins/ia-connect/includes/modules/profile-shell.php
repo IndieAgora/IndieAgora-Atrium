@@ -15,6 +15,18 @@ final class ia_connect_module_profile_shell implements ia_connect_module_interfa
     ?>
     <div class="ia-connect" id="ia-connect-root" aria-label="Connect profile">
 
+      <div class="ia-connect-topbar" aria-label="Search users">
+        <div class="ia-connect-usersearch" data-ia-connect-usersearch>
+          <input type="search"
+                 class="ia-input ia-connect-usersearch-input"
+                 data-ia-connect-usersearch-input
+                 placeholder="Search users…"
+                 autocomplete="off"
+                 aria-label="Search users" />
+          <div class="ia-connect-usersearch-results" data-ia-connect-usersearch-results aria-hidden="true"></div>
+        </div>
+      </div>
+
       <header class="ia-connect-header">
 
         <button type="button"
@@ -41,17 +53,6 @@ final class ia_connect_module_profile_shell implements ia_connect_module_interfa
             <div class="ia-connect-name" data-ia-connect-name>Profile</div>
             <div class="ia-connect-handle" data-ia-connect-handle></div>
 
-            <div class="ia-connect-usersearch" data-ia-connect-usersearch>
-              <input type="search"
-                     class="ia-input ia-connect-usersearch-input"
-                     data-ia-connect-usersearch-input
-                     placeholder="Search users…"
-                     autocomplete="off"
-                     aria-label="Search users" />
-              <div class="ia-connect-usersearch-results" data-ia-connect-usersearch-results aria-hidden="true"></div>
-            </div>
-
-
             <div class="ia-connect-actions">
               <button type="button" class="ia-btn ia-btn-primary" data-ia-connect-action="follow" disabled>Follow</button>
               <button type="button" class="ia-btn" data-ia-connect-action="message" disabled>Message</button>
@@ -61,7 +62,6 @@ final class ia_connect_module_profile_shell implements ia_connect_module_interfa
 
         <div class="ia-connect-bio" aria-label="Bio">
           <div class="ia-connect-bio-text" data-ia-connect-bio-text></div>
-          <button type="button" class="ia-pill" data-ia-connect-edit-bio>Edit bio</button>
         </div>
       </header>
 

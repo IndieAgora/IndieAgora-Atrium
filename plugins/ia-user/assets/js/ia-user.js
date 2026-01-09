@@ -235,18 +235,11 @@ function wireForms() {
         return;
       }
 
-      // Registration: keep the user in the modal and instruct them to verify email.
+      // Registration: send the user to a dedicated "check your email" page.
       // (Actual verification + provisioning happens via ia-auth when they click the link.)
       if (mode === "register") {
-        setMsg(
-          form,
-          "Check for a verification email in your inbox in order to log in. If you do not receive the email or are having issues logging in, contact admin@indieagora.com",
-          "ok"
-        );
-        // Switch user back to Login panel for convenience
-        const loginTab = qs('.ia-auth-tab[data-auth-tab="login"]', auth);
-        if (loginTab) loginTab.click();
-        setBusy(form, false);
+        const url = (window.IA_USER && window.IA_USER.check_email_register) ? window.IA_USER.check_email_register : (window.IA_USER?.home || "/");
+        window.location.href = url;
         return;
       }
 
@@ -313,7 +306,12 @@ function wireForms() {
       setBusy(form, true);
       try {
         const res = await postForgot(form);
-        // Always show a generic success message (avoid user enumeration)
+        if (res && res.success === true) {
+          const url = (window.IA_USER && window.IA_USER.check_email_reset) ? window.IA_USER.check_email_reset : (window.IA_USER?.home || "/");
+          window.location.href = url;
+          return;
+        }
+        // Fallback: show a generic message (avoid user enumeration)
         const msg = (res && res.data && res.data.message) ? res.data.message : "If that account exists, a reset email has been sent.";
         setMsg(form, msg, "ok");
       } catch (err) {

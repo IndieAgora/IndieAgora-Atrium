@@ -141,3 +141,48 @@
 .ia-discuss-root ::selection{
   background: rgba(255,69,0,0.35);
 }
+
+/* Light theme (opt-in via root attribute) */
+.ia-discuss-root[data-iad-theme="light"]{
+  --iad-bg: #f6f7f9;
+  --iad-panel: #ffffff;
+  --iad-card: #ffffff;
+  --iad-card2: #fbfbfc;
+  --iad-border: rgba(0,0,0,0.10);
+  --iad-text: rgba(0,0,0,0.88);
+  --iad-muted: rgba(0,0,0,0.55);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-user-link{
+  color: rgba(0,0,0,0.78);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-sub{ color: rgba(0,0,0,0.75); }
+.ia-discuss-root[data-iad-theme="light"] .iad-card-excerpt p{ color: rgba(0,0,0,0.72); }
+.ia-discuss-root[data-iad-theme="light"] .iad-pill.is-muted{ background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.70); border-color: rgba(0,0,0,0.10); }
+.ia-discuss-root[data-iad-theme="light"] .iad-pill.is-muted:hover{ background: rgba(0,0,0,0.10); }
+.ia-discuss-root[data-iad-theme="light"] .iad-btn{ background: rgba(0,0,0,0.04); }
+
+/* Link cards (standalone URL previews) */
+.iad-linkcard{
+  display:flex;
+  gap:10px;
+  align-items:stretch;
+  padding:10px 12px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  text-decoration:none;
+  margin:10px 0;
+  background:rgba(255,255,255,.03);
+}
+.iad-linkcard:hover{ background:rgba(255,255,255,.06); }
+.iad-linkcard-thumb{flex:0 0 96px;max-width:96px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.06);}
+.iad-linkcard-thumb img{display:block;width:96px;height:64px;object-fit:cover;}
+.iad-linkcard-main{ display:flex; flex-direction:column; min-width:0; gap:2px; }
+.iad-linkcard-top{ display:flex; align-items:center; gap:8px; min-width:0; }
+.iad-linkcard-fav{ width:18px; height:18px; border-radius:5px; flex:0 0 auto; }
+.iad-linkcard-host{ font-weight:600; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.iad-linkcard-title{ display:block; font-weight:600; line-height:1.25; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.iad-linkcard-desc{ display:block; opacity:.85; line-height:1.3; max-height:2.6em; overflow:hidden; }
+.iad-link{ word-break:break-word; }
+
+/* Quote header */
+.iad-quote-meta{ font-size:12px; opacity:.8; margin:0 0 8px 0; }

@@ -133,6 +133,8 @@ final class IA_User {
         'ajax'       => admin_url('admin-ajax.php'),
         'nonce'      => wp_create_nonce('ia_user_nonce'),
         'home'       => home_url('/'),
+        'check_email_register' => home_url('/ia-check-email/'),
+        'check_email_reset'    => home_url('/ia-check-reset/'),
         'has_auth'   => class_exists('IA_Auth'),
         'has_engine' => class_exists('IA_Engine'),
     ]);

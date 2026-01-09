@@ -55,6 +55,7 @@ final class IA_Discuss_Module_Feed implements IA_Discuss_Module_Interface {
 
       $items[] = [
         'topic_id'        => (int)($r['topic_id'] ?? 0),
+        'first_post_id'   => (int)($r['topic_first_post_id'] ?? 0),
         'forum_id'        => (int)($r['forum_id'] ?? 0),
         'forum_name'      => (string)($r['forum_name'] ?? ''),
         'topic_title'     => (string)($r['topic_title'] ?? ''),

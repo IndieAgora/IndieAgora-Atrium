@@ -33,6 +33,9 @@ function ia_discuss_register_assets(): void {
   wp_register_style('ia-discuss-base', IA_DISCUSS_URL . 'assets/css/ia-discuss.base.css', [], $ver);
   wp_register_style('ia-discuss-layout', IA_DISCUSS_URL . 'assets/css/ia-discuss.layout.css', ['ia-discuss-base'], $ver);
 
+  // Light theme overrides (scoped under data-iad-theme="light")
+  wp_register_style('ia-discuss-light', IA_DISCUSS_URL . 'assets/css/ia-discuss.light.css', ['ia-discuss-layout'], $ver);
+
   wp_register_style('ia-discuss-modal', IA_DISCUSS_URL . 'assets/css/ia-discuss.modal.css', ['ia-discuss-layout'], $ver);
   wp_register_style('ia-discuss-agora', IA_DISCUSS_URL . 'assets/css/ia-discuss.agora.css', ['ia-discuss-layout'], $ver);
   wp_register_style('ia-discuss-composer', IA_DISCUSS_URL . 'assets/css/ia-discuss.composer.css', ['ia-discuss-layout'], $ver);
@@ -156,6 +159,7 @@ function ia_discuss_enqueue_assets(): void {
   // Base + layout
   wp_enqueue_style('ia-discuss-base');
   wp_enqueue_style('ia-discuss-layout');
+  wp_enqueue_style('ia-discuss-light');
 
   // Split CSS endcaps (deps pull the rest)
   wp_enqueue_style('ia-discuss-cards-icon-buttons');

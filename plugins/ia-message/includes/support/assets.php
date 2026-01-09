@@ -24,28 +24,23 @@ add_action('wp_enqueue_scripts', function () {
     'ajaxUrl'   => admin_url('admin-ajax.php'),
     'nonceBoot' => ia_message_nonce_field('boot'),
   ]);
-});
+}, 999);
 
-/**
- * Inject an Atrium-compatible panel node for ia-message.
- * This makes the "messages" panel exist even if Atrium doesn't explicitly register it.
- *
- * IMPORTANT:
- * - No top tab label is added here (Atrium owns that UI).
- * - This is just the panel surface so JS can switch to it.
- */
+
+ /**
+  * Inject the panel template so Atrium can mount it at runtime.
+  */
 add_action('wp_footer', function () {
   if (is_admin()) return;
   if (!ia_message_atrium_present()) return;
 
   $panel_tpl = IA_MESSAGE_PATH . 'includes/templates/panel.php';
   if (!file_exists($panel_tpl)) return;
-
-  ?>
+?>
   <template id="ia-message-atrium-panel-template">
     <div class="ia-panel" data-panel="<?php echo esc_attr(IA_MESSAGE_PANEL_KEY); ?>" style="display:none;">
       <?php include $panel_tpl; ?>
     </div>
   </template>
-  <?php
+<?php
 }, 50);

@@ -6,6 +6,9 @@ final class IA_Discuss_Service_Upload {
   public function handle(string $field = 'file'): array {
     if (!is_user_logged_in()) throw new Exception('Login required');
 
+    // User-requested: allow long uploads (server must still permit this).
+    try { @set_time_limit(1000); } catch (Throwable $e) {}
+
     if (empty($_FILES[$field]) || !is_array($_FILES[$field])) {
       throw new Exception('Missing file');
     }

@@ -38,8 +38,8 @@ function ia_message_search_users(string $q, int $limit = 8): array {
     FROM {$table}
     WHERE user_email <> ''
       AND (
-        username LIKE %s
-        OR user_email LIKE %s
+        LOWER(username) LIKE LOWER(%s)
+        OR LOWER(user_email) LIKE LOWER(%s)
       )
     ORDER BY user_id DESC
     LIMIT {$limit}
@@ -92,4 +92,59 @@ function ia_message_display_label_for_phpbb_id(int $phpbb_user_id): string {
   if ($name !== '') return $name;
 
   return 'User #' . $phpbb_user_id;
+}
+
+
+/**
+ * Email address for a phpbb_user_id (empty string if missing).
+ */
+function ia_message_phpbb_email_for_id(int $phpbb_user_id): string {
+  $phpbb_user_id = (int)$phpbb_user_id;
+  if ($phpbb_user_id <= 0) return '';
+
+  $table = ia_message_phpbb_users_table();
+  global $wpdb;
+
+  $email = $wpdb->get_var($wpdb->prepare(
+    "SELECT user_email FROM {$table} WHERE user_id = %d LIMIT 1",
+    $phpbb_user_id
+  ));
+
+  $email = is_string($email) ? trim($email) : '';
+  return is_email($email) ? $email : '';
+}
+
+/**
+ * Best-effort map from phpBB user id -> WP user id (via common meta keys).
+ */
+function ia_message_wp_user_id_from_phpbb(int $phpbb_user_id): int {
+  global $wpdb;
+  $phpbb_user_id = (int)$phpbb_user_id;
+  if ($phpbb_user_id <= 0) return 0;
+
+  $keys = ['ia_phpbb_user_id', 'phpbb_user_id', 'ia_phpbb_uid', 'phpbb_uid'];
+  foreach ($keys as $k) {
+    $uid = (int) $wpdb->get_var($wpdb->prepare(
+      "SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = %s AND meta_value = %s LIMIT 1",
+      $k, (string)$phpbb_user_id
+    ));
+    if ($uid > 0) return $uid;
+  }
+  return 0;
+}
+
+/**
+ * Recipient prefs (default: both on). Uses WP usermeta if mapping exists.
+ */
+function ia_message_prefs_for_phpbb(int $phpbb_user_id): array {
+  $wpuid = ia_message_wp_user_id_from_phpbb($phpbb_user_id);
+  if ($wpuid <= 0) return ['email' => true, 'popup' => true];
+
+  $prefs = get_user_meta($wpuid, 'ia_message_prefs', true);
+  if (!is_array($prefs)) $prefs = [];
+
+  return [
+    'email' => array_key_exists('email', $prefs) ? (bool)$prefs['email'] : true,
+    'popup' => array_key_exists('popup', $prefs) ? (bool)$prefs['popup'] : true,
+  ];
 }

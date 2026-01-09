@@ -1,0 +1,153 @@
+/*
+ * IA Discuss — Light theme overrides
+ *
+ * This is intentionally a dedicated stylesheet so light mode isn't
+ * half-applied by only CSS variables (which left some dark gradients).
+ *
+ * Enabled by: .ia-discuss-root[data-iad-theme="light"]
+ */
+
+.ia-discuss-root[data-iad-theme="light"]{
+  color-scheme: light;
+  background: var(--iad-bg);
+}
+
+/* Tabs + actions */
+.ia-discuss-root[data-iad-theme="light"] .iad-tab,
+.ia-discuss-root[data-iad-theme="light"] .iad-btn{
+  background: rgba(0,0,0,0.03);
+  color: rgba(0,0,0,0.75);
+  border-color: rgba(0,0,0,0.12);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-tab:hover,
+.ia-discuss-root[data-iad-theme="light"] .iad-btn:hover{
+  background: rgba(0,0,0,0.06);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-tab.is-active{
+  color: rgba(0,0,0,0.90);
+  border-color: rgba(255,69,0,0.35);
+  background: rgba(255,69,0,0.12);
+}
+
+/* Inputs */
+.ia-discuss-root[data-iad-theme="light"] .iad-input,
+.ia-discuss-root[data-iad-theme="light"] .iad-textarea{
+  background: #fff;
+  color: rgba(0,0,0,0.88);
+  border-color: rgba(0,0,0,0.14);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-input::placeholder,
+.ia-discuss-root[data-iad-theme="light"] .iad-textarea::placeholder{
+  color: rgba(0,0,0,0.45);
+}
+
+/* Feed cards: kill dark gradients */
+.ia-discuss-root[data-iad-theme="light"] .iad-card{
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.10);
+}
+
+/* Topic posts */
+.ia-discuss-root[data-iad-theme="light"] .iad-post{
+  background: #fff;
+  border-color: rgba(0,0,0,0.10);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-post.is-alt{
+  background: #fbfbfc;
+}
+
+/* Override topic-mode gradients that are hard-coded in modal.css */
+.ia-discuss-root[data-iad-theme="light"] .iad-post.is-op{
+  background:
+    linear-gradient(135deg, rgba(255,69,0,0.10), rgba(71,179,255,0.10)),
+    linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.01));
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-post.is-reply{
+  background: rgba(0,0,0,0.02);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-post.is-reply.is-alt{
+  background: rgba(0,0,0,0.04);
+}
+
+/* Topic body text is hard-coded white in modal.css — override here */
+.ia-discuss-root[data-iad-theme="light"] .iad-post-body{
+  color: rgba(0,0,0,0.88);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-post-meta{
+  color: rgba(0,0,0,0.55);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-topic-count{ color: rgba(0,0,0,0.60); }
+.ia-discuss-root[data-iad-theme="light"] .iad-collapse{
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.10);
+  color: rgba(0,0,0,0.75);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-collapse:hover{ background: rgba(0,0,0,0.06); }
+
+/* Topic pill styling */
+.ia-discuss-root[data-iad-theme="light"] .iad-pill{
+  border-color: rgba(0,0,0,0.12);
+  background: rgba(0,0,0,0.03);
+  color: rgba(0,0,0,0.85);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-pill:hover{
+  background: rgba(0,0,0,0.06);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-pill-primary{
+  border-color: rgba(255,69,0,0.28);
+  background: rgba(255,69,0,0.10);
+}
+
+/* Icon buttons */
+.ia-discuss-root[data-iad-theme="light"] .iad-iconbtn{
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.10);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-iconbtn:hover{
+  background: rgba(0,0,0,0.06);
+}
+
+/* Modals */
+.ia-discuss-root[data-iad-theme="light"] .iad-modal-sheet{
+  background: #fff;
+  border-color: rgba(0,0,0,0.12);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-modal-top{
+  border-bottom-color: rgba(0,0,0,0.08);
+}
+
+/* Modal header (topic title) — ensure readable in light mode */
+.ia-discuss-root[data-iad-theme="light"] .iad-modal-top{
+  background: rgba(248,248,250,0.92);
+  backdrop-filter: blur(8px);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-modal-title{
+  color: rgba(0,0,0,0.92);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-x{
+  background: rgba(0,0,0,0.03);
+  color: rgba(0,0,0,0.82);
+  border-color: rgba(0,0,0,0.12);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-x:hover{
+  background: rgba(0,0,0,0.06);
+}
+
+/* Icon visibility in light mode */
+.ia-discuss-root[data-iad-theme="light"] .iad-iconbtn{
+  color: rgba(0,0,0,0.75);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-ico{
+  opacity: 0.95;
+}
+
+/* Back-to-top button in light mode */
+.ia-discuss-root[data-iad-theme="light"] .iad-backtop{
+  border-color: rgba(0,0,0,0.18);
+  background: rgba(255,255,255,0.78);
+  color: rgba(0,0,0,0.86);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-backtop:hover{
+  background: rgba(255,255,255,0.92);
+}

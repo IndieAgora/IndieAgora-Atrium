@@ -22,14 +22,18 @@
     }
   }
 
-  function makeTopicUrl(topicId) {
+  function makeTopicUrl(topicId, postId) {
     try {
       const u = new URL(window.location.href);
       u.searchParams.set("iad_topic", String(topicId));
+      if (postId) u.searchParams.set("iad_post", String(postId));
+      else u.searchParams.delete("iad_post");
       return u.toString();
     } catch (e) {
       const base = String(window.location.origin || "") + String(window.location.pathname || "");
-      return base + "?iad_topic=" + encodeURIComponent(String(topicId || ""));
+      let out = base + "?iad_topic=" + encodeURIComponent(String(topicId || ""));
+      if (postId) out += "&iad_post=" + encodeURIComponent(String(postId || ""));
+      return out;
     }
   }
 
@@ -307,6 +311,11 @@ function ensureVideoModal() {
     return { kind: "iframe", url, embedUrl: url, thumbUrl: "" };
   }
 
+  // Back-compat alias (older handler name)
+  function detectVideoMeta(videoUrl) {
+    return buildVideoMeta(videoUrl);
+  }
+
   function openVideoModal(meta, titleText) {
     if (!meta) return;
 
@@ -439,9 +448,7 @@ function ensureVideoModal() {
       }
     }
 
-    const maxInlineLinks = 3;
-    const inlineLinks = linkUrls.slice(0, maxInlineLinks);
-    const remaining = Math.max(0, linkUrls.length - inlineLinks.length);
+    const linkCount = linkUrls.length;
 
     return `
       <div class="iad-mediawrap">
@@ -467,20 +474,15 @@ function ensureVideoModal() {
 
           <div class="iad-media-meta">
             ${videoMeta ? `<div class="iad-media-line"><span class="iad-media-tag">video</span><span class="iad-media-host">${esc(host || "video")}</span></div>` : ""}
-            ${linkUrls.length ? `
+            ${linkCount ? `
               <div class="iad-mediastrip">
-                ${inlineLinks.map((u) => {
-                  return `<a class="iad-pill is-muted" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(linkLabel(u))}</a>`;
-                }).join("")}
-                ${remaining ? `
-                  <button
-                    type="button"
-                    class="iad-pill is-muted"
-                    data-iad-open-links
-                    data-links-json="${esc(JSON.stringify(linkUrls))}">
-                    +${remaining}
-                  </button>
-                ` : ``}
+                <button
+                  type="button"
+                  class="iad-pill is-muted"
+                  data-iad-open-links
+                  data-links-json="${esc(JSON.stringify(linkUrls))}">
+                  Links (${linkCount})
+                </button>
               </div>
             ` : ""}
           </div>
@@ -529,6 +531,7 @@ function ensureVideoModal() {
     return `
       <article class="iad-card"
         data-topic-id="${item.topic_id}"
+        data-first-post-id="${esc(String(item.first_post_id || 0))}"
         data-forum-id="${forumId}"
         data-forum-name="${esc(forumName)}"
         data-author-id="${esc(String(authorId))}">
@@ -706,8 +709,9 @@ function ensureVideoModal() {
         e.stopPropagation();
         const card = copyBtn.closest("[data-topic-id]");
         const tid = card ? parseInt(card.getAttribute("data-topic-id") || "0", 10) : 0;
+        const pid = card ? parseInt(card.getAttribute("data-first-post-id") || "0", 10) : 0;
         if (tid) {
-          copyToClipboard(makeTopicUrl(tid)).then(() => {
+          copyToClipboard(makeTopicUrl(tid, pid || 0)).then(() => {
             copyBtn.classList.add("is-pressed");
             setTimeout(() => copyBtn.classList.remove("is-pressed"), 450);
           });
@@ -784,7 +788,13 @@ function ensureVideoModal() {
         e.preventDefault();
         e.stopPropagation();
         const raw = linksBtn.getAttribute("data-links-json") || linksBtn.getAttribute("data-links") || "[]";
-        try { openLinksModal(raw); } catch (err) {}
+        try {
+          const urls = JSON.parse(raw);
+          const card = linksBtn.closest && linksBtn.closest('[data-topic-id]');
+          const tEl = card ? card.querySelector('.iad-title,[data-open-topic-title]') : null;
+          const titleText = tEl ? (tEl.textContent || '').trim() : '';
+          openLinksModal(urls, titleText);
+        } catch (err) {}
         return;
       }
       // Open attachments modal (single pill)

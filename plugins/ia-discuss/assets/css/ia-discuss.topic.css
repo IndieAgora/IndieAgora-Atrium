@@ -110,3 +110,57 @@
   border-color: rgba(255,255,255,0.16);
   background: rgba(255,255,255,0.08);
 }
+
+/* Topic pager (showing X of Y + last reply button) */
+.iad-topic-pager{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0 12px;
+  flex-wrap: wrap;
+}
+.iad-topic-count{
+  font-size: 13px;
+  color: rgba(255,255,255,0.70);
+}
+
+/* Back-to-top floating button (topic view) */
+.iad-backtop{
+  position: fixed;
+  right: 18px;
+  bottom: 92px; /* sits above the bottom nav bar */
+  z-index: 9999;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.55);
+  color: rgba(255,255,255,0.92);
+  padding: 10px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+.iad-backtop:hover{ background: rgba(0,0,0,0.70); }
+
+/* Collapse control (Reddit-style expand/collapse of body) */
+.iad-collapse{
+  appearance:none;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.86);
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  flex: 0 0 auto;
+}
+.iad-collapse:hover{ background: rgba(255,255,255,0.08); }
+/* Ensure post content wrapper doesn't disturb existing layout */
+.iad-post-content{ margin-top: 6px; }
+
+/* Patch: collapse removed */
+.iad-collapse{display:none!important;}

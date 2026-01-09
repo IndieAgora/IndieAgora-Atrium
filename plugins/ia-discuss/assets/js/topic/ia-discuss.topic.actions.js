@@ -151,8 +151,17 @@
   }
 
   function bindTopicActions(mount, topicId) {
-    if (!mount || mount.__iadTopicActionsBound) return;
+    if (!mount) return;
+
+    // The topic view reuses the same mount element when navigating between topics.
+    // Never close over a stale topicId.
+    // If already bound, just update the current topic id and exit.
+    if (mount.__iadTopicActionsBound) {
+      try { mount.setAttribute("data-iad-topic-id", String(topicId || "")); } catch (e) {}
+      return;
+    }
     mount.__iadTopicActionsBound = true;
+    try { mount.setAttribute("data-iad-topic-id", String(topicId || "")); } catch (e) {}
 
     mount.addEventListener("click", (e) => {
       const postReplyPill = e.target.closest("[data-iad-post-reply]");
@@ -171,16 +180,19 @@
 
       const API = window.IA_DISCUSS_API;
 
-      // ✅ NEW: Top pill opens expanded composer modal
+      // Resolve current topic id dynamically (prevents cross-topic actions)
+      const curTopicId = parseInt(mount.getAttribute("data-iad-topic-id") || "0", 10) || topicId;
+
+      // ✅ Top pill opens expanded composer modal
       if (postReplyPill) {
-        openReplyModal(topicId, "");
+        openReplyModal(curTopicId, "");
         return;
       }
 
       // Copy link
       if (copyBtn) {
         const pid = parseInt(copyBtn.getAttribute("data-post-id") || "0", 10) || 0;
-        copyToClipboard(makePostUrl(topicId, pid));
+        copyToClipboard(makePostUrl(curTopicId, pid));
         return;
       }
 
@@ -199,7 +211,8 @@
               return;
             }
             if (window.IA_DISCUSS_UI_TOPIC && typeof window.IA_DISCUSS_UI_TOPIC.renderInto === "function") {
-              window.IA_DISCUSS_UI_TOPIC.renderInto(document, topicId, {});
+              // Re-render the currently viewed topic (not the topic that was first bound)
+              window.IA_DISCUSS_UI_TOPIC.renderInto(document, curTopicId, {});
             }
           });
         });
@@ -223,7 +236,7 @@
               return;
             }
             if (window.IA_DISCUSS_UI_TOPIC && typeof window.IA_DISCUSS_UI_TOPIC.renderInto === "function") {
-              window.IA_DISCUSS_UI_TOPIC.renderInto(document, topicId, {});
+              window.IA_DISCUSS_UI_TOPIC.renderInto(document, curTopicId, {});
             }
           });
         });
@@ -247,7 +260,7 @@
               return;
             }
             if (window.IA_DISCUSS_UI_TOPIC && typeof window.IA_DISCUSS_UI_TOPIC.renderInto === "function") {
-              window.IA_DISCUSS_UI_TOPIC.renderInto(document, topicId, {});
+              window.IA_DISCUSS_UI_TOPIC.renderInto(document, curTopicId, {});
             }
           });
         });
@@ -271,7 +284,7 @@
               return;
             }
             if (window.IA_DISCUSS_UI_TOPIC && typeof window.IA_DISCUSS_UI_TOPIC.renderInto === "function") {
-              window.IA_DISCUSS_UI_TOPIC.renderInto(document, topicId, {});
+              window.IA_DISCUSS_UI_TOPIC.renderInto(document, curTopicId, {});
             }
           });
         });
@@ -298,7 +311,7 @@
             detail: {
               mount: modalMount,
               mode: "reply",
-              topic_id: topicId,
+              topic_id: curTopicId,
               start_open: true,
               in_modal: true,
               edit_post_id: pid,
@@ -323,12 +336,12 @@
         const postEl = quoteBtn.closest(".iad-post");
         const text = extractQuoteTextFromPost(postEl);
         const quote = `[quote]${author ? author + " wrote:\n" : ""}${text}[/quote]\n\n`;
-        openReplyModal(topicId, quote);
+        openReplyModal(curTopicId, quote);
         return;
       }
 
       if (replyBtn) {
-        openReplyModal(topicId, "");
+        openReplyModal(curTopicId, "");
         return;
       }
     });

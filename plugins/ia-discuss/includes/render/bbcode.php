@@ -116,7 +116,255 @@ final class IA_Discuss_Render_BBCode {
       return '<a href="'.esc_url($u).'" target="_blank" rel="noopener noreferrer"><img src="'.esc_url($u).'" alt="" loading="lazy" /></a>';
     }, $s);
 
+
+
+    // Strip [color] tags (keep inner text)
+    $s = preg_replace('~\[color(?:=[^\]]+)?\](.*?)\[/color\]~is', '$1', $s);
+
+    // [list] / [list=1] with [*] items (support common typo [/list})
+    $s = preg_replace_callback('~\[list(?:=([^\]]+))?\](.*?)\[\/list\]?\}?~is', function($m){
+      $type = isset($m[1]) ? trim((string)$m[1]) : '';
+      $body = (string)($m[2] ?? '');
+      $items = preg_split('~\[\*\]~', $body);
+      $items = array_values(array_filter(array_map('trim', $items), function($x){ return $x !== ''; }));
+      if (!$items) return '';
+      $tag = ($type !== '' && $type !== 'disc') ? 'ol' : 'ul';
+      $lis = '';
+      foreach ($items as $it) { $lis .= '<li>' . $it . '</li>'; }
+      return '<' . $tag . '>' . $lis . '</' . $tag . '>';
+    }, $s);
+
+    // [quote=...] and phpBB style [quote="user" post_id=.. time=.. user_id=..]
+    // Render a small header inside the blockquote when username is present.
+    $s = preg_replace_callback('~\[quote=([^\]]+)\]~i', function($m){
+      $meta = trim((string)$m[1]);
+      // If quoted, strip surrounding quotes
+      if (preg_match('~^"(.+)"~', $meta, $mm)) $meta = $mm[1];
+      // If contains key=value pairs, prefer the first token before space
+      $user = $meta;
+      if (strpos($meta, ' ') !== false) {
+        $user = trim(strtok($meta, ' '));
+      }
+      $user = esc_html($user);
+      if ($user === '') return '<blockquote>';
+      return '<blockquote><div class="iad-quote-meta">' . $user . ' wrote:</div>';
+    }, $s);
+    $s = preg_replace('~\[/quote\]~i', '</blockquote>', $s);
+    // Plain [quote]...[/quote] already handled above; this enhances only quote= forms.
+
+    // [url] and [url=...] tags
+    $s = preg_replace_callback('~\[url\](.+?)\[/url\]~is', function($m){
+      $u = esc_url_raw(trim($m[1]));
+      if (!$u) return '';
+      return '<a class="iad-link" href="' . esc_url($u) . '" target="_blank" rel="noopener noreferrer">' . esc_html($u) . '</a>';
+    }, $s);
+    $s = preg_replace_callback('~\[url=([^\]]+)\](.*?)\[/url\]~is', function($m){
+      $u = esc_url_raw(trim($m[1]));
+      if (!$u) return esc_html($m[2]);
+      $label = trim((string)$m[2]);
+      if ($label === '') $label = $u;
+      return '<a class="iad-link" href="' . esc_url($u) . '" target="_blank" rel="noopener noreferrer">' . esc_html($label) . '</a>';
+    }, $s);
+
+    // Replace standalone video URLs with an inline embed (and do NOT show the raw URL).
+    $s = preg_replace_callback('~(^|\n)\s*(https?://[^\s<>"\']+)\s*(?=\n|$)~i', function($m){
+      $lead = $m[1];
+      $u = rtrim((string)$m[2], ".,);:]");
+      $lu = strtolower($u);
+      $is_video = (strpos($lu, 'youtube.com/watch') !== false) || (strpos($lu, 'youtu.be/') !== false) || (strpos($lu, 'youtube.com/shorts/') !== false) || (strpos($lu, 'youtube.com/live/') !== false) || (strpos($lu, '/videos/watch/') !== false) || (strpos($lu, '/videos/embed/') !== false) || preg_match('~https?://[^/]+/w/[^\s\?/#]+~i', $u) || preg_match('~\.(mp4|webm|mov)(\?|$)~', $lu);
+      if (!$is_video) return $m[0];
+      $embed = $u;
+
+      // PeerTube-ish embed URL (/w/<id> or /videos/watch/<id>)
+      if (preg_match('~^(https?://[^/]+)/(?:w|videos/watch)/([^\?/#]+)~i', $u, $mm)) {
+        $base = rtrim($mm[1], '/');
+        $vid  = $mm[2];
+        $embed = $base . '/videos/embed/' . rawurlencode($vid);
+      }
+
+      // YouTube embed URL
+      if (strpos($lu, 'youtu.be/') !== false || strpos($lu, 'youtube.com') !== false) {
+        $id = '';
+        if (preg_match('~youtu\.be/([^\?/#]+)~i', $u, $mm)) $id = $mm[1];
+        if ($id === '' && preg_match('~[\?&]v=([^&]+)~i', $u, $mm)) $id = $mm[1];
+        if ($id === '' && preg_match('~youtube\.com/shorts/([^\?/#]+)~i', $u, $mm)) $id = $mm[1];
+        if ($id === '' && preg_match('~youtube\.com/live/([^\?/#]+)~i', $u, $mm)) $id = $mm[1];
+        if ($id !== '') $embed = 'https://www.youtube.com/embed/' . rawurlencode($id);
+      }
+
+      // PeerTube embed URL (best-effort): /videos/watch/{uuid} -> /videos/embed/{uuid}
+      if (strpos($lu, '/videos/watch/') !== false) {
+        $embed = preg_replace('~(/videos)/watch/~i', '$1/embed/', $u);
+      }
+
+      $eu = esc_url($embed);
+      if (!$eu) return $lead;
+      return $lead . '<div class="iad-attwrap"><div class="iad-att-media iad-att-video"><iframe class="iad-att-iframe" src="' . $eu . '" title="Video" frameborder="0" loading="lazy" referrerpolicy="origin-when-cross-origin" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe></div></div>';
+    }, $s);
+
+    // Auto-link remaining standalone URLs as rich link cards (favicon + title/desc/image).
+    $s = preg_replace_callback('~(^|\n)\s*(https?://[^\s<>"\']+)\s*(?=\n|$)~i', function($m){
+      $lead = $m[1];
+      $u = rtrim((string)$m[2], ".,);:]");
+      $eu = esc_url($u);
+      if (!$eu) return $m[0];
+      $host = parse_url($u, PHP_URL_HOST);
+      $host = is_string($host) ? $host : '';
+      $hostLabel = $host ? esc_html($host) : esc_html($u);
+      $fav = '';
+      if ($host) {
+        $fav = 'https://www.google.com/s2/favicons?sz=64&domain_url=' . rawurlencode('https://' . $host);
+      }
+      $favImg = $fav ? '<img class="iad-linkcard-fav" src="' . esc_url($fav) . '" alt="" loading="lazy" />' : '';
+      $meta = $this->link_meta($u);
+      $title = trim((string)($meta['title'] ?? ''));
+      $desc  = trim((string)($meta['description'] ?? ''));
+      $img   = trim((string)($meta['image'] ?? ''));
+
+      // Fallbacks
+      if ($title === '') $title = $host ? $host : $u;
+
+      $imgHtml = '';
+      if ($img !== '') {
+        $imgHtml = '<span class="iad-linkcard-thumb"><img src="' . esc_url($img) . '" alt="" loading="lazy" /></span>';
+      }
+
+      $descHtml = '';
+      if ($desc !== '') {
+        $descHtml = '<span class="iad-linkcard-desc">' . esc_html($desc) . '</span>';
+      }
+
+      // Note: we intentionally do NOT print the raw URL inside the card.
+      return $lead . '<a class="iad-linkcard" href="' . $eu . '" target="_blank" rel="noopener noreferrer">'
+        . $imgHtml
+        . '<span class="iad-linkcard-main">'
+        . '<span class="iad-linkcard-top">' . $favImg . '<span class="iad-linkcard-host">' . $hostLabel . '</span></span>'
+        . '<span class="iad-linkcard-title">' . esc_html($title) . '</span>'
+        . $descHtml
+        . '</span></a>';
+    }, $s);
+
+    // Auto-link inline URLs (non-standalone) as simple anchors.
+    $s = preg_replace_callback('~(?<![="\w])(https?://[^\s<>"\']+)~i', function($m){
+      $u = rtrim((string)$m[1], ".,);:]");
+      $eu = esc_url($u);
+      if (!$eu) return $m[0];
+      return '<a class="iad-link" href="' . $eu . '" target="_blank" rel="noopener noreferrer">' . esc_html($u) . '</a>';
+    }, $s);
+
     return $s;
+  }
+
+
+  private function abs_url(string $base, string $maybe): string {
+    $maybe = trim($maybe);
+    if ($maybe === '') return '';
+    if (preg_match('~^https?://~i', $maybe)) return $maybe;
+    if (strpos($maybe, '//') === 0) {
+      $scheme = parse_url($base, PHP_URL_SCHEME);
+      if (!is_string($scheme) || $scheme === '') $scheme = 'https';
+      return $scheme . ':' . $maybe;
+    }
+    if ($maybe[0] !== '/') $maybe = '/' . $maybe;
+    return rtrim($base, '/') . $maybe;
+  }
+
+  private function link_meta(string $url): array {
+		// IMPORTANT: Topic rendering must never stall while trying to fetch previews.
+		// Limit uncached remote fetches per PHP request (topics can contain many links).
+		static $fetches = 0;
+		$max_fetches = 2;
+
+    $key = 'iad_linkmeta_' . md5($url);
+    $cached = get_transient($key);
+    if (is_array($cached)) {
+      return [
+        'title' => (string)($cached['title'] ?? ''),
+        'description' => (string)($cached['description'] ?? ''),
+        'image' => (string)($cached['image'] ?? ''),
+      ];
+    }
+
+    $out = ['title' => '', 'description' => '', 'image' => ''];
+
+    $eu = esc_url_raw($url);
+    if (!$eu || !preg_match('~^https?://~i', $eu)) {
+      return $out;
+    }
+
+		// If we don't have a cached preview, only attempt a couple of fetches per request.
+		if ($fetches >= $max_fetches) {
+		  return $out;
+		}
+		$fetches++;
+
+		$args = [
+		  'timeout' => 2,
+      'redirection' => 3,
+      'user-agent' => 'IA-Discuss/1.0 (+link-preview)',
+      'headers' => ['Accept' => 'text/html,application/xhtml+xml'],
+    ];
+
+    $res = wp_safe_remote_get($eu, $args);
+    if (is_wp_error($res)) {
+      return $out;
+    }
+    $code = (int) wp_remote_retrieve_response_code($res);
+    if ($code < 200 || $code >= 400) {
+      return $out;
+    }
+
+    $body = (string) wp_remote_retrieve_body($res);
+    if ($body === '') return $out;
+
+    if (strlen($body) > 200000) $body = substr($body, 0, 200000);
+
+    if (preg_match('~<head[^>]*>(.*?)</head>~is', $body, $m)) {
+      $head = $m[1];
+    } else {
+      $head = $body;
+    }
+
+    $p = wp_parse_url($eu);
+    $base = '';
+    if (is_array($p) && !empty($p['scheme']) && !empty($p['host'])) {
+      $base = $p['scheme'] . '://' . $p['host'];
+      if (!empty($p['port'])) $base .= ':' . $p['port'];
+    }
+
+    $pick = function(array $patterns) use ($head) {
+      foreach ($patterns as $pat) {
+        if (preg_match($pat, $head, $mm)) {
+          return trim(html_entity_decode($mm[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        }
+      }
+      return '';
+    };
+
+    $out['title'] = $pick([
+      '~<meta\s+property=["\']og:title["\'][^>]*content=["\']([^"\']+)["\'][^>]*>~i',
+      '~<meta\s+name=["\']twitter:title["\'][^>]*content=["\']([^"\']+)["\'][^>]*>~i',
+      '~<title[^>]*>(.*?)</title>~is',
+    ]);
+
+    $out['description'] = $pick([
+      '~<meta\s+property=["\']og:description["\'][^>]*content=["\']([^"\']+)["\'][^>]*>~i',
+      '~<meta\s+name=["\']description["\'][^>]*content=["\']([^"\']+)["\'][^>]*>~i',
+      '~<meta\s+name=["\']twitter:description["\'][^>]*content=["\']([^"\']+)["\'][^>]*>~i',
+    ]);
+
+    $img = $pick([
+      '~<meta\s+property=["\']og:image["\'][^>]*content=["\']([^"\']+)["\'][^>]*>~i',
+      '~<meta\s+name=["\']twitter:image["\'][^>]*content=["\']([^"\']+)["\'][^>]*>~i',
+    ]);
+    if ($img !== '' && $base !== '') $img = $this->abs_url($base, $img);
+    $out['image'] = $img;
+
+    $out['title'] = mb_substr($out['title'], 0, 140);
+    $out['description'] = mb_substr($out['description'], 0, 220);
+
+    set_transient($key, $out, 12 * HOUR_IN_SECONDS);
+    return $out;
   }
 
   private function nl2p(string $html): string {
@@ -151,11 +399,38 @@ final class IA_Discuss_Render_BBCode {
         'href' => true,
         'target' => true,
         'rel' => true,
+        'class' => true,
       ],
       'img' => [
         'src' => true,
         'alt' => true,
         'loading' => true,
+        'class' => true,
+      ],
+      'div' => [
+        'class' => true,
+      ],
+      'span' => [
+        'class' => true,
+      ],
+      'ul' => [
+        'class' => true,
+      ],
+      'ol' => [
+        'class' => true,
+      ],
+      'li' => [
+        'class' => true,
+      ],
+      'iframe' => [
+        'src' => true,
+        'title' => true,
+        'frameborder' => true,
+        'loading' => true,
+        'referrerpolicy' => true,
+        'allow' => true,
+        'allowfullscreen' => true,
+        'class' => true,
       ],
     ];
   }
