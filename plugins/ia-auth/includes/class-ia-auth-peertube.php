@@ -215,6 +215,52 @@ final class IA_Auth_PeerTube {
         return ['ok' => true, 'token' => $this->normalize_token($res['json'])];
     }
 
+    /**
+     * Admin: Find a PeerTube user by username or email.
+     * Uses GET /api/v1/users?search=...
+     * Returns the first exact match (username/email) when available,
+     * otherwise falls back to the first result.
+     */
+    public function admin_find_user(string $search, array $engine_peertube_api): array {
+        $search = trim((string)$search);
+        if ($search === '') return ['ok' => false, 'message' => 'Missing search string.'];
+
+        // Requires admin token.
+        $token = $this->resolve_bearer_token($engine_peertube_api);
+        if ($token === '') {
+            return ['ok' => false, 'message' => 'PeerTube admin token not available.'];
+        }
+
+        $res = $this->req('GET', '/api/v1/users?search=' . rawurlencode($search) . '&count=10', $engine_peertube_api, [], false, true);
+        if (!$res['ok']) {
+            $msg = 'PeerTube user search failed.';
+            if (!empty($res['code'])) $msg .= ' HTTP ' . (int)$res['code'] . '.';
+            return ['ok' => false, 'message' => $msg, 'debug' => $res];
+        }
+
+        $list = $res['json'];
+        if (!is_array($list) || empty($list)) {
+            return ['ok' => false, 'message' => 'User not found.'];
+        }
+
+        $needle = strtolower($search);
+        $pick = null;
+        foreach ($list as $u) {
+            if (!is_array($u)) continue;
+            $un = strtolower((string)($u['username'] ?? ''));
+            $em = strtolower((string)($u['email'] ?? ''));
+            if ($un === $needle || $em === $needle) {
+                $pick = $u;
+                break;
+            }
+        }
+
+        if (!$pick) $pick = is_array($list[0]) ? $list[0] : null;
+        if (!$pick) return ['ok' => false, 'message' => 'User not found.'];
+
+        return ['ok' => true, 'user' => $pick];
+    }
+
     private function normalize_token($json): array {
         $access     = (string)($json['access_token'] ?? '');
         $refresh    = (string)($json['refresh_token'] ?? '');

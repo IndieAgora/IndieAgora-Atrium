@@ -140,6 +140,23 @@ final class IA_PTLS {
         wp_set_current_user($wp_user_id);
         wp_set_auth_cookie($wp_user_id, true);
 
+        /**
+         * Atrium shadow-session logins bypass wp_signon/wp_authenticate.
+         * The per-user PeerTube token mint plugin relies on receiving the
+         * plaintext password at login time via this action.
+         */
+        do_action('ia_pt_user_password', (int)$wp_user_id, (string)$pw, (string)$id);
+        // Hard-call capture to avoid reliance on action wiring in shadow-session stacks.
+        if (class_exists('IA_PT_Password_Capture') && method_exists('IA_PT_Password_Capture', 'capture_for_user')) {
+            try { IA_PT_Password_Capture::capture_for_user((int)$wp_user_id, (string)$pw, (string)$id); } catch (Throwable $e) { /* ignore */ }
+        }
+
+
+        // Opportunistically mint/store per-user token now if the helper is available.
+        if (class_exists('IA_PeerTube_Token_Helper') && method_exists('IA_PeerTube_Token_Helper', 'get_token_for_current_user')) {
+            try { IA_PeerTube_Token_Helper::get_token_for_current_user(); } catch (Throwable $e) { /* ignore */ }
+        }
+
         wp_send_json_success([
             'ok' => true,
             'redirect' => home_url('/'),

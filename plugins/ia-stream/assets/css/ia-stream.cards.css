@@ -1,5 +1,135 @@
 /* IA Stream — cards */
 
+/*
+ * Stream feed cards intentionally reuse the Discuss card markup classes
+ * (.iad-card, .iad-card-meta, .iad-iconbtn, etc.) so Stream visually matches
+ * Discuss. We include the minimal CSS subset here (scoped to #ia-stream-shell)
+ * to avoid depending on ia-discuss being active/enqueued.
+ */
+
+#ia-stream-shell .iad-card{
+  display:block;
+  padding: 12px;
+  border: 1px solid var(--iad-border, var(--ia-border));
+  border-radius: var(--iad-radius, var(--ia-radius));
+  background: linear-gradient(180deg, rgba(16,24,39,0.55), rgba(15,20,29,0.75));
+  box-shadow: 0 10px 22px rgba(0,0,0,0.25);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#ia-stream-shell .iad-card img,
+#ia-stream-shell .iad-card video,
+#ia-stream-shell .iad-card iframe,
+#ia-stream-shell .iad-card embed,
+#ia-stream-shell .iad-card object{
+  display: block;
+  max-width: 100%;
+}
+
+#ia-stream-shell .iad-card iframe,
+#ia-stream-shell .iad-card embed,
+#ia-stream-shell .iad-card object{
+  width: 100%;
+}
+
+#ia-stream-shell .iad-card-meta{
+  font-size: var(--iad-fs-12, 0.75rem);
+  color: var(--iad-muted, var(--ia-muted));
+  line-height: var(--iad-lh-ui, 1.2);
+}
+
+#ia-stream-shell .iad-sub{ color: rgba(255,255,255,0.85); }
+
+#ia-stream-shell .iad-agora-link{
+  appearance:none;
+  border:0;
+  background:transparent;
+  padding:0;
+  margin:0;
+  display:inline;
+  font: inherit;
+  color: rgba(255,255,255,0.85);
+  cursor:pointer;
+}
+
+#ia-stream-shell .iad-agora-link:hover{ text-decoration: underline; }
+
+#ia-stream-shell .iad-card-title{
+  margin: 6px 0 6px;
+  font-size: var(--iad-fs-16, 1rem);
+  font-weight: 600;
+  line-height: var(--iad-lh-tight, 1.25);
+  letter-spacing: 0.2px;
+  cursor: pointer;
+}
+
+#ia-stream-shell .iad-card-title:hover{ text-decoration: underline; }
+
+#ia-stream-shell .iad-card-excerpt{ max-width: 100%; cursor: pointer; }
+#ia-stream-shell .iad-card-excerpt *{ max-width: 100%; }
+#ia-stream-shell .iad-card-excerpt p{
+  margin: 0;
+  color: rgba(255,255,255,0.80);
+  font-size: var(--iad-fs-14, 0.875rem);
+  line-height: 1.45;
+}
+
+#ia-stream-shell .iad-card-actions{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  /* Don't allow per-letter wrapping inside action buttons */
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+#ia-stream-shell .iad-iconbtn{
+  appearance:none;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.88);
+  min-width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition: transform 90ms ease, background 120ms ease, border-color 120ms ease;
+  gap: 6px;
+  padding: 0 10px;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+#ia-stream-shell .iad-iconbtn:hover{
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.18);
+}
+
+#ia-stream-shell .iad-iconbtn:active{ transform: scale(0.98); }
+#ia-stream-shell .iad-iconbtn svg{ display:block; width:20px; height:20px; }
+
+/* Feed actions should match modal icon sizing */
+#ia-stream-shell .ia-stream-actions .iad-iconbtn{ min-width: 44px; }
+
+#ia-stream-shell .iad-count{
+  font-size: var(--iad-fs-12, 0.75rem);
+  color: rgba(255,255,255,0.82);
+  white-space: nowrap;
+}
+
+#ia-stream-shell .ia-stream-views{
+  margin-left: auto;
+  font-size: var(--iad-fs-12, 0.75rem);
+  color: rgba(255,255,255,0.70);
+  white-space: nowrap;
+}
+
 .ia-stream-feed {
   display: flex;
   flex-direction: column;
@@ -55,4 +185,24 @@
   font-size: 0.8rem;
   color: var(--ia-muted);
   border-top: 1px solid var(--ia-border);
+}
+
+.ia-stream-card-footer .ia-stream-comments {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ia-stream-card-footer .ia-stream-count {
+  color: var(--ia-muted);
+}
+
+.ia-stream-card-footer .ia-stream-comments:hover {
+  color: var(--ia-text);
 }

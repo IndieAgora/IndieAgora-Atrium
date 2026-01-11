@@ -61,4 +61,28 @@
   NS.api.fetchComments = function (opts) {
     return NS.api.post("ia_stream_comments", opts || {});
   };
+
+  NS.api.fetchCommentThread = function (opts) {
+    return NS.api.post("ia_stream_comment_thread", opts || {});
+  };
+
+  NS.api.createCommentThread = function (opts) {
+    return NS.api.post("ia_stream_comment_create", opts || {});
+  };
+
+  NS.api.replyToComment = function (opts) {
+    return NS.api.post("ia_stream_comment_reply", opts || {});
+  };
+
+  NS.api.rateVideo = function (opts) {
+    return NS.api.post("ia_stream_video_rate", opts || {});
+  };
+
+  NS.api.rateComment = function (opts) {
+    return NS.api.post("ia_stream_comment_rate", opts || {});
+  };
+
+  NS.api.deleteComment = function (opts) {
+    return NS.api.post("ia_stream_comment_delete", opts || {});
+  };
 })();

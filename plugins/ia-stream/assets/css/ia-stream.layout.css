@@ -46,3 +46,25 @@
 .ia-stream-panel.is-active {
   display: block;
 }
+/* Feed — Load more */
+.ia-stream-loadmore {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 4px;
+}
+
+.ia-stream-loadmore-btn {
+  appearance: none;
+  border: 1px solid var(--ia-border);
+  background: var(--ia-card);
+  color: var(--ia-text);
+  padding: 10px 12px;
+  border-radius: var(--ia-radius);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ia-stream-loadmore-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}

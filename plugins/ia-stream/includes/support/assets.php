@@ -51,10 +51,39 @@ function ia_stream_assets_boot(): void {
     ], $ver, true);
 
     // Inject config for JS API layer
+    // Resolve current identity (best-effort) for UI gating (delete buttons, etc.)
+    $identity = [
+      'loggedIn' => is_user_logged_in(),
+      'wpUserId' => (int) get_current_user_id(),
+      'phpbbUserId' => 0,
+      'peertubeUserId' => 0,
+      'canModerate' => false,
+    ];
+
+    if (is_user_logged_in()) {
+      $identity['canModerate'] = current_user_can('manage_options') || current_user_can('moderate_comments');
+      global $wpdb;
+      if ($wpdb instanceof wpdb) {
+        $map = $wpdb->prefix . 'ia_identity_map';
+        $row = $wpdb->get_row(
+          $wpdb->prepare("SELECT phpbb_user_id, peertube_user_id FROM {$map} WHERE wp_user_id=%d LIMIT 1", $identity['wpUserId']),
+          ARRAY_A
+        );
+        if (is_array($row)) {
+          $identity['phpbbUserId'] = (int)($row['phpbb_user_id'] ?? 0);
+          $identity['peertubeUserId'] = (int)($row['peertube_user_id'] ?? 0);
+        }
+      }
+      if ($identity['phpbbUserId'] <= 0) {
+        $identity['phpbbUserId'] = (int) get_user_meta($identity['wpUserId'], 'ia_phpbb_user_id', true);
+      }
+    }
+
     wp_add_inline_script('ia-stream-api', 'window.IA_STREAM_CFG = ' . wp_json_encode([
       'ajaxUrl' => admin_url('admin-ajax.php'),
       'nonce'   => function_exists('ia_stream_create_nonce') ? ia_stream_create_nonce() : '',
       'ver'     => $ver,
+      'identity' => $identity,
     ]) . ';', 'before');
 
     // Optional: tiny boot trace (remove later)

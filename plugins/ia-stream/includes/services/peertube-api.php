@@ -37,6 +37,16 @@ final class IA_Stream_Service_PeerTube_API {
     $this->token         = $cfg['token'];
   }
 
+  /**
+   * Override the bearer token used for subsequent requests.
+   *
+   * Used for write actions (comments) so we can post as the currently logged-in
+   * Atrium user when that user has a minted PeerTube token in IA Auth.
+   */
+  public function set_token(string $token): void {
+    $this->token = trim((string)$token);
+  }
+
   /* ---------------------------
    * Configuration
    * ------------------------- */
@@ -154,6 +164,27 @@ final class IA_Stream_Service_PeerTube_API {
     return $this->request('GET', $path);
   }
 
+  /**
+   * Like/dislike a video.
+   *
+   * OpenAPI: PUT /api/v1/videos/{id}/rate  { rating: like|dislike }
+   * Requires an OAuth user token.
+   */
+  public function rate_video(string $id_or_uuid, string $rating): array {
+    if (!$this->is_configured()) return $this->not_configured();
+
+    $id_or_uuid = trim((string) $id_or_uuid);
+    if ($id_or_uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
+
+    $rating = trim((string) $rating);
+    if ($rating !== 'like' && $rating !== 'dislike') {
+      return ['ok' => false, 'error' => 'Invalid rating'];
+    }
+
+    $path = '/api/v1/videos/' . rawurlencode($id_or_uuid) . '/rate';
+    return $this->request('PUT', $path, [], ['rating' => $rating]);
+  }
+
   public function get_comments(string $uuid, array $q = []): array {
     if (!$this->is_configured()) return $this->not_configured();
 
@@ -171,6 +202,74 @@ final class IA_Stream_Service_PeerTube_API {
 
     $path = '/api/v1/videos/' . rawurlencode($uuid) . '/comment-threads';
     return $this->request('GET', $path, $params);
+  }
+
+  public function get_comment_thread(string $uuid, string $thread_id): array {
+    if (!$this->is_configured()) return $this->not_configured();
+
+    $uuid = trim((string)$uuid);
+    $thread_id = trim((string)$thread_id);
+
+    if ($uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
+    if ($thread_id === '') return ['ok' => false, 'error' => 'Missing thread id'];
+
+    $path = '/api/v1/videos/' . rawurlencode($uuid) . '/comment-threads/' . rawurlencode($thread_id);
+    return $this->request('GET', $path);
+  }
+
+  public function create_comment_thread(string $uuid, string $text): array {
+    if (!$this->is_configured()) return $this->not_configured();
+
+    $uuid = trim((string)$uuid);
+    $text = trim((string)$text);
+
+    if ($uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
+    if ($text === '') return ['ok' => false, 'error' => 'Missing text'];
+
+    $path = '/api/v1/videos/' . rawurlencode($uuid) . '/comment-threads';
+    return $this->request('POST', $path, [], ['text' => $text]);
+  }
+
+  public function reply_to_comment(string $uuid, string $comment_id, string $text): array {
+    if (!$this->is_configured()) return $this->not_configured();
+
+    $uuid = trim((string)$uuid);
+    $comment_id = trim((string)$comment_id);
+    $text = trim((string)$text);
+
+    if ($uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
+    if ($comment_id === '') return ['ok' => false, 'error' => 'Missing comment id'];
+    if ($text === '') return ['ok' => false, 'error' => 'Missing text'];
+
+    $path = '/api/v1/videos/' . rawurlencode($uuid) . '/comments/' . rawurlencode($comment_id);
+    return $this->request('POST', $path, [], ['text' => $text]);
+  }
+
+  /**
+   * Delete a comment or reply.
+   * OpenAPI: DELETE /api/v1/videos/{id}/comments/{commentId}
+   * Requires an OAuth user token.
+   */
+  public function delete_comment(string $id_or_uuid, string $comment_id): array {
+    if (!$this->is_configured()) return $this->not_configured();
+
+    $id_or_uuid = trim((string)$id_or_uuid);
+    $comment_id = trim((string)$comment_id);
+    if ($id_or_uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
+    if ($comment_id === '') return ['ok' => false, 'error' => 'Missing comment id'];
+
+    $path = '/api/v1/videos/' . rawurlencode($id_or_uuid) . '/comments/' . rawurlencode($comment_id);
+    $r = $this->request('DELETE', $path);
+
+    // PeerTube may return 409 Conflict when attempting to delete an already-deleted comment.
+    // Atrium UX: treat repeat deletion as idempotent success.
+    if (!is_array($r) || !empty($r['ok'])) return $r;
+    $err = isset($r['error']) ? (string)$r['error'] : '';
+    if (strpos($err, 'PeerTube HTTP 409') !== false) {
+      return ['ok' => true, 'already_deleted' => true, 'raw' => $r];
+    }
+
+    return $r;
   }
 
   /* ---------------------------
