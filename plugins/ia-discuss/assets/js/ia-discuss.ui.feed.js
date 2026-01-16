@@ -89,6 +89,7 @@
     if (name === "reply") return `<svg ${common}><path d="M9 17l-4-4 4-4"/><path d="M20 19v-2a4 4 0 0 0-4-4H5"/></svg>`;
     if (name === "link")  return `<svg ${common}><path d="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1"/><path d="M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1"/></svg>`;
     if (name === "share") return `<svg ${common}><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>`;
+    if (name === "last")  return `<svg ${common}><path d="M12 3v14"/><path d="M7 12l5 5 5-5"/><path d="M5 21h14"/></svg>`;
     if (name === "edit")  return `<svg ${common}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
     if (name === "dots")  return `<svg ${common}><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>`;
     return "";
@@ -592,6 +593,11 @@ function ensureVideoModal() {
               ${ico("share")}
             </button>
 
+            <!-- Last reply -->
+            <button type="button" class="iad-pill is-muted" data-open-topic-lastreply title="Last reply" aria-label="Last reply">
+              ${ico("last")} <span>Last reply</span>
+            </button>
+
             ${canEdit ? `
               <button type="button" class="iad-iconbtn" data-edit-topic title="Edit (coming soon)" aria-label="Edit">
                 ${ico("edit")}
@@ -752,6 +758,19 @@ function ensureVideoModal() {
         const tid = card ? parseInt(card.getAttribute("data-topic-id") || "0", 10) : 0;
         if (tid) {
           window.dispatchEvent(new CustomEvent("iad:open_topic_page", { detail: { topic_id: tid, open_reply: 1 } }));
+        }
+        return;
+      }
+
+      // Last reply (open topic and jump straight to the latest reply)
+      const lastReplyBtn = t.closest && t.closest("[data-open-topic-lastreply]");
+      if (lastReplyBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const card = lastReplyBtn.closest("[data-topic-id]");
+        const tid = card ? parseInt(card.getAttribute("data-topic-id") || "0", 10) : 0;
+        if (tid) {
+          window.dispatchEvent(new CustomEvent("iad:open_topic_page", { detail: { topic_id: tid, goto_last: 1 } }));
         }
         return;
       }

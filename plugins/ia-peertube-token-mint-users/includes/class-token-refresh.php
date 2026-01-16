@@ -37,10 +37,21 @@ class IA_PeerTube_Token_Refresh {
 
     public static function maybe_refresh(int $phpbb_user_id, array $row, int $skewSeconds = 120): array {
         $expiresAt = (string)($row['expires_at'] ?? '');
-        if ($expiresAt === '') return ['ok' => true, 'message' => 'No expiry set.'];
+        if ($expiresAt === '') {
+            // Some legacy rows didn’t persist expires_at. In that case, treat the token as expiring on a sane default TTL
+            // from the last refresh/mint timestamp (PeerTube access tokens are typically ~1 hour).
+            $defaultTtl = 3600;
+            $anchor = (string)($row['last_refresh_at'] ?? ($row['last_mint_at'] ?? ($row['updated_at'] ?? '')));
+            $anchorTs = $anchor !== '' ? strtotime($anchor . ' UTC') : 0;
+            if ($anchorTs > 0 && $anchorTs > (time() - ($defaultTtl - $skewSeconds))) {
+                return ['ok' => true, 'message' => 'Not expired (legacy TTL).'];
+            }
+            // If we have a refresh token, attempt refresh; otherwise, we can’t improve the situation.
+            // (If no refresh token exists, callers will still receive 401 and should re-mint.)
+        }
 
-        $expTs = strtotime($expiresAt . ' UTC');
-        if (!$expTs) return ['ok' => true, 'message' => 'Expiry parse failed.'];
+        $expTs = $expiresAt !== '' ? strtotime($expiresAt . ' UTC') : 0;
+        if ($expiresAt !== '' && !$expTs) return ['ok' => true, 'message' => 'Expiry parse failed.'];
 
         if ($expTs > (time() + $skewSeconds)) {
             return ['ok' => true, 'message' => 'Not expired.'];
@@ -62,7 +73,7 @@ class IA_PeerTube_Token_Refresh {
             return ['ok' => false, 'message' => 'OAuth client missing in ia-engine config.'];
         }
 
-        $url = rtrim($apiBase, '/') . '/users/token';
+        $url = rtrim($apiBase, '/') . '/api/v1/users/token';
         $resp = wp_remote_post($url, [
             'timeout' => 15,
             'body' => [

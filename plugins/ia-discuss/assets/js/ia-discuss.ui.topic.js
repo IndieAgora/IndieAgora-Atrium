@@ -51,6 +51,7 @@
     let shownCount = 0;      // total rendered into DOM
     let cached = [];         // fetched posts cache
     let postsTotal = 0;      // total posts in topic (from server)
+    let meta = {};           // topic meta snapshot for re-renders
 
     function apply(res, append) {
       if (!res || !res.success) {
@@ -74,6 +75,16 @@
       };
 
       if (!append) {
+        // snapshot meta for any later re-renders (e.g. goto last reply without server totals)
+        meta = {
+          topic_id: payload.topic_id,
+          topic_title: payload.topic_title,
+          forum_id: payload.forum_id,
+          forum_name: payload.forum_name,
+          topic_time: payload.topic_time,
+          last_post_time: payload.last_post_time
+        };
+
         cached = payload.posts || [];
         fetchedCount = cached.length;
         postsTotal = parseInt(payload.posts_total || "0", 10) || 0;
@@ -118,6 +129,15 @@
             }, 60);
           }
         } catch (e3) {}
+
+        // Jump straight to the last reply (used by the feed "Last reply" button)
+        try {
+          if (opts.goto_last) {
+            setTimeout(() => {
+              if (typeof gotoLastReply === "function") gotoLastReply();
+            }, 80);
+          }
+        } catch (e5) {}
       } else {
         const body = qs(".iad-modal-body", mount);
         if (!body) return;
@@ -361,97 +381,130 @@
         };
       }
 
-      // Go to last reply (fetch last page and scroll)
+      
+      async function gotoLastReply() {
+        // Goal: behave like the copy-link deep-jump (no manual "Load more" clicking),
+        // but target the last reply instead of a known post ID.
+        //
+        // We cannot trust `posts_total` on this build (it may be missing/0/wrong),
+        // so we advance using the server's `has_more` flag until exhausted.
+
+        // Prevent double-runs if the user clicks repeatedly.
+        if (mount.getAttribute("data-iad-goto-last-running") === "1") return;
+        mount.setAttribute("data-iad-goto-last-running", "1");
+
+        const maxPages = 120; // safety cap
+        let pages = 0;
+
+        try {
+          while (payload.has_more && pages < maxPages) {
+            const r = await fetchTopic(topicId, fetchedCount);
+            if (!r || !r.success) break;
+            const d = r.data || {};
+            const newPosts = Array.isArray(d.posts) ? d.posts : [];
+            if (!newPosts.length) {
+              payload.has_more = false;
+              break;
+            }
+
+            cached = (cached || []).concat(newPosts);
+            fetchedCount = cached.length;
+            payload.has_more = !!d.has_more;
+            pages++;
+          }
+        } catch (e) {
+          // fall through to best-effort scroll/highlight
+        }
+
+        // Render everything we have so the last reply exists in the DOM.
+        // For goto-last we want the topic "uncollapsed" so the last reply is fully visible.
+        const all = (cached || []).map((p) => {
+          p._body_collapsed = false;
+          return p;
+        });
+
+        shownCount = all.length;
+
+        const p2 = {
+          topic_id: meta.topic_id || topicId,
+          topic_title: meta.topic_title || "Topic",
+          forum_id: meta.forum_id || 0,
+          forum_name: meta.forum_name || "agora",
+          topic_time: meta.topic_time || 0,
+          last_post_time: meta.last_post_time || 0,
+          posts: all,
+          has_more: false,
+          posts_total: postsTotal || 0,
+          shown_count: shownCount,
+          can_load_more: false
+        };
+
+        mount.innerHTML = R.renderTopicHTML(p2);
+        R.bindBack(mount);
+        if (A.bindTopicActions) A.bindTopicActions(mount, topicId);
+        bindAttachmentsModal();
+        bindBackTop();
+
+        // Jump to the last rendered reply and highlight it.
+        setTimeout(() => {
+          const body = qs(".iad-modal-body", mount);
+          const els = mount.querySelectorAll(".iad-post");
+          const lastEl = els && els.length ? els[els.length - 1] : null;
+
+          if (lastEl) {
+            // Align to the *start* of the last reply (centering tall posts lands mid-body).
+            try { lastEl.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e2) {}
+
+            // If we're inside the modal body, nudge scroll so the element top is visible under any sticky header.
+            setTimeout(() => {
+              try {
+                const sc = body || lastEl.closest(".iad-modal-body");
+                if (!sc) return;
+                const br = sc.getBoundingClientRect();
+                const er = lastEl.getBoundingClientRect();
+                const delta = (er.top - br.top) - 12;
+                if (Math.abs(delta) > 2) sc.scrollTop += delta;
+              } catch (e3) {}
+            }, 80);
+
+            // Brief highlight (class + inline fallback so it's visible even if CSS doesn't style it strongly).
+            try { lastEl.classList.add("iad-highlight"); } catch (e4) {}
+            const prevOutline = lastEl.style.outline;
+            const prevBox = lastEl.style.boxShadow;
+            lastEl.style.outline = "2px solid rgba(255,255,255,0.25)";
+            lastEl.style.boxShadow = "0 0 0 4px rgba(255,255,255,0.06)";
+            setTimeout(() => {
+              try { lastEl.classList.remove("iad-highlight"); } catch (e5) {}
+              lastEl.style.outline = prevOutline;
+              lastEl.style.boxShadow = prevBox;
+            }, 2200);
+          } else if (body) {
+            try { body.scrollTo({ top: body.scrollHeight, behavior: "smooth" }); }
+            catch (e3) { body.scrollTop = body.scrollHeight; }
+          }
+
+          mount.removeAttribute("data-iad-goto-last-running");
+        }, 60);
+      }
+
+// Go to last reply (fetch last page and scroll)
       const lastBtn = qs("[data-iad-goto-last]", mount);
       if (lastBtn) {
         lastBtn.onclick = function () {
-          // Calculate last server-page offset
-          const total = postsTotal > 0 ? postsTotal : 0;
-          const lastOffset = total > 0 ? Math.max(0, total - serverPageSize) : 0;
-
-          // If we don't know the total yet, don't guess – just scroll to the bottom
-          // of what we currently have.
-          if (!total) {
-            const body = qs(".iad-modal-body", mount);
-            if (body) {
-              try { body.scrollTo({ top: body.scrollHeight, behavior: "smooth" }); }
-              catch (e) { body.scrollTop = body.scrollHeight; }
-            }
-            const els = mount.querySelectorAll(".iad-post");
-            const lastEl = els && els.length ? els[els.length - 1] : null;
-            if (lastEl) {
-              lastEl.classList.add("iad-highlight");
-              setTimeout(() => lastEl.classList.remove("iad-highlight"), 2200);
-            }
-            return;
-          }
-
+          // delegate to the internal implementation so callers don't depend on DOM presence
+          const prevDisabled = !!lastBtn.disabled;
+          const prevText = lastBtn.textContent;
           lastBtn.disabled = true;
           lastBtn.textContent = "Loading…";
-          fetchTopic(topicId, lastOffset).then((r) => {
-            lastBtn.disabled = false;
-            lastBtn.textContent = "Last reply";
-            if (!r || !r.success) return;
-
-            const d = r.data || {};
-            const batch = Array.isArray(d.posts) ? d.posts : [];
-            const first = cached.length ? cached[0] : (batch.length ? batch[0] : null);
-            const merged = [];
-            const seen = {};
-            if (first && first.post_id) { merged.push(first); seen[String(first.post_id)] = true; }
-            batch.forEach((p) => {
-              const k = String(p.post_id || "");
-              if (!k || seen[k]) return;
-              merged.push(p);
-              seen[k] = true;
-            });
-
-            cached = merged;
-            fetchedCount = cached.length;
-            postsTotal = (d.posts_total != null) ? (parseInt(d.posts_total, 10) || postsTotal) : postsTotal;
-            shownCount = cached.length;
-
-            // Render full topic view for last page
-            const p2 = {
-              topic_id: d.topic_id || topicId,
-              topic_title: d.topic_title || "Topic",
-              forum_id: d.forum_id || 0,
-              forum_name: d.forum_name || "agora",
-              topic_time: d.topic_time || 0,
-              last_post_time: d.last_post_time || 0,
-              posts: cached,
-              has_more: (lastOffset > 0),
-              posts_total: postsTotal,
-              shown_count: shownCount,
-              can_load_more: (lastOffset > 0)
-            };
-            mount.innerHTML = R.renderTopicHTML(p2);
-            R.bindBack(mount);
-            if (A.bindTopicActions) A.bindTopicActions(mount, topicId);
-            
-            updateCount();
-            bindAttachmentsModal();
-            bindBackTop();
-            // scroll to last post
+          try {
+            gotoLastReply();
+          } finally {
+            // restore quickly; deeper loading state is handled inside gotoLastReply()
             setTimeout(() => {
-              const body = qs(".iad-modal-body", mount);
-              const els = mount.querySelectorAll(".iad-post");
-              const lastEl = els && els.length ? els[els.length - 1] : null;
-              if (body) {
-                try { body.scrollTo({ top: body.scrollHeight, behavior: "smooth" }); }
-                catch (e) { body.scrollTop = body.scrollHeight; }
-              } else if (lastEl) {
-                try { lastEl.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e2) {}
-              }
-              if (lastEl) {
-                lastEl.classList.add("iad-highlight");
-                setTimeout(() => lastEl.classList.remove("iad-highlight"), 2200);
-              }
-            }, 60);
-          }).catch(() => {
-            lastBtn.disabled = false;
-            lastBtn.textContent = "Last reply";
-          });
+              lastBtn.disabled = prevDisabled;
+              lastBtn.textContent = prevText || "Last reply";
+            }, 150);
+          }
         };
       }
 

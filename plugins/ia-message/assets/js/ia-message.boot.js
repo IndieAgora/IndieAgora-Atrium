@@ -168,6 +168,50 @@
 
 
 
+
+// XHR upload with progress (used for attachment uploads)
+function postFileProgress(action, file, extraPayload, onProgress){
+  return new Promise((resolve, reject) => {
+    try {
+      const fd = new FormData();
+      fd.append("action", action);
+      fd.append("nonce", IA_MESSAGE.nonceBoot);
+      fd.append("file", file);
+      if (extraPayload) {
+        for (const k in extraPayload) fd.append(k, extraPayload[k]);
+      }
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", IA_MESSAGE.ajaxUrl, true);
+      xhr.withCredentials = true;
+
+      xhr.upload.addEventListener("progress", (ev) => {
+        if (!onProgress) return;
+        if (ev && ev.lengthComputable) {
+          const pct = Math.max(0, Math.min(100, Math.round((ev.loaded / ev.total) * 100)));
+          try { onProgress(pct, ev.loaded, ev.total); } catch(_) {}
+        } else {
+          try { onProgress(null, ev.loaded || 0, ev.total || 0); } catch(_) {}
+        }
+      });
+
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState !== 4) return;
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try { resolve(JSON.parse(xhr.responseText || "{}")); }
+          catch(e){ reject(e); }
+        } else {
+          reject(new Error("Upload failed (" + xhr.status + ")"));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error("Upload failed"));
+      xhr.send(fd);
+    } catch (e) { reject(e); }
+  });
+}
+
+
   // Find message shells (Atrium keeps panels in DOM even if not active)
   function findShells(){
     return qa(document, '.ia-msg-shell[data-panel="' + IA_MESSAGE.panelKey + '"]');
@@ -593,22 +637,50 @@ function closeSheet(shell){
         if (!files.length) return;
 
         const ta = el(shell, "[data-ia-msg-send-input]");
-        for (const f of files) {
+        const prog = el(shell, "[data-ia-msg-upload-progress]");
+        const progLabel = el(shell, "[data-ia-msg-upload-label]");
+        const progPct = el(shell, "[data-ia-msg-upload-pct]");
+        const progFill = el(shell, "[data-ia-msg-upload-fill]");
+
+        const showProg = (name) => {
+          if (!prog) return;
+          prog.hidden = false;
+          if (progLabel) progLabel.textContent = "Uploading " + (name || "…");
+          if (progPct) progPct.textContent = "0%";
+          if (progFill) progFill.style.width = "0%";
+        };
+        const setProg = (pct) => {
+          if (pct == null) return;
+          if (progPct) progPct.textContent = String(pct) + "%";
+          if (progFill) progFill.style.width = String(pct) + "%";
+        };
+        const hideProgSoon = () => {
+          if (!prog) return;
+          try { setTimeout(() => { prog.hidden = true; }, 800); } catch(_) {}
+        };
+
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          showProg(f && f.name ? f.name : "");
+
           try {
-            const res = await postFile("ia_message_upload", f, {});
+            const res = await postFileProgress("ia_message_upload", f, {}, (pct) => setProg(pct));
             if (res && res.success && res.data && res.data.url) {
               const url = String(res.data.url);
               if (ta) {
                 const cur = String(ta.value || "");
                 ta.value = (cur ? (cur.trimEnd() + "\n") : "") + url;
               }
+              setProg(100);
             } else {
               alert("Upload failed.");
             }
-          } catch(e){
+          } catch (e) {
             alert("Upload failed.");
           }
         }
+
+        hideProgSoon();
         if (ta) { try { ta.focus(); } catch(_){} }
       });
     }
@@ -793,29 +865,81 @@ const chatQ = el(shell, "[data-ia-msg-chat-q]");
     } catch(e) {}
   }
 
-  function closeMessages(){
-    // Exit fullscreen first.
-    setFullscreen(false);
+  
+function closeMessages(){
+  // Exit fullscreen first (so Atrium tabs/nav are visible again).
+  setFullscreen(false);
 
-    // Prefer switching Atrium tab (no hard reload) if a tab control exists.
-    const prefer = ['connect','discuss','stream'];
-    for (const key of prefer) {
-      const btn = document.querySelector(`a[href*="tab=${key}"], button[data-tab="${key}"], a[data-tab="${key}"], button[data-ia-tab="${key}"], a[data-ia-tab="${key}"]`);
-      if (btn) { try { btn.click(); return; } catch(e) {} }
-    }
-
-    // Fallback: manipulate the URL.
+  const stripDeepLinkParams = (url) => {
     try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab','connect');
-      url.searchParams.delete('ia_msg_to');
-      window.location.href = url.toString();
-      return;
-    } catch(e) {}
+      const u = new URL(url);
+      // Force connect and remove known deep-link params that can hijack navigation.
+      u.searchParams.set('tab','connect');
+      ['ia_msg_to','ia_profile','ia_profile_name','iad_topic','iad_post','iad_page','iad_reply','iad_comment'].forEach(k => u.searchParams.delete(k));
+      return u.toString();
+    } catch(e) { return null; }
+  };
 
-    // Final fallback.
-    try { window.history.back(); } catch(e) {}
+  const tryAtrium = () => {
+    // If Atrium exposes a JS router, prefer it.
+    try {
+      if (window.IA_ATRIUM && typeof window.IA_ATRIUM.setTab === 'function') {
+        window.IA_ATRIUM.setTab('connect');
+        return true;
+      }
+    } catch(e){}
+    try {
+      if (window.IA_ATRIUM && typeof window.IA_ATRIUM.openTab === 'function') {
+        window.IA_ATRIUM.openTab('connect');
+        return true;
+      }
+    } catch(e){}
+    // Some shells listen for this custom event.
+    try {
+      const ev = new CustomEvent('ia_atrium:requestTab', { detail: { tab: 'connect', source: 'ia-message' } });
+      window.dispatchEvent(ev);
+      document.dispatchEvent(ev);
+      return true;
+    } catch(e){}
+    return false;
+  };
+
+  const clickConnect = () => {
+    const sel = [
+      'a[href*="tab=connect"]',
+      'button[data-tab="connect"]',
+      'a[data-tab="connect"]',
+      'button[data-ia-tab="connect"]',
+      'a[data-ia-tab="connect"]',
+      '[data-tab-key="connect"]',
+      '[data-ia-tab-key="connect"]'
+    ].join(',');
+    const btn = document.querySelector(sel);
+    if (btn) { try { btn.click(); return true; } catch(e){} }
+    return false;
+  };
+
+  // Try in order: Atrium router → click Connect tab → URL fallback.
+  if (tryAtrium()) return;
+
+  // Tabs may re-appear a tick after fullscreen class is removed, so retry a few times.
+  const attempts = [0, 40, 140];
+  for (const ms of attempts) {
+    if (ms === 0) {
+      if (clickConnect()) return;
+    } else {
+      setTimeout(() => { try { clickConnect(); } catch(_){} }, ms);
+    }
   }
+
+  // Deterministic fallback (prevents "Druids" deep-link return).
+  const fixed = stripDeepLinkParams(window.location.href);
+  if (fixed) { try { window.location.href = fixed; return; } catch(e){} }
+
+  // Final fallback.
+  try { window.location.href = (window.location.origin || "") + "/?tab=connect"; } catch(e) {}
+}
+
 
   // Atrium event (and direct URL load)
   function bindAtrium(){

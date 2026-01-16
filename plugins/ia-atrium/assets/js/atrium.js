@@ -244,8 +244,65 @@
     const shell = qs("#ia-atrium-shell");
     if (!shell) return;
 
+    // Ensure the browser is allowed to restore scroll positions when using back/forward.
+    // (Some environments default to manual; we prefer native behaviour.)
+    try { if ("scrollRestoration" in window.history) window.history.scrollRestoration = "auto"; } catch (e) {}
+
     const composerModal = qs("#ia-atrium-composer", shell);
     const authModal = qs("#ia-atrium-auth", shell);
+
+    // ------------------------------------------------------------
+    // Discuss: prevent full page reload when clicking topic/reply links
+    // ------------------------------------------------------------
+    // Some Discuss-rendered snippets include <a href="...?tab=discuss&iad_topic=...">.
+    // If the browser follows these links, you lose scroll/pagination state and back
+    // returns to the top. We intercept same-origin Discuss topic links at CAPTURE
+    // phase and route them through Discuss' SPA event.
+    document.addEventListener("click", function (e) {
+      try {
+        const a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+        if (!a) return;
+        if (a.getAttribute("target") === "_blank") return;
+        if (a.hasAttribute("download")) return;
+
+        const href = a.getAttribute("href") || "";
+        if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+
+        const url = new URL(href, window.location.href);
+        if (url.origin !== window.location.origin) return;
+
+        const tid = parseInt(url.searchParams.get("iad_topic") || "0", 10) || 0;
+        if (!tid) return;
+
+        // Only hijack if the click is within the Discuss panel, OR the URL tab is discuss.
+        const discussPanel = qs('.ia-panel[data-panel="discuss"]', shell);
+        const insideDiscuss = discussPanel ? discussPanel.contains(a) : false;
+        const urlTab = (url.searchParams.get("tab") || "").toLowerCase();
+        if (!insideDiscuss && urlTab !== "discuss") return;
+
+        // Prevent browser navigation.
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Ensure Discuss panel is visible.
+        setActiveTab(shell, "discuss");
+        setUrlParam("tab", "discuss");
+
+        const postId = parseInt(url.searchParams.get("iad_post") || "0", 10) || 0;
+
+        // Route through Discuss SPA.
+        window.dispatchEvent(new CustomEvent("iad:open_topic_page", {
+          detail: {
+            topic_id: tid,
+            scroll_post_id: postId || 0,
+            highlight_new: 0,
+            open_reply: 0
+          }
+        }));
+      } catch (err) {
+        // fail open: allow normal navigation
+      }
+    }, true);
 
     // Initial tab:
     // - respect ?tab= if present (e.g. tab=messages)
@@ -432,6 +489,61 @@
 
     // Initialize excerpt collapsing
     initReadMore(shell);
+
+    // ------------------------------------------------------------
+    // Discuss deep-link interception (prevent full page reload)
+    // ------------------------------------------------------------
+    // Some Discuss-rendered snippets contain real <a href="..."> links
+    // (e.g. excerpt_html). If those navigate, you lose scroll position
+    // because it becomes a full page reload.
+    //
+    // We intercept same-origin links that include ?iad_topic= and route them
+    // through the Discuss router event instead.
+    document.addEventListener("click", function (e) {
+      try {
+        if (!e || e.defaultPrevented) return;
+        if (e.button && e.button !== 0) return; // left click only
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+        const a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+        if (!a) return;
+        const target = (a.getAttribute("target") || "").toLowerCase();
+        if (target === "_blank") return;
+
+        const href = a.getAttribute("href") || "";
+        if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+
+        const url = new URL(href, window.location.href);
+        if (url.origin !== window.location.origin) return;
+
+        const tid = parseInt(url.searchParams.get("iad_topic") || "0", 10) || 0;
+        if (!tid) return;
+
+        // Only intercept when the click is within the Discuss panel OR we're already on Discuss.
+        const discussPanel = qs('.ia-panel[data-panel="discuss"]', shell);
+        const insideDiscuss = discussPanel ? discussPanel.contains(a) : false;
+        const currentTab = getUrlParam("tab") || "";
+        if (!insideDiscuss && String(currentTab).toLowerCase() !== "discuss") return;
+
+        const postId = parseInt(url.searchParams.get("iad_post") || "0", 10) || 0;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Ensure Discuss is visible before dispatching.
+        setActiveTab(shell, "discuss");
+        setUrlParam("tab", "discuss");
+
+        window.dispatchEvent(new CustomEvent("iad:open_topic_page", {
+          detail: {
+            topic_id: tid,
+            scroll_post_id: postId || 0
+          }
+        }));
+      } catch (err) {
+        // fail open (allow normal navigation)
+      }
+    }, true);
 
     // If redirected back after login/register with intent, run it now
     const intent = getUrlParam("ia_nav");

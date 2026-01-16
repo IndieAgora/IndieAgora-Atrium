@@ -360,3 +360,10 @@ body.ia-msg-fullscreen .ia-msg-shell[data-mobile-view="chat"] .ia-msg-log{
 .ia-msg-upload:active{
   transform: translateY(1px);
 }
+/* Allow chat flex children to shrink */
+.iam-chat,
+.ia-chat,
+.iam-thread,
+.ia-thread {
+  min-width: 0;
+}

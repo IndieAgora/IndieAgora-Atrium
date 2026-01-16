@@ -24,6 +24,15 @@ class IA_PeerTube_Token_Helper {
         // Existing token?
         $row = IA_PeerTube_Token_Store::get($phpbb_user_id);
         if ($row && !empty($row['access_token_enc'])) {
+            // Automatic refresh (just-in-time) to prevent expired-token 401s on write actions.
+            if (class_exists('IA_PeerTube_Token_Refresh') && method_exists('IA_PeerTube_Token_Refresh', 'maybe_refresh')) {
+                IA_PeerTube_Token_Refresh::maybe_refresh($phpbb_user_id, $row, 120);
+                // Re-read in case the access token was updated.
+                $row2 = IA_PeerTube_Token_Store::get($phpbb_user_id);
+                if ($row2 && !empty($row2['access_token_enc'])) {
+                    return self::decrypt($row2['access_token_enc']);
+                }
+            }
             return self::decrypt($row['access_token_enc']);
         }
 

@@ -57,6 +57,11 @@
           <span aria-hidden="true">📎</span>
         </label>
         <input type="file" class="ia-msg-upload-input" id="ia-msg-upload-input" data-ia-msg-upload-input multiple />
+        <div class="ia-msg-upload-progress" data-ia-msg-upload-progress hidden>
+          <span class="ia-msg-upload-spinner" aria-hidden="true"></span>
+          <span class="ia-msg-upload-progress__pct" data-ia-msg-upload-pct>0%</span>
+          <span class="ia-msg-sr" data-ia-msg-upload-label>Uploading…</span>
+        </div>
         <textarea class="ia-msg-text"
                   rows="2"
                   placeholder="Message…"

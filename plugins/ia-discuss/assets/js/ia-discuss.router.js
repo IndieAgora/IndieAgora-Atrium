@@ -261,10 +261,14 @@
       // Allow callers (e.g. feed reply icon) to request opening the reply composer.
       const openReply = d.open_reply ? 1 : 0;
 
+      // Allow callers to jump straight to the latest reply (fetch last page + highlight)
+      const gotoLast = d.goto_last ? 1 : 0;
+
       openTopicPage(tid, {
         scroll_post_id: scrollPostId || 0,
         highlight_new: highlight ? 1 : 0,
-        open_reply: openReply ? 1 : 0
+        open_reply: openReply ? 1 : 0,
+        goto_last: gotoLast ? 1 : 0
       });
     });
 

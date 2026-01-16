@@ -96,4 +96,50 @@ class IA_PeerTube_Token_Store {
             if (!empty($wpdb->last_error)) error_log('[ia-peertube-token-mint-users] DB error: '.$wpdb->last_error);
         }
     }
+
+    /**
+     * Persist a refreshed access token + expiry without touching refresh token or mint timestamps.
+     *
+     * Used by IA_PeerTube_Token_Refresh::maybe_refresh().
+     */
+    public static function update_access(int $phpbb_user_id, string $access_enc, ?string $expires_at): bool {
+        global $wpdb;
+        $now = current_time('mysql', 1);
+
+        // Ensure schema exists before writing
+        if (class_exists('IA_PT_Tokens_Schema')) IA_PT_Tokens_Schema::ensure();
+
+        $data = [
+            'access_token_enc' => $access_enc,
+            'expires_at'       => $expires_at,
+            'last_refresh_at'  => $now,
+            'updated_at'       => $now,
+            'last_mint_error'  => null,
+        ];
+
+        $ok = $wpdb->update(IA_PT_TOKENS_TABLE, $data, ['phpbb_user_id' => $phpbb_user_id]);
+        if ($ok === false) {
+            if (!empty($wpdb->last_error)) {
+                self::touch_mint_error($phpbb_user_id, 'DB update_access failed: ' . $wpdb->last_error);
+            }
+            return false;
+        }
+
+        // If the row didn't exist yet, fall back to inserting a minimal row.
+        if ($ok === 0) {
+            $q = $wpdb->prepare(
+                "INSERT INTO " . IA_PT_TOKENS_TABLE . " (phpbb_user_id, access_token_enc, expires_at, last_refresh_at, created_at, updated_at)
+                 VALUES (%d, %s, %s, %s, %s, %s)
+                 ON DUPLICATE KEY UPDATE access_token_enc=VALUES(access_token_enc), expires_at=VALUES(expires_at), last_refresh_at=VALUES(last_refresh_at), updated_at=VALUES(updated_at)",
+                $phpbb_user_id, $access_enc, $expires_at, $now, $now, $now
+            );
+            $wpdb->query($q);
+            if (!empty($wpdb->last_error)) {
+                self::touch_mint_error($phpbb_user_id, 'DB upsert update_access failed: ' . $wpdb->last_error);
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
