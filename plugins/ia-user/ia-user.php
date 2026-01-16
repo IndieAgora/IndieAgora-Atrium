@@ -2,14 +2,14 @@
 /**
  * Plugin Name: IA User
  * Description: Atrium login/register UI that uses phpBB (phpbb_users) as the user authority. On success, a WP shadow user is created and logged in for session/UI purposes.
- * Version: 0.1.8
+ * Version: 0.1.6
  * Author: IndieAgora
  * Text Domain: ia-user
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('IA_USER_VERSION', '0.1.8');
+define('IA_USER_VERSION', '0.1.6');
 define('IA_USER_PATH', plugin_dir_path(__FILE__));
 define('IA_USER_URL', plugin_dir_url(__FILE__));
 

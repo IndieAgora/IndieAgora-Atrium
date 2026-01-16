@@ -45,7 +45,7 @@
         </div>
       </div>
     </section>
-  </main>
+ 
 <!-- Messages panel (opened from bottom chat icon; NOT a top tab) -->
     <section class="ia-panel" data-panel="messages" role="tabpanel" aria-label="Messages panel">
       <div class="ia-panel-inner">
@@ -55,7 +55,7 @@
       </div>
     </section>
   </main>
-  <!-- Composer Modal Shell (micro-plugins will replace content) -->
+  <!-- Composer Modal Shell (micro-plugins will replace content) -->
   <div class="ia-modal" id="ia-atrium-composer" aria-hidden="true">
     <div class="ia-modal-backdrop" data-ia-modal-close></div>
 

@@ -10,16 +10,6 @@
   --ia-radius: 10px;
   --ia-gap: 12px;
 
-  /* Discuss-compatible token aliases (Stream reuses Discuss card classnames) */
-  --iad-border: var(--ia-border);
-  --iad-radius: var(--ia-radius);
-  --iad-muted: var(--ia-muted);
-  --iad-fs-12: 0.75rem;
-  --iad-fs-14: 0.875rem;
-  --iad-fs-16: 1rem;
-  --iad-lh-ui: 1.2;
-  --iad-lh-tight: 1.25;
-
   color: var(--ia-text);
   background: var(--ia-bg);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",

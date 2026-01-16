@@ -42,3 +42,25 @@
   font-size: 0.8rem;
   color: var(--ia-muted);
 }
+
+
+/* Channel card actions */
+.ia-stream-channel-actions{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.ia-stream-channel-action{
+  background:transparent;
+  border:1px solid var(--ia-border);
+  color:var(--ia-text);
+  padding:6px 10px;
+  border-radius:999px;
+  cursor:pointer;
+  font-size:0.85rem;
+}
+.ia-stream-channel-status{
+  color:var(--ia-muted);
+  font-size:0.85rem;
+}

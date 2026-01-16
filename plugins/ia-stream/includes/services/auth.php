@@ -4,9 +4,14 @@ if (!defined('ABSPATH')) exit;
 /**
  * IA Stream Auth Service
  *
- * Stream is read-only for now:
- * - Guests can read feed/channels/video/comments.
- * - Write actions (future) would be gated here.
+ * Responsibilities:
+ * - Gate write actions behind login
+ * - Resolve a user-scoped PeerTube Bearer token (just-in-time)
+ * - Provision PeerTube account on-demand when missing (capability activation)
+ *
+ * This is deliberately "best effort" and additive:
+ * - If IA Auth/Engine are missing, Stream remains read-only.
+ * - If the user has no PeerTube identity, we create one silently on first write attempt.
  */
 final class IA_Stream_Service_Auth {
 
@@ -15,14 +20,9 @@ final class IA_Stream_Service_Auth {
   }
 
   public function can_write(): bool {
-    // Future: require login, require mapped PeerTube identity, etc.
     return is_user_logged_in();
   }
 
-  /**
-   * Optional: if your platform has a global IA_Auth / IA_User authority,
-   * later we can map to PeerTube identity here.
-   */
   public function current_identity(): array {
     return [
       'wp_user_id' => get_current_user_id(),
@@ -31,121 +31,198 @@ final class IA_Stream_Service_Auth {
   }
 
   /**
-   * Best-effort: resolve the *current user's* PeerTube bearer token.
+   * Ensure we have a valid PeerTube bearer token for the current logged-in user.
    *
-   * This integrates with IA Auth when present:
-   * - wp_ia_identity_map (wp_user_id -> phpbb_user_id)
-   * - wp_ia_peertube_tokens (phpbb_user_id -> encrypted access token)
-   *
-   * If IA Auth isn't installed, or the user has no token, returns ''.
+   * Returns:
+   *  - ['ok'=>true,'bearer'=>string,'phpbb_user_id'=>int,'identity'=>array]
+   *  - ['ok'=>false,'error'=>string,'message'=>string]
    */
-  public function current_peertube_token(): string {
-    if (!is_user_logged_in()) return '';
+  public function ensure_user_bearer(): array {
+    if (!is_user_logged_in()) {
+      return ['ok' => false, 'error' => 'login_required', 'message' => 'Login required.'];
+    }
+
+    if (!class_exists('IA_Auth')) {
+      return ['ok' => false, 'error' => 'ia_auth_missing', 'message' => 'IA Auth not available.'];
+    }
+
+    if (!class_exists('IA_Engine')) {
+      return ['ok' => false, 'error' => 'ia_engine_missing', 'message' => 'IA Engine not available.'];
+    }
+
+    $ia = IA_Auth::instance();
+    if (!is_object($ia) || !isset($ia->db) || !isset($ia->crypto) || !isset($ia->peertube)) {
+      return ['ok' => false, 'error' => 'ia_auth_incomplete', 'message' => 'IA Auth is not fully initialised.'];
+    }
 
     $wp_user_id = (int) get_current_user_id();
-    if ($wp_user_id <= 0) return '';
+    $phpbb_user_id = (int) get_user_meta($wp_user_id, 'ia_phpbb_user_id', true);
 
-    // We only *read* IA Auth tables if present. No hard dependency.
-    global $wpdb;
-    if (!isset($wpdb) || !is_object($wpdb)) return '';
+    // Resolve identity row (may be null if not created yet)
+    $identity = null;
+    if (method_exists($ia->db, 'get_identity_by_wp_user_id')) {
+      $identity = $ia->db->get_identity_by_wp_user_id($wp_user_id);
+    }
+    if (is_array($identity) && isset($identity['phpbb_user_id'])) {
+      $phpbb_user_id = (int)$identity['phpbb_user_id'];
+    }
 
-    $map_table = $wpdb->prefix . 'ia_identity_map';
-    $tok_table = $wpdb->prefix . 'ia_peertube_tokens';
-
-    // Find phpBB user id for this WP user (canonical mapping table).
-    $phpbb_user_id = (int) $wpdb->get_var(
-      $wpdb->prepare(
-        "SELECT phpbb_user_id FROM {$map_table} WHERE wp_user_id=%d AND status IN ('linked','partial') ORDER BY phpbb_user_id DESC LIMIT 1",
-        $wp_user_id
-      )
-    );
-
-    // Fallback: some deployments keep the phpBB id on user meta.
     if ($phpbb_user_id <= 0) {
-      $phpbb_user_id = (int) get_user_meta($wp_user_id, 'ia_phpbb_user_id', true);
+      return ['ok' => false, 'error' => 'no_identity', 'message' => 'No linked identity for this user.'];
     }
 
-    if ($phpbb_user_id <= 0) return '';
+    // If PeerTube ids are missing, provision now (activation on demand)
+    $needs_pt = (!is_array($identity) || empty($identity['peertube_user_id']));
+    if ($needs_pt) {
+      $prov = $this->provision_peertube_for_user($ia, $wp_user_id, $phpbb_user_id);
+      if (!$prov['ok']) return $prov;
+      $identity = $prov['identity'];
+    }
 
-    $access_enc = (string) $wpdb->get_var(
-      $wpdb->prepare(
-        "SELECT access_token_enc FROM {$tok_table} WHERE phpbb_user_id=%d LIMIT 1",
-        $phpbb_user_id
-      )
-    );
+    // Fetch token row
+    $row = null;
+    if (method_exists($ia->db, 'get_peertube_token_row')) {
+      $row = $ia->db->get_peertube_token_row($phpbb_user_id);
+    }
 
-    if ($access_enc === '') return '';
+    $access_enc  = is_array($row) ? (string)($row['access_token_enc'] ?? '') : '';
+    $refresh_enc = is_array($row) ? (string)($row['refresh_token_enc'] ?? '') : '';
+    $expires_at  = is_array($row) ? (string)($row['expires_at_utc'] ?? '') : '';
 
-    // Decrypt using IA Auth crypto if available.
-    if (class_exists('IA_Auth_Crypto')) {
-      try {
-        $c = new IA_Auth_Crypto();
-        $tok = (string) $c->decrypt($access_enc);
-        return trim($tok);
-      } catch (Throwable $e) {
-        return '';
+    $access  = $access_enc !== '' ? (string)$ia->crypto->decrypt($access_enc) : '';
+    $refresh = $refresh_enc !== '' ? (string)$ia->crypto->decrypt($refresh_enc) : '';
+
+    $expires_ts = 0;
+    if ($expires_at !== '') {
+      $t = strtotime($expires_at . ' UTC');
+      if ($t !== false) $expires_ts = (int)$t;
+    }
+
+    $pt_cfg = IA_Engine::peertube_api();
+
+    // If access token is missing or expiring soon, refresh or mint
+    $needs_new = ($access === '' || $expires_ts === 0 || $expires_ts <= (time() + 60));
+
+    if ($needs_new) {
+      // Try refresh grant first
+      if ($refresh !== '' && method_exists($ia->peertube, 'refresh_grant')) {
+        $r = $ia->peertube->refresh_grant($refresh, $pt_cfg);
+        if (!empty($r['ok']) && !empty($r['token']) && is_array($r['token'])) {
+          $tok = $r['token'];
+          $access  = (string)($tok['access_token'] ?? '');
+          $refresh = (string)($tok['refresh_token'] ?? $refresh);
+
+          $exp = (int)($tok['expires_in'] ?? 0);
+          $exp_at = $exp > 0 ? gmdate('Y-m-d H:i:s', time() + $exp) : null;
+
+          $ia->db->store_peertube_token($phpbb_user_id, [
+            'access_token_enc'  => $ia->crypto->encrypt($access),
+            'refresh_token_enc' => $ia->crypto->encrypt($refresh),
+            'expires_at_utc'    => $exp_at,
+            'scope'             => '',
+            'token_source'      => 'refresh_grant',
+          ]);
+
+          return ['ok' => true, 'bearer' => $access, 'phpbb_user_id' => $phpbb_user_id, 'identity' => $identity];
+        }
       }
+
+      // Fall back to password grant using stored PeerTube password (if available)
+      $pw_enc = (string) get_user_meta($wp_user_id, 'ia_peertube_pw_enc', true);
+      if ($pw_enc === '') {
+        // If user was provisioned via email verification, they may have a pending pw stored earlier
+        $pw_enc = (string) get_user_meta($wp_user_id, 'ia_pw_enc_pending', true);
+      }
+      $pw = $pw_enc !== '' ? (string)$ia->crypto->decrypt($pw_enc) : '';
+
+      if ($pw === '') {
+        return ['ok' => false, 'error' => 'no_peertube_password', 'message' => 'Stream needs activation for your account (missing PeerTube credentials).'];
+      }
+
+      // Use email as username for PeerTube token endpoint (PeerTube accepts username or email)
+      $u = get_userdata($wp_user_id);
+      $email = $u ? (string)$u->user_email : '';
+      $username = $u ? (string)$u->user_login : '';
+
+      $login = $email !== '' ? $email : $username;
+      $mint = $ia->peertube->password_grant($login, $pw, $pt_cfg);
+      if (empty($mint['ok']) || empty($mint['token']) || !is_array($mint['token'])) {
+        return ['ok' => false, 'error' => 'token_mint_failed', 'message' => $mint['message'] ?? 'Could not mint PeerTube token.'];
+      }
+
+      $tok = $mint['token'];
+      $access  = (string)($tok['access_token'] ?? '');
+      $refresh = (string)($tok['refresh_token'] ?? '');
+      $exp = (int)($tok['expires_in'] ?? 0);
+      $exp_at = $exp > 0 ? gmdate('Y-m-d H:i:s', time() + $exp) : null;
+
+      $ia->db->store_peertube_token($phpbb_user_id, [
+        'access_token_enc'  => $ia->crypto->encrypt($access),
+        'refresh_token_enc' => $ia->crypto->encrypt($refresh),
+        'expires_at_utc'    => $exp_at,
+        'scope'             => '',
+        'token_source'      => 'password_grant',
+      ]);
     }
 
-    // If IA Auth isn't loaded, we cannot decrypt.
-    return '';
+    if ($access === '') {
+      return ['ok' => false, 'error' => 'no_token', 'message' => 'PeerTube token unavailable.'];
+    }
+
+    return ['ok' => true, 'bearer' => $access, 'phpbb_user_id' => $phpbb_user_id, 'identity' => $identity];
   }
 
   /**
-   * Diagnostics for why PeerTube is not activated for the current user.
-   * Returns ['ok'=>bool,'phpbb_user_id'=>int,'has_token'=>bool,'status'=>string,'last_error'=>string]
+   * Provision a PeerTube account for this Atrium identity.
+   * Uses the admin token configured in IA Engine/IA Auth.
    */
-  public function activation_info(): array {
-    $info = [
-      'ok' => false,
-      'phpbb_user_id' => 0,
-      'has_token' => false,
-      'status' => '',
-      'last_error' => '',
-    ];
+  private function provision_peertube_for_user($ia, int $wp_user_id, int $phpbb_user_id): array {
+    $u = get_userdata($wp_user_id);
+    if (!$u) return ['ok' => false, 'error' => 'user_missing', 'message' => 'User not found.'];
 
-    if (!is_user_logged_in()) return $info;
+    $username = (string) $u->user_login;
+    $email    = (string) $u->user_email;
 
-    $wp_user_id = (int) get_current_user_id();
-    if ($wp_user_id <= 0) return $info;
-
-    global $wpdb;
-    if (!isset($wpdb) || !is_object($wpdb)) return $info;
-
-    $map_table = $wpdb->prefix . 'ia_identity_map';
-    $tok_table = $wpdb->prefix . 'ia_peertube_tokens';
-
-    $row = $wpdb->get_row(
-      $wpdb->prepare(
-        "SELECT phpbb_user_id, status, last_error FROM {$map_table} WHERE wp_user_id=%d ORDER BY phpbb_user_id DESC LIMIT 1",
-        $wp_user_id
-      ),
-      ARRAY_A
-    );
-
-    if (is_array($row)) {
-      $info['phpbb_user_id'] = (int)($row['phpbb_user_id'] ?? 0);
-      $info['status'] = (string)($row['status'] ?? '');
-      $info['last_error'] = (string)($row['last_error'] ?? '');
+    if ($username === '' || $email === '') {
+      return ['ok' => false, 'error' => 'bad_user', 'message' => 'User record missing username/email.'];
     }
 
-    if ($info['phpbb_user_id'] <= 0) {
-      $info['phpbb_user_id'] = (int) get_user_meta($wp_user_id, 'ia_phpbb_user_id', true);
+    $pt_cfg = IA_Engine::peertube_api();
+
+    // Deterministic channel name that is not equal to username
+    $chan_base = strtolower((string)$username);
+    $chan_base = preg_replace('/[^a-z0-9_]+/', '_', $chan_base);
+    $chan_base = trim($chan_base, '_');
+    if ($chan_base === '') $chan_base = 'user';
+    $channel_name = substr($chan_base . '_channel', 0, 50);
+
+    // Generate and persist a PeerTube password for token minting.
+    $pw = wp_generate_password(24, true, true);
+    update_user_meta($wp_user_id, 'ia_peertube_pw_enc', $ia->crypto->encrypt($pw));
+
+    $created = $ia->peertube->admin_create_user($username, $email, $pw, $channel_name, $pt_cfg);
+    if (empty($created['ok'])) {
+      return ['ok' => false, 'error' => 'provision_failed', 'message' => $created['message'] ?? 'Could not provision PeerTube user.'];
     }
 
-    if ($info['phpbb_user_id'] > 0) {
-      $enc = (string)$wpdb->get_var(
-        $wpdb->prepare("SELECT access_token_enc FROM {$tok_table} WHERE phpbb_user_id=%d LIMIT 1", $info['phpbb_user_id'])
-      );
-      $info['has_token'] = trim($enc) !== '';
-      if (!$info['has_token'] && $info['status'] === 'linked' && $info['last_error'] === '') {
-        // Common confusing state: identity marked linked but no token row.
-        $info['last_error'] = 'Identity is linked but no PeerTube token is stored for this phpBB user id.';
-      }
+    // Upsert identity map with PeerTube ids
+    $ia->db->upsert_identity([
+      'phpbb_user_id'        => $phpbb_user_id,
+      'phpbb_username_clean' => '',
+      'email'                => $email,
+      'wp_user_id'           => $wp_user_id,
+      'peertube_user_id'     => (int)($created['peertube_user_id'] ?? 0),
+      'peertube_account_id'  => (int)($created['peertube_account_id'] ?? 0),
+      'peertube_actor_id'    => (int)($created['peertube_actor_id'] ?? 0),
+      'status'               => 'linked',
+      'last_error'           => '',
+    ]);
+
+    $identity = null;
+    if (method_exists($ia->db, 'get_identity_by_wp_user_id')) {
+      $identity = $ia->db->get_identity_by_wp_user_id($wp_user_id);
     }
 
-    $info['ok'] = ($info['phpbb_user_id'] > 0) && $info['has_token'];
-    return $info;
+    return ['ok' => true, 'identity' => $identity];
   }
-
 }

@@ -216,11 +216,218 @@
       window.IA_DISCUSS_UI_FEED.renderFeedInto(mountEl, view, 0);
     }
 
+    // -----------------------------
+    // Feed scroll preservation
+    // -----------------------------
+    // Atrium can run in "panel scroll" mode (each tab scrolls inside the panel).
+    // If so, preserving window.scrollY won't help; we must preserve the panel's
+    // scrollTop. We pick the best available scroller in priority order.
+    function getDiscussScroller() {
+      try {
+        const panel = document.querySelector('.ia-panel[data-panel="discuss"]');
+        if (panel && panel.scrollHeight > panel.clientHeight) return panel;
+      } catch (e) {}
+      try {
+        // Fallback: normal document scrolling
+        return document.scrollingElement || document.documentElement;
+      } catch (e2) {
+        return document.documentElement;
+      }
+    }
+
+    // We save more than a raw scrollTop because "Load more" changes how much of the
+    // feed is present when you return. If we only restore scrollTop and the feed has
+    // fewer items, the browser clamps scrollTop back to ~0.
+
+    let savedFeedState = null;
+
+    function getFeedMount() {
+      try { return qs("[data-iad-view]", root); } catch (e) { return null; }
+    }
+
+    function computeFeedAnchor(sc, mountEl) {
+      try {
+        const cards = mountEl ? Array.from(mountEl.querySelectorAll('[data-topic-id]')) : [];
+        if (!cards.length) return { topic_id: 0, delta: 0 };
+        const scRect = sc.getBoundingClientRect();
+        let chosen = null;
+        for (const el of cards) {
+          const r = el.getBoundingClientRect();
+          if (r.bottom > (scRect.top + 10)) { chosen = { el, r }; break; }
+        }
+        if (!chosen) chosen = { el: cards[0], r: cards[0].getBoundingClientRect() };
+        const tid = parseInt(chosen.el.getAttribute('data-topic-id') || '0', 10) || 0;
+        const delta = Math.round(chosen.r.top - scRect.top);
+        return { topic_id: tid, delta: delta };
+      } catch (e) {
+        return { topic_id: 0, delta: 0 };
+      }
+    }
+
+    function saveFeedScroll() {
+      try {
+        const sc = getDiscussScroller();
+        const mountEl = getFeedMount();
+        const scrollTop = (sc && typeof sc.scrollTop === 'number') ? sc.scrollTop : 0;
+        const itemCount = mountEl ? (mountEl.querySelectorAll('[data-topic-id]') || []).length : 0;
+        const ctl = (mountEl && mountEl.__iadFeedCtl) ? mountEl.__iadFeedCtl : null;
+        const st = (ctl && typeof ctl.getState === 'function') ? ctl.getState() : null;
+        const anchor = (sc && mountEl) ? computeFeedAnchor(sc, mountEl) : { topic_id: 0, delta: 0 };
+
+        savedFeedState = {
+          view: String(lastListView || 'new'),
+          forum_id: lastForumId || 0,
+          scroll_top: scrollTop,
+          item_count: itemCount,
+          pages_loaded: st && st.pages_loaded ? parseInt(st.pages_loaded, 10) : 0,
+          server_offset: st && st.server_offset ? parseInt(st.server_offset, 10) : 0,
+          load_more_clicks: st && st.load_more_clicks ? parseInt(st.load_more_clicks, 10) : 0,
+          anchor_topic_id: anchor.topic_id || 0,
+          anchor_delta: anchor.delta || 0,
+          ts: Date.now()
+        };
+      } catch (e) {
+        savedFeedState = null;
+      }
+    }
+
+    function restoreFeedScrollAfterFeed() {
+      const state = savedFeedState;
+      if (!state) return;
+
+      // Only restore into the same feed context.
+      if (String(state.view || '') !== String(lastListView || '')) return;
+      if ((state.forum_id || 0) !== (lastForumId || 0)) return;
+
+      const desiredCount = parseInt(state.item_count || 0, 10) || 0;
+      const desiredPages = parseInt(state.pages_loaded || 0, 10) || 0;
+      const desiredOffset = parseInt(state.server_offset || 0, 10) || 0;
+      const desiredClicks = parseInt(state.load_more_clicks || 0, 10) || 0;
+      const anchorTid = parseInt(state.anchor_topic_id || 0, 10) || 0;
+      const anchorDelta = parseInt(state.anchor_delta || 0, 10) || 0;
+      const desiredRaw = Math.max(0, parseInt(state.scroll_top || 0, 10) || 0);
+
+      let done = false;
+      let loops = 0;
+
+      const finish = () => {
+        if (done) return;
+        done = true;
+        window.removeEventListener('iad:feed_loaded', onLoaded);
+        window.removeEventListener('iad:feed_page_appended', onPage);
+      };
+
+      const tryRestore = () => {
+        if (done) return;
+        const sc = getDiscussScroller();
+        const mountEl = getFeedMount();
+        if (!sc || !mountEl) return;
+
+        if (anchorTid) {
+          const card = mountEl.querySelector('[data-topic-id="' + anchorTid + '"]');
+          if (card) {
+            const scRect = sc.getBoundingClientRect();
+            const r = card.getBoundingClientRect();
+            const cardTopInScroller = (r.top - scRect.top) + sc.scrollTop;
+            const target = Math.max(0, Math.round(cardTopInScroller - anchorDelta));
+            try { sc.scrollTop = target; } catch (e) {}
+            setTimeout(() => { try { sc.scrollTop = target; } catch (e2) {} }, 120);
+            setTimeout(() => { try { sc.scrollTop = target; } catch (e3) {} }, 320);
+            // Only finish if we were not clamped (i.e. the feed is tall enough for this target).
+            setTimeout(() => {
+              if (done) return;
+              const now = (typeof sc.scrollTop === 'number') ? sc.scrollTop : 0;
+              const max = Math.max(0, (sc.scrollHeight || 0) - (sc.clientHeight || 0));
+              const clamped = (now + 4 < target) && (max + 4 < target);
+              if (!clamped) finish();
+            }, 80);
+            return;
+          }
+        }
+
+        const raw = Math.max(0, parseInt(state.scroll_top || 0, 10) || 0);
+        if (raw > 0) {
+          try { sc.scrollTop = raw; } catch (e4) {}
+          setTimeout(() => { try { sc.scrollTop = raw; } catch (e5) {} }, 120);
+          setTimeout(() => {
+            if (done) return;
+            const now = (typeof sc.scrollTop === 'number') ? sc.scrollTop : 0;
+            const max = Math.max(0, (sc.scrollHeight || 0) - (sc.clientHeight || 0));
+            const clamped = (now + 4 < raw) && (max + 4 < raw);
+            if (!clamped) finish();
+          }, 80);
+        }
+      };
+
+      const maybeLoadMore = () => {
+        if (done) return;
+        loops++;
+        if (loops > 30) { tryRestore(); finish(); return; }
+
+        const mountEl = getFeedMount();
+        if (!mountEl) { tryRestore(); return; }
+
+        const sc = getDiscussScroller();
+        const maxScroll = sc ? Math.max(0, (sc.scrollHeight || 0) - (sc.clientHeight || 0)) : 0;
+        const needMoreHeight = (desiredRaw && (maxScroll + 24 < desiredRaw));
+
+        const countNow = (mountEl.querySelectorAll('[data-topic-id]') || []).length;
+        const needMoreItems = (desiredCount && countNow < desiredCount);
+        const needAnchor = (anchorTid && !mountEl.querySelector('[data-topic-id="' + anchorTid + '"]'));
+
+        const ctl = mountEl.__iadFeedCtl;
+        const canLoad = !!(ctl && typeof ctl.loadMore === 'function');
+        const st = (ctl && typeof ctl.getState === 'function') ? ctl.getState() : null;
+        const pagesNow = st && st.pages_loaded ? parseInt(st.pages_loaded, 10) : 0;
+        const offsetNow = st && st.server_offset ? parseInt(st.server_offset, 10) : 0;
+        const clicksNow = st && st.load_more_clicks ? parseInt(st.load_more_clicks, 10) : 0;
+        const needMorePages = (desiredPages && pagesNow && pagesNow < desiredPages);
+        const needMoreOffset = (desiredOffset && offsetNow && offsetNow < desiredOffset);
+        const needMoreClicks = (desiredClicks && clicksNow < desiredClicks);
+        const hasMore = !!(st ? st.has_more : mountEl.querySelector('[data-iad-feed-more]'));
+
+        // Prefer deterministic depth metrics (pages_loaded/server_offset) over item_count,
+        // because unread filtering and other view transforms can make item counts smaller.
+        // Strongest signal: the number of times the user pressed "Load more".
+        // This avoids edge cases where item counts vary (unread filtering) or the
+        // server offset advances inconsistently.
+        if ((needMoreHeight || needMoreClicks || needMorePages || needMoreOffset || needMoreItems || needAnchor) && canLoad && hasMore) {
+          try { ctl.loadMore(); } catch (e) {}
+          return;
+        }
+
+        tryRestore();
+      };
+
+      const onLoaded = () => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          maybeLoadMore();
+          setTimeout(tryRestore, 120);
+        }));
+      };
+
+      const onPage = () => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          maybeLoadMore();
+          setTimeout(tryRestore, 80);
+        }));
+      };
+
+      window.addEventListener('iad:feed_loaded', onLoaded);
+      window.addEventListener('iad:feed_page_appended', onPage);
+
+      // Fallback in case events don't fire.
+      setTimeout(() => { tryRestore(); finish(); }, 1600);
+    }
+
     function openTopicPage(topicId, opts) {
       topicId = parseInt(topicId || "0", 10) || 0;
       if (!topicId) return;
 
       opts = opts || {};
+
+      // Save the feed scroll position immediately before switching the view.
+      saveFeedScroll();
       setParam("iad_topic", String(topicId));
 
       window.IA_DISCUSS_UI_TOPIC.renderInto(root, topicId, opts);
@@ -283,10 +490,11 @@
 
     window.addEventListener("iad:topic_back", () => {
       setParam("iad_topic", "");
-      if (inSearch) return openSearchPage(lastSearchQ);
-      if (lastListView === "agora" && lastForumId) return render("agora", lastForumId, lastForumName || "");
-      if (lastListView === "agoras") return render("agoras", 0, "");
+      if (inSearch) { openSearchPage(lastSearchQ); restoreFeedScrollAfterFeed(); return; }
+      if (lastListView === "agora" && lastForumId) { render("agora", lastForumId, lastForumName || ""); restoreFeedScrollAfterFeed(); return; }
+      if (lastListView === "agoras") { render("agoras", 0, ""); restoreFeedScrollAfterFeed(); return; }
       render(lastListView || "new", 0, "");
+      restoreFeedScrollAfterFeed();
     });
 
     // ✅ NEW: open search

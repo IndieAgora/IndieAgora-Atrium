@@ -371,291 +371,231 @@ final class IA_Auth {
     }
 
     public function ajax_login() {
-    $this->guard_ajax_nonce();
+        $this->guard_ajax_nonce();
 
-    $id = trim((string)($_POST['identifier'] ?? ''));
-    $pw = (string)($_POST['password'] ?? '');
-    $redirect_to = !empty($_POST['redirect_to']) ? esc_url_raw((string)$_POST['redirect_to']) : home_url('/');
+        $id = trim((string)($_POST['identifier'] ?? ''));
+        $pw = (string)($_POST['password'] ?? '');
+        $redirect_to = !empty($_POST['redirect_to']) ? esc_url_raw((string)$_POST['redirect_to']) : home_url('/');
 
-    if ($id === '' || $pw === '') {
-        wp_send_json_error(['message' => 'Missing username/password.'], 400);
-    }
-
-    $engine = self::engine_normalized();
-    $auth = $this->phpbb->authenticate($id, $pw, $engine['phpbb']);
-
-    if (empty($auth['ok'])) {
-        wp_send_json_error(['message' => $auth['message'] ?? 'Login failed.'], 401);
-    }
-
-    $phpbb_user = $auth['user'];
-
-    $wp_user_id = $this->db->ensure_wp_shadow_user($phpbb_user, $this->options());
-    if (!$wp_user_id) {
-        wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
-    }
-
-    // Block login until email is verified (Atrium signup path).
-    $verified = (int) get_user_meta((int)$wp_user_id, 'ia_email_verified', true);
-    if ($verified !== 1) {
-        wp_send_json_error(['message' => 'Please verify your email to activate this account.'], 403);
-    }
-
-    wp_set_current_user((int)$wp_user_id);
-    wp_set_auth_cookie((int)$wp_user_id, true);
-
-    // --- PeerTube per-user token mint needs a one-time plaintext password bridge ---
-    // Backstop + diagnostics: persist a marker and the password bridge directly
-    // from the login POST. This proves the executing login path and avoids relying
-    // on hooks that might be bypassed.
-    try {
-        $uid_dbg = (int) $wp_user_id;
-        if ($uid_dbg > 0) {
-            // Marker: lets you verify the login handler executed.
-            update_user_meta($uid_dbg, 'ia_pt_pw_capture_at', (string) current_time('mysql', 1));
-
-            // Persist the bridge keys used by ia-peertube-token-mint-users.
-            if (class_exists('IA_PT_Password_Capture') && method_exists('IA_PT_Password_Capture', 'capture_for_user')) {
-                IA_PT_Password_Capture::capture_for_user($uid_dbg, (string) $pw, (string) $id);
-            } else {
-                // Last resort: write the keys directly.
-                update_user_meta($uid_dbg, 'ia_pt_identifier', (string) $id);
-                update_user_meta($uid_dbg, 'ia_pt_pw_enc', (string) $pw);
-            }
+        if ($id === '' || $pw === '') {
+            wp_send_json_error(['message' => 'Missing username/password.'], 400);
         }
-    } catch (Throwable $e) {
-        // Never block login.
-    }
 
-    // Atrium shadow-session logins bypass wp_signon/wp_authenticate.
-    // Provide the plaintext password to the PeerTube per-user token mint helper for this request.
-    // Then opportunistically mint a user token now, so later Stream write actions can attribute
-    // comments/replies correctly without needing the password again.
-    do_action('ia_pt_user_password', (int)$wp_user_id, (string)$pw, (string)$id);
+        $engine = self::engine_normalized();
+        $auth = $this->phpbb->authenticate($id, $pw, $engine['phpbb']);
 
-    if (class_exists('IA_PeerTube_Token_Helper') && method_exists('IA_PeerTube_Token_Helper', 'get_token_for_current_user')) {
-        // This is deliberately non-blocking: login should succeed even if PeerTube minting fails.
-        try {
-            IA_PeerTube_Token_Helper::get_token_for_current_user();
-        } catch (Throwable $e) {
-            // Non-fatal.
+        if (empty($auth['ok'])) {
+            wp_send_json_error(['message' => $auth['message'] ?? 'Login failed.'], 401);
         }
-    }
 
-    $phpbb_user_id = (int)($phpbb_user['user_id'] ?? 0);
-    $phpbb_email   = (string)($phpbb_user['user_email'] ?? '');
-    $phpbb_un      = (string)($phpbb_user['username'] ?? '');
-    $phpbb_uclean  = (string)($phpbb_user['username_clean'] ?? '');
+        $phpbb_user = $auth['user'];
 
-    // Create/update identity map immediately, but do NOT mark linked until we have a user PeerTube token.
-    $this->db->upsert_identity([
-        'phpbb_user_id'        => $phpbb_user_id,
-        'phpbb_username_clean' => $phpbb_uclean,
-        'email'                => $phpbb_email,
-        'wp_user_id'           => (int)$wp_user_id,
-        'status'               => 'partial',
-        'last_error'           => '',
-    ]);
+        $wp_user_id = $this->db->ensure_wp_shadow_user($phpbb_user, $this->options());
+        if (!$wp_user_id) {
+            wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
+        }
 
-    // ===== PeerTube activation (required for Stream write actions) =====
-    $opt = $this->options();
-    $pt_user_id = 0;
-    $pt_account_id = 0;
-    $pt = ['ok' => false, 'message' => 'PeerTube token not attempted.'];
+        
+        // Block login until email is verified (Atrium signup path).
+        $verified = (int) get_user_meta((int)$wp_user_id, 'ia_email_verified', true);
+        if ($verified !== 1) {
+            wp_send_json_error(['message' => 'Please verify your email to activate this account.'], 403);
+        }
 
-    if (($opt['peertube_oauth_method'] ?? 'password_grant') === 'password_grant' && $phpbb_user_id > 0) {
+wp_set_current_user($wp_user_id);
+        wp_set_auth_cookie($wp_user_id, true);
 
-        // 1) Try password grant using the identifier the user typed.
-        $pt = $this->peertube->password_grant($id, $pw, $engine['peertube_api']);
+        $this->db->upsert_identity([
+            'phpbb_user_id'        => (int)($phpbb_user['user_id'] ?? 0),
+            'phpbb_username_clean' => (string)($phpbb_user['username_clean'] ?? ''),
+            'email'                => (string)($phpbb_user['user_email'] ?? ''),
+            'wp_user_id'           => (int)$wp_user_id,
+            'status'               => 'linked',
+            'last_error'           => '',
+        ]);
 
-        // 2) If it fails, ensure PeerTube user exists + password matches, then retry password grant.
-        if (empty($pt['ok'])) {
-            $this->log->warn('peertube_token_failed_first', [
-                'message' => $pt['message'] ?? 'PeerTube token failed.',
-                'debug'   => $pt['debug'] ?? null,
-            ]);
+        // Best-effort PeerTube token minting (unchanged behavior)
+        $opt = $this->options();
+        if (($opt['peertube_oauth_method'] ?? 'password_grant') === 'password_grant') {
+            $pt = $this->peertube->password_grant($id, $pw, $engine['peertube_api']);
 
-            $pt_cfg = $engine['peertube_api'];
+            if (empty($pt['ok'])) {
+                $this->log->warn('peertube_token_failed', [
+                    'message' => $pt['message'] ?? 'PeerTube token failed.',
+                    'debug'   => $pt['debug'] ?? null,
+                ]);
 
-            // Try find by identifier first (username/email), then by phpBB username/email.
-            $needles = [];
-            $needles[] = $id;
-            if ($phpbb_un !== '' && strtolower($phpbb_un) !== strtolower($id)) $needles[] = $phpbb_un;
-            if ($phpbb_email !== '' && strtolower($phpbb_email) !== strtolower($id)) $needles[] = $phpbb_email;
-
-            $found = null;
-            foreach ($needles as $needle) {
-                $f = $this->peertube->admin_find_user((string)$needle, $pt_cfg);
-                if (!empty($f['ok']) && !empty($f['user']) && is_array($f['user'])) {
-                    $found = $f['user'];
-                    break;
-                }
-            }
-
-            if ($found) {
-                $pt_user_id = (int)($found['id'] ?? 0);
-                if (isset($found['account']) && is_array($found['account'])) {
-                    $pt_account_id = (int)($found['account']['id'] ?? 0);
-                }
-
-                if ($pt_user_id > 0) {
-                    $upd = $this->peertube->admin_update_user_password($pt_user_id, $pw, $pt_cfg);
-                    if (empty($upd['ok'])) {
-                        $this->log->error('peertube_pw_update_failed', [
-                            'pt_user_id' => $pt_user_id,
-                            'message'    => (string)($upd['message'] ?? ''),
-                            'code'       => (int)($upd['code'] ?? 0),
-                            'debug'      => $upd['debug'] ?? null,
-                        ]);
-                    }
+                if (($opt['peertube_fail_policy'] ?? 'allow_login') === 'block_login') {
+                    wp_clear_auth_cookie();
+                    wp_send_json_error(['message' => $pt['message'] ?? 'PeerTube auth failed.'], 502);
                 }
             } else {
-                // Create PeerTube user if missing.
-                $email_for_pt = $phpbb_email !== '' ? $phpbb_email : (is_email($id) ? $id : '');
-                $username_for_pt = $phpbb_un !== '' ? $phpbb_un : (is_email($id) ? ('user' . $phpbb_user_id) : $id);
+                $tok = (array)($pt['token'] ?? []);
+                $expires_in = (int)($tok['expires_in'] ?? 0);
+                $expires_at_utc = $expires_in > 0 ? gmdate('Y-m-d H:i:s', time() + $expires_in) : null;
 
-                if ($email_for_pt !== '') {
-                    $chan_base = strtolower((string)$username_for_pt);
-                    $chan_base = preg_replace('/[^a-z0-9_]+/', '_', $chan_base);
-                    $chan_base = trim($chan_base, '_');
-                    if ($chan_base === '') $chan_base = 'user';
-                    $channel_name = substr($chan_base . '_channel', 0, 50);
-
-                    $crt = $this->peertube->admin_create_user($username_for_pt, $email_for_pt, $pw, $channel_name, $pt_cfg);
-                    if (!empty($crt['ok'])) {
-                        $pt_user_id = (int)($crt['peertube_user_id'] ?? 0);
-                        $pt_account_id = (int)($crt['peertube_account_id'] ?? 0);
-                    } else {
-                        $this->log->error('peertube_create_failed', [
-                            'message' => (string)($crt['message'] ?? ''),
-                            'code'    => (int)($crt['code'] ?? 0),
-                            'debug'   => $crt['debug'] ?? null,
-                        ]);
-                    }
-                } else {
-                    $this->log->error('peertube_create_missing_email', [
-                        'phpbb_user_id' => $phpbb_user_id,
-                        'identifier'    => $id,
-                    ]);
-                }
-            }
-
-            // Persist what we know so far (still partial until we have a user token).
-            $this->db->upsert_identity([
-                'phpbb_user_id'        => $phpbb_user_id,
-                'phpbb_username_clean' => $phpbb_uclean,
-                'email'                => $phpbb_email,
-                'wp_user_id'           => (int)$wp_user_id,
-                'peertube_user_id'     => $pt_user_id,
-                'peertube_account_id'  => $pt_account_id,
-                'status'               => 'partial',
-                'last_error'           => (string)($pt['message'] ?? 'PeerTube token failed.'),
-            ]);
-
-            // Retry password grant with a few candidates.
-            $cands = [];
-            $cands[] = $id;
-            if ($phpbb_un !== '' && strtolower($phpbb_un) !== strtolower($id)) $cands[] = $phpbb_un;
-            if ($phpbb_email !== '' && strtolower($phpbb_email) !== strtolower($id)) $cands[] = $phpbb_email;
-
-            foreach ($cands as $cand) {
-                $pt_try = $this->peertube->password_grant((string)$cand, $pw, $engine['peertube_api']);
-                if (!empty($pt_try['ok'])) {
-                    $pt = $pt_try;
-                    break;
-                }
-            }
-        }
-
-        // 3) If still failing, decide whether to block login.
-        if (empty($pt['ok'])) {
-            $this->db->upsert_identity([
-                'phpbb_user_id'        => $phpbb_user_id,
-                'phpbb_username_clean' => $phpbb_uclean,
-                'email'                => $phpbb_email,
-                'wp_user_id'           => (int)$wp_user_id,
-                'peertube_user_id'     => $pt_user_id,
-                'peertube_account_id'  => $pt_account_id,
-                'status'               => 'partial',
-                'last_error'           => (string)($pt['message'] ?? 'PeerTube token failed.'),
-            ]);
-
-            if (($opt['peertube_fail_policy'] ?? 'allow_login') === 'block_login') {
-                wp_clear_auth_cookie();
-                wp_send_json_error(['message' => $pt['message'] ?? 'PeerTube auth failed.'], 502);
-            }
-        } else {
-            // Success: store encrypted user token and mark identity fully linked.
-            $tok = (array)($pt['token'] ?? []);
-            $expires_in = (int)($tok['expires_in'] ?? 0);
-            $expires_at_utc = $expires_in > 0 ? gmdate('Y-m-d H:i:s', time() + $expires_in) : null;
-
-            $access_plain  = (string)($tok['access_token'] ?? '');
-            $refresh_plain = (string)($tok['refresh_token'] ?? '');
-            $access_enc    = $this->crypto->encrypt($access_plain);
-            $refresh_enc   = $this->crypto->encrypt($refresh_plain);
-
-            $stored_ok = false;
-            if ($access_plain !== '' && $access_enc !== '') {
-                $stored_ok = $this->db->store_peertube_token($phpbb_user_id, [
-                    'access_token_enc'  => $access_enc,
-                    'refresh_token_enc' => $refresh_enc,
+                $this->db->store_peertube_token((int)($phpbb_user['user_id'] ?? 0), [
+                    'access_token_enc'  => $this->crypto->encrypt((string)($tok['access_token'] ?? '')),
+                    'refresh_token_enc' => $this->crypto->encrypt((string)($tok['refresh_token'] ?? '')),
                     'expires_at_utc'    => $expires_at_utc,
                     'scope'             => '',
                     'token_source'      => 'password_grant',
                 ]);
             }
-
-            // Read-back verification: some hosts/DB layers can silently fail inserts (permissions, wrong DB, etc.).
-            // Only consider the account fully activated if we can read a non-empty token back.
-            $readback_ok = false;
-            if ($stored_ok) {
-                global $wpdb;
-                if (isset($wpdb) && is_object($wpdb)) {
-                    $tok_table = $wpdb->prefix . 'ia_peertube_tokens';
-                    $rb = (string)$wpdb->get_var(
-                        $wpdb->prepare("SELECT access_token_enc FROM {$tok_table} WHERE phpbb_user_id=%d LIMIT 1", $phpbb_user_id)
-                    );
-                    $readback_ok = (trim($rb) !== '');
-                }
-            }
-
-            if ($stored_ok && !$readback_ok) {
-                $stored_ok = false;
-            }
-
-            if (!$stored_ok) {
-                // We have a token but could not store it (DB error or crypto failure).
-                $this->db->upsert_identity([
-                    'phpbb_user_id'        => $phpbb_user_id,
-                    'phpbb_username_clean' => $phpbb_uclean,
-                    'email'                => $phpbb_email,
-                    'wp_user_id'           => (int)$wp_user_id,
-                    'peertube_user_id'     => $pt_user_id,
-                    'peertube_account_id'  => $pt_account_id,
-                    'status'               => 'partial',
-                    'last_error'           => 'Could not persist PeerTube token (crypto/db/readback).',
-                ]);
-            } else {
-                $this->db->upsert_identity([
-                'phpbb_user_id'        => $phpbb_user_id,
-                'phpbb_username_clean' => $phpbb_uclean,
-                'email'                => $phpbb_email,
-                'wp_user_id'           => (int)$wp_user_id,
-                'peertube_user_id'     => $pt_user_id,
-                'peertube_account_id'  => $pt_account_id,
-                'status'               => 'linked',
-                'last_error'           => '',
-                ]);
-            }
         }
+
+        wp_send_json_success([
+            'message'     => 'OK',
+            'redirect_to' => $redirect_to,
+        ]);
     }
 
-    wp_send_json_success([
-        'message'     => 'OK',
-        'redirect_to' => $redirect_to,
+    
+    /**
+     * Verify email token, provision PeerTube user+channel, and mark identity linked.
+     * Returns ['ok'=>bool,'message'=>string]
+     */
+    private function handle_email_verification(string $token): array {
+        $token = trim($token);
+        if ($token === '') return ['ok' => false, 'message' => 'Missing token.'];
+
+        $job = $this->db->find_email_verification_job($token);
+        if (!$job) return ['ok' => false, 'message' => 'Token not found or already used.'];
+
+        if (($job['status'] ?? '') !== 'pending') {
+            return ['ok' => false, 'message' => 'Token already processed.'];
+        }
+
+        $payload = json_decode((string)($job['payload_json'] ?? ''), true);
+        if (!is_array($payload)) $payload = [];
+
+        $phpbb_user_id = (int)($job['phpbb_user_id'] ?? 0);
+        $username = (string)($payload['username'] ?? '');
+        $email    = (string)($payload['email'] ?? '');
+        $pw_enc   = (string)($payload['pw_enc'] ?? '');
+        $pw       = $this->crypto->decrypt($pw_enc);
+
+        if ($phpbb_user_id <= 0 || $username === '' || $email === '' || $pw === '') {
+            $this->db->mark_email_verification_job_done($token, 'failed', 'Bad payload');
+            return ['ok' => false, 'message' => 'Verification payload invalid.'];
+        }
+
+        // Create PeerTube user + default channel
+        if (!class_exists('IA_Engine')) {
+            $this->db->mark_email_verification_job_done($token, 'failed', 'IA Engine missing');
+            return ['ok' => false, 'message' => 'IA Engine not available.'];
+        }
+
+        $pt_cfg = IA_Engine::peertube_api();
+
+        // PeerTube constraint: channelName must NOT be the same as username.
+        // Build a deterministic channel slug from the username.
+        $chan_base = strtolower((string)$username);
+        $chan_base = preg_replace('/[^a-z0-9_]+/', '_', $chan_base);
+        $chan_base = trim($chan_base, '_');
+        if ($chan_base === '') $chan_base = 'user';
+        $channel_name = substr($chan_base . '_channel', 0, 50);
+
+        $pt_create = $this->peertube->admin_create_user($username, $email, $pw, $channel_name, $pt_cfg);
+        if (!$pt_create['ok']) {
+            $this->db->mark_email_verification_job_done($token, 'failed', $pt_create['message'] ?? 'PeerTube create failed');
+            return ['ok' => false, 'message' => 'Could not provision PeerTube user: ' . ($pt_create['message'] ?? 'Error')];
+        }
+
+        // Update identity map
+        $this->db->upsert_identity([
+            'phpbb_user_id'        => $phpbb_user_id,
+            'phpbb_username_clean' => '',
+            'email'                => $email,
+            'wp_user_id'           => null,
+            'peertube_user_id'     => (int)$pt_create['peertube_user_id'],
+            'peertube_account_id'  => (int)$pt_create['peertube_account_id'],
+            'status'               => 'linked',
+            'last_error'           => '',
+        ]);
+
+        // Mark verified flag on WP user if linked
+        $wp_user_id = (int) $this->db->find_wp_user_by_phpbb_id($phpbb_user_id);
+        if ($wp_user_id > 0) {
+            update_user_meta($wp_user_id, 'ia_email_verified', 1);
+            // log them in for convenience
+            wp_set_current_user($wp_user_id);
+            wp_set_auth_cookie($wp_user_id, true);
+            delete_user_meta($wp_user_id, 'ia_pw_enc_pending');
+        }
+
+        $this->db->mark_email_verification_job_done($token, 'done', '');
+        return ['ok' => true, 'message' => 'Your account is now active. You can use Atrium and PeerTube.'];
+    }
+
+
+/**
+ * Create an email verification job for a user that was registered via IA User.
+ * This lets IA Auth own /ia-verify/{token} and PeerTube provisioning, while IA User keeps the modal UI.
+ *
+ * Returns ['ok'=>bool,'message'=>string,'verify_url'=>string,'token'=>string]
+ */
+public function create_verification_for_existing(int $phpbb_user_id, int $wp_user_id, string $username, string $email, string $plain_password): array {
+    $username = trim($username);
+    $email = trim($email);
+    if ($phpbb_user_id <= 0 || $wp_user_id <= 0 || $username === '' || $email === '' || $plain_password === '') {
+        return ['ok' => false, 'message' => 'Bad input'];
+    }
+    if (!is_email($email)) {
+        return ['ok' => false, 'message' => 'Invalid email'];
+    }
+
+    // Mark as unverified until email confirmation
+    update_user_meta($wp_user_id, 'ia_email_verified', 0);
+
+    // Create email verification token + store encrypted password temporarily (deleted after verify).
+    $token = bin2hex(random_bytes(16));
+    $pw_enc = $this->crypto->encrypt($plain_password);
+    update_user_meta($wp_user_id, 'ia_pw_enc_pending', $pw_enc);
+
+    // Ensure identity record exists in pending state (so ACP shows it)
+    $this->db->upsert_identity([
+        'phpbb_user_id'        => $phpbb_user_id,
+        'phpbb_username_clean' => '',
+        'email'                => $email,
+        'wp_user_id'           => (int)$wp_user_id,
+        'status'               => 'pending_email',
+        'last_error'           => '',
     ]);
+
+    $payload = wp_json_encode([
+        'token'    => $token,
+        'username' => $username,
+        'email'    => $email,
+        'pw_enc'   => $pw_enc,
+        'created'  => time(),
+    ]);
+
+    $ok = $this->db->create_email_verification_job($phpbb_user_id, $token, (string)$payload);
+    if (!$ok) {
+        return ['ok' => false, 'message' => 'Could not create verification job'];
+    }
+
+    $verify_url = home_url('/ia-verify/' . $token);
+
+    $subject = apply_filters('ia_auth_verify_email_subject', 'Activate your IndieAgora account', $username, $verify_url);
+    $body    = apply_filters('ia_auth_verify_email_body',
+        "Hi {$username},
+
+Please activate your account by clicking the link below:
+
+{$verify_url}
+
+If you did not create this account, you can ignore this email.
+",
+        $username, $verify_url
+    );
+
+    wp_mail($email, $subject, $body);
+
+    return ['ok' => true, 'message' => 'Verification email sent', 'verify_url' => $verify_url, 'token' => $token];
 }
+
 
 public function ajax_register() {
         $this->guard_ajax_nonce();

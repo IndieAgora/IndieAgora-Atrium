@@ -630,6 +630,27 @@ function ensureVideoModal() {
     let serverOffset = 0;
     let hasMore = false;
     let loading = false;
+    let pendingLoad = false;
+    let didInitialDispatch = false;
+    let pagesLoaded = 0; // successful page appends (initial page => 1)
+    let loadMoreClicks = 0; // user-initiated "Load more" clicks (excludes initial load)
+
+    // Expose a tiny controller so the router can restore state (load-more depth, etc.)
+    // without reaching into internal closures.
+    try {
+      mount.__iadFeedCtl = {
+        loadMore: () => loadNext(),
+        getState: () => ({
+          view: view,
+          forum_id: forumId || 0,
+          server_offset: serverOffset,
+          pages_loaded: pagesLoaded,
+          load_more_clicks: loadMoreClicks,
+          has_more: !!hasMore,
+          item_count: (mount.querySelectorAll('[data-topic-id]') || []).length
+        })
+      };
+    } catch (eCtl) {}
 
     function renderShell() {
       mount.innerHTML = `
@@ -670,7 +691,15 @@ function ensureVideoModal() {
     }
 
     async function loadNext() {
-      if (loading) return;
+      // If a load is already in progress, queue exactly one additional load.
+      // This matters during scroll restore, where the router may call loadMore()
+      // in response to "page appended" events while the current request is still
+      // finalising. Without a queue, those calls are dropped and pagination stalls
+      // (typically at the second page).
+      if (loading) {
+        pendingLoad = true;
+        return;
+      }
       loading = true;
 
       const moreBtn = mount.querySelector("[data-iad-feed-more]");
@@ -686,9 +715,53 @@ function ensureVideoModal() {
       if (!mount.querySelector(".iad-feed-list")) renderShell();
 
       appendItems(items, view);
+      pagesLoaded++;
       setMoreButton();
 
+      // Mark the request complete before dispatching events, so any programmatic
+      // loadMore() triggered by listeners isn't dropped.
       loading = false;
+
+      // Notify after every page append (used for scroll restore when deeper than page 1).
+      try {
+        const countNow = (mount.querySelectorAll('[data-topic-id]') || []).length;
+        window.dispatchEvent(new CustomEvent('iad:feed_page_appended', {
+          detail: {
+            view: view,
+            forum_id: forumId || 0,
+            server_offset: serverOffset,
+            pages_loaded: pagesLoaded,
+            has_more: !!hasMore,
+            item_count: countNow,
+            mount: mount
+          }
+        }));
+      } catch (ePg) {}
+
+      // Notify the router that the feed has content and layout is ready.
+      // This is used for restoring scroll position when returning from topic view.
+      if (!didInitialDispatch) {
+        didInitialDispatch = true;
+        try {
+          window.dispatchEvent(new CustomEvent("iad:feed_loaded", {
+            detail: {
+              view: view,
+              forum_id: forumId || 0,
+              server_offset: serverOffset,
+              pages_loaded: pagesLoaded,
+              item_count: (mount.querySelectorAll('[data-topic-id]') || []).length,
+              mount: mount
+            }
+          }));
+        } catch (e3) {}
+      }
+
+      // Run one queued load if requested while the previous request was active.
+      if (pendingLoad) {
+        pendingLoad = false;
+        // Yield one tick so the UI can paint and the "Load more" button state can settle.
+        setTimeout(loadNext, 0);
+      }
     }
 
     // Event delegation (works for appended items too)
@@ -704,6 +777,7 @@ function ensureVideoModal() {
       if (more) {
         e.preventDefault();
         e.stopPropagation();
+        loadMoreClicks++;
         loadNext();
         return;
       }

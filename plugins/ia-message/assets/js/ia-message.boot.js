@@ -7,145 +7,6 @@
     return String(s ?? "").replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  function normUrl(u){
-    let s = String(u||"").trim();
-    if (!s) return "";
-    if (/^www\./i.test(s)) s = "https://" + s;
-    return s;
-  }
-
-  function extractUrls(text){
-    const t = String(text||"");
-    const reUrl = /\b((?:https?:\/\/|www\.)[^\s<>()]+)\b/gi;
-    const out = [];
-    let m;
-    while ((m = reUrl.exec(t)) !== null){
-      const u = normUrl(m[1]);
-      if (u) out.push({ url: u, index: m.index, raw: m[1] });
-    }
-    return out;
-  }
-
-  function urlHost(u){
-    try { return (new URL(u)).host; } catch(e){ return ""; }
-  }
-
-  function fileNameFromUrl(u){
-    try {
-      const p = new URL(u).pathname.split("/").pop() || "";
-      return decodeURIComponent(p) || u;
-    } catch(e){ return u; }
-  }
-
-  function isImageUrl(u){ return /\.(png|jpe?g|gif|webp|svg)(\?|#|$)/i.test(u); }
-  function isVideoUrl(u){ return /\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(u); }
-  function isAudioUrl(u){ return /\.(mp3|wav|ogg|m4a|flac)(\?|#|$)/i.test(u); }
-  function isDocUrl(u){ return /\.(pdf|docx?|xlsx?|pptx?|txt|rtf|csv|zip|7z|rar)(\?|#|$)/i.test(u); }
-
-  function ytEmbed(u){
-    try {
-      const url = new URL(u);
-      if (!/^(?:www\.)?(youtube\.com|m\.youtube\.com)$/.test(url.host) && url.host !== "youtu.be") return "";
-      let id = "";
-      if (url.host === "youtu.be") id = url.pathname.replace(/^\//,"");
-      else id = url.searchParams.get("v") || "";
-      if (!id && url.pathname.includes("/shorts/")) id = url.pathname.split("/shorts/")[1]?.split("/")[0] || "";
-      if (!id) return "";
-      return "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id);
-    } catch(e){ return ""; }
-  }
-
-  function vimeoEmbed(u){
-    try {
-      const url = new URL(u);
-      if (!/vimeo\.com$/.test(url.host)) return "";
-      const m = url.pathname.match(/\/(\d+)/);
-      if (!m) return "";
-      return "https://player.vimeo.com/video/" + encodeURIComponent(m[1]);
-    } catch(e){ return ""; }
-  }
-
-  function peertubeEmbed(u){
-    // Best-effort: supports common PeerTube watch patterns.
-    try {
-      const url = new URL(u);
-      const path = url.pathname || "";
-      // /w/<shortId> or /videos/watch/<uuid>
-      let id = "";
-      const mw = path.match(/\/w\/([^\/]+)/);
-      if (mw) id = mw[1];
-      const mv = path.match(/\/videos\/watch\/([^\/]+)/);
-      if (mv) id = mv[1];
-      if (!id) return "";
-      // PeerTube embed: /videos/embed/<id> (works for uuid; short ids may redirect)
-      return url.origin.replace(/\/$/,"") + "/videos/embed/" + encodeURIComponent(id);
-    } catch(e){ return ""; }
-  }
-
-  function renderLinkCard(u){
-    const host = esc(urlHost(u) || u);
-    const urlText = esc(u);
-    return `
-      <a class="ia-msg-linkcard" href="${urlText}" target="_blank" rel="noopener noreferrer">
-        <span class="ia-msg-link-ico" aria-hidden="true">🔗</span>
-        <span class="ia-msg-link-meta">
-          <div class="ia-msg-link-url">${urlText}</div>
-          <div class="ia-msg-link-host">${host}</div>
-        </span>
-      </a>`;
-  }
-
-  function renderRichBody(raw){
-    const text = String(raw||"");
-    const urls = extractUrls(text);
-    if (!urls.length) return esc(text);
-
-    // Build text with clickable links, then add embeds for each unique URL.
-    const seen = new Set();
-    let html = "";
-    let last = 0;
-
-    for (const u of urls){
-      const before = text.slice(last, u.index);
-      html += esc(before);
-
-      const link = normUrl(u.raw);
-      const linkEsc = esc(link);
-      html += `<a href="${linkEsc}" target="_blank" rel="noopener noreferrer">${linkEsc}</a>`;
-      last = u.index + u.raw.length;
-
-      if (!seen.has(link)){
-        seen.add(link);
-
-        const y = ytEmbed(link);
-        const v = vimeoEmbed(link);
-        const p = peertubeEmbed(link);
-
-        if (isImageUrl(link)) {
-          html += `<div class="ia-msg-embed"><button type="button" class="ia-msg-media ia-msg-media-img" data-ia-msg-media-url="${linkEsc}" data-ia-msg-media-type="image" aria-label="Open image"><img src="${linkEsc}" alt="Image" loading="lazy"></button></div>`;
-        } else if (isVideoUrl(link) || y || v || p) {
-          if (y || v || p) {
-            const src = esc(y || v || p);
-            html += `<div class="ia-msg-embed"><iframe src="${src}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px;"></iframe></div>`;
-          } else {
-            html += `<div class="ia-msg-embed"><video controls preload="metadata" src="${linkEsc}"></video></div>`;
-          }
-        } else if (isAudioUrl(link)) {
-          html += `<div class="ia-msg-embed"><audio controls preload="metadata" src="${linkEsc}"></audio></div>`;
-        } else if (isDocUrl(link)) {
-          const fn = esc(fileNameFromUrl(link));
-          html += `<div class="ia-msg-embed"><a class="ia-msg-pill" href="${linkEsc}" target="_blank" rel="noopener noreferrer">📄 ${fn}</a></div>`;
-        } else {
-          html += `<div class="ia-msg-embed">${renderLinkCard(link)}</div>`;
-        }
-      }
-    }
-    html += esc(text.slice(last));
-    return html;
-  }
-
-
-
   async function post(action, payload){
     const fd = new FormData();
     fd.append("action", action);
@@ -153,64 +14,6 @@
     const res = await fetch(IA_MESSAGE.ajaxUrl, { method:"POST", body: fd, credentials:"same-origin" });
     return res.json();
   }
-
-  async function postFile(action, file, extraPayload){
-    const fd = new FormData();
-    fd.append("action", action);
-    fd.append("nonce", IA_MESSAGE.nonceBoot);
-    fd.append("file", file);
-    if (extraPayload) {
-      for (const k in extraPayload) fd.append(k, extraPayload[k]);
-    }
-    const res = await fetch(IA_MESSAGE.ajaxUrl, { method:"POST", body: fd, credentials:"same-origin" });
-    return res.json();
-  }
-
-
-
-
-// XHR upload with progress (used for attachment uploads)
-function postFileProgress(action, file, extraPayload, onProgress){
-  return new Promise((resolve, reject) => {
-    try {
-      const fd = new FormData();
-      fd.append("action", action);
-      fd.append("nonce", IA_MESSAGE.nonceBoot);
-      fd.append("file", file);
-      if (extraPayload) {
-        for (const k in extraPayload) fd.append(k, extraPayload[k]);
-      }
-
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", IA_MESSAGE.ajaxUrl, true);
-      xhr.withCredentials = true;
-
-      xhr.upload.addEventListener("progress", (ev) => {
-        if (!onProgress) return;
-        if (ev && ev.lengthComputable) {
-          const pct = Math.max(0, Math.min(100, Math.round((ev.loaded / ev.total) * 100)));
-          try { onProgress(pct, ev.loaded, ev.total); } catch(_) {}
-        } else {
-          try { onProgress(null, ev.loaded || 0, ev.total || 0); } catch(_) {}
-        }
-      });
-
-      xhr.onreadystatechange = () => {
-        if (xhr.readyState !== 4) return;
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try { resolve(JSON.parse(xhr.responseText || "{}")); }
-          catch(e){ reject(e); }
-        } else {
-          reject(new Error("Upload failed (" + xhr.status + ")"));
-        }
-      };
-
-      xhr.onerror = () => reject(new Error("Upload failed"));
-      xhr.send(fd);
-    } catch (e) { reject(e); }
-  });
-}
-
 
   // Find message shells (Atrium keeps panels in DOM even if not active)
   function findShells(){
@@ -262,16 +65,8 @@ function postFileProgress(action, file, extraPayload, onProgress){
       const on = (id && id === st.activeId) ? " active" : "";
       return `
         <button type="button" class="ia-msg-thread${on}" data-ia-msg-thread="${id}">
-          <div class="ia-msg-thread-row">
-            <div class="ia-msg-thread-avatar" aria-hidden="true">${(() => {
-              const ch = (title || "C").trim().charAt(0).toUpperCase() || "C";
-              return `<span class="ia-msg-thread-initial">${ch}</span>`;
-            })()}</div>
-            <div class="ia-msg-thread-text">
-              <div class="ia-msg-thread-name">${title}</div>
-              <div class="ia-msg-thread-last">${prev}</div>
-            </div>
-          </div>
+          <div class="ia-msg-thread-name">${title}</div>
+          <div class="ia-msg-thread-last">${prev}</div>
         </button>
       `;
     }).join("");
@@ -302,7 +97,7 @@ function postFileProgress(action, file, extraPayload, onProgress){
       const side = mine ? "out" : "in";
       const cls = mine ? " mine" : "";
 
-      const body = renderRichBody(m.body || "");
+      const body = esc(m.body || "");
       const when = esc(m.created_at || "");
 
       return `
@@ -328,8 +123,7 @@ function postFileProgress(action, file, extraPayload, onProgress){
       }
 
       const st = S(shell);
-      st.threadsAll = (res.data && res.data.threads) ? res.data.threads : [];
-        st.threads = st.threadsAll;
+      st.threads = (res.data && res.data.threads) ? res.data.threads : [];
 
       // If server returns me, store it; also stamp onto shell for CSS/diagnostics
       if (res.data && res.data.me) {
@@ -412,41 +206,22 @@ function postFileProgress(action, file, extraPayload, onProgress){
     const arr = Array.isArray(results) ? results : [];
 
     if (!arr.length) {
-      box.innerHTML = ``;
-      box.classList.remove("open");
+      box.innerHTML = `<div class="ia-msg-empty">No results</div>`;
+      box.classList.add("open");
       return;
     }
 
     box.innerHTML = arr.map(r => {
-      const id = Number(r.phpbb_user_id || r.id || 0);
-      const username = String(r.username || '').trim();
-      const display = String(r.display || r.label || username || ("User #" + id));
-      const avatar = String(r.avatarUrl || r.avatar || '').trim();
-      const safeDisplay = esc(display);
-      const safeUser = esc(username);
-      const safeAvatar = esc(avatar);
-
-      return `
-        <button type="button" class="ia-msg-suggest-item" data-pick="${id}" data-username="${safeUser}" data-display="${safeDisplay}">
-          ${safeAvatar ? `<img class="ia-msg-suggest-avatar" alt="" src="${safeAvatar}">` : `<span class="ia-msg-suggest-avatar" aria-hidden="true"></span>`}
-          <div>
-            <div class="ia-msg-suggest-name">${safeDisplay}</div>
-            ${safeUser ? `<div class="ia-msg-suggest-user">@${safeUser}</div>` : ``}
-          </div>
-        </button>
-      `;
+      const id = Number(r.phpbb_user_id || 0);
+      const label = esc(r.label || r.username || ("User #" + id));
+      return `<button type="button" class="ia-msg-suggest-item" data-pick="${id}" data-label="${label}">${label}</button>`;
     }).join("");
-
     box.classList.add("open");
 
     box.onclick = (e) => {
       const b = e.target.closest("[data-pick]");
       if (!b) return;
-      onPick({
-        id: Number(b.getAttribute("data-pick")||0),
-        username: String(b.getAttribute("data-username")||""),
-        display: String(b.getAttribute("data-display")||"")
-      });
+      onPick({ id: Number(b.getAttribute("data-pick")||0), label: b.getAttribute("data-label")||"" });
     };
   }
 
@@ -457,102 +232,11 @@ function postFileProgress(action, file, extraPayload, onProgress){
     sheet.classList.add("open");
   }
 
-  
-  async function getPrefs(){
-    try{
-      const res = await post("ia_message_prefs_get", { nonce: IA_MESSAGE.nonceBoot });
-      if (res && res.success && res.data) return res.data;
-    }catch(e){}
-    return { email: true, popup: true };
-  }
-
-  async function setPrefs(p){
-    try{
-      const res = await post("ia_message_prefs_set", { nonce: IA_MESSAGE.nonceBoot, prefs: JSON.stringify(p||{}) });
-      return !!(res && res.success);
-    }catch(e){}
-    return false;
-  }
-
-  async function openPrefs(shell){
-    const sheet = el(shell, '[data-ia-msg-sheet="prefs"]');
+  function closeSheet(shell){
+    const sheet = el(shell, '[data-ia-msg-sheet="newchat"]');
     if (!sheet) return;
-    sheet.setAttribute("aria-hidden", "false");
-    sheet.classList.add("open");
-
-    const prefs = await getPrefs();
-    qa(sheet, "[data-ia-msg-pref]").forEach(cb => {
-      const k = cb.getAttribute("data-ia-msg-pref");
-      cb.checked = (prefs && prefs[k] !== undefined) ? !!prefs[k] : true;
-      cb.onchange = async () => {
-        const cur = {
-          email: !!el(sheet, '[data-ia-msg-pref="email"]')?.checked,
-          popup: !!el(sheet, '[data-ia-msg-pref="popup"]')?.checked
-        };
-        await setPrefs(cur);
-      };
-    });
-  }
-
-  function applyThreadFilter(shell, qstr){
-    const st = S(shell);
-    const all = Array.isArray(st.threadsAll) ? st.threadsAll : (Array.isArray(st.threads) ? st.threads : []);
-    const q = String(qstr||"").trim().toLowerCase();
-    if (!q) {
-      st.threads = all;
-      renderThreads(shell);
-      return;
-    }
-    st.threads = all.filter(t => {
-      const title = String(t.title||"").toLowerCase();
-      const prev  = String(t.last_preview||"").toLowerCase();
-      return title.includes(q) || prev.includes(q);
-    });
-    renderThreads(shell);
-  }
-
-  // Prevent external/layout scripts from hiding the sidebar actions.
-  // We only enforce within the message shell.
-  function lockSidebarActions(shell){
-    if (shell.getAttribute('data-ia-msg-lock-actions') === '1') return;
-    shell.setAttribute('data-ia-msg-lock-actions','1');
-
-    const sel = '.ia-msg-left-head > .ia-msg-btn';
-    const fix = () => {
-      qa(shell, sel).forEach(btn => {
-        // If some script sets inline styles or toggles hidden/aria-hidden, undo.
-        btn.style.display = 'inline-flex';
-        btn.style.visibility = 'visible';
-        btn.style.opacity = '1';
-        btn.style.pointerEvents = 'auto';
-        if (btn.hasAttribute('hidden')) btn.removeAttribute('hidden');
-        if (btn.getAttribute('aria-hidden') === 'true') btn.setAttribute('aria-hidden','false');
-      });
-    };
-
-    // Run immediately and on the next frame (covers "flash then hide").
-    fix();
-    try { requestAnimationFrame(fix); } catch(_) {}
-    setTimeout(fix, 60);
-    setTimeout(fix, 250);
-
-    // Observe style/class/hidden changes on the header subtree.
-    const head = el(shell, '.ia-msg-left-head');
-    if (head && window.MutationObserver) {
-      const mo = new MutationObserver(() => fix());
-      mo.observe(head, { attributes:true, childList:true, subtree:true, attributeFilter:['style','class','hidden','aria-hidden'] });
-    }
-
-    // Re-apply on resize/orientation changes.
-    const onR = () => fix();
-    window.addEventListener('resize', onR, { passive:true });
-    window.addEventListener('orientationchange', onR, { passive:true });
-  }
-function closeSheet(shell){
-    qa(shell, '.ia-msg-sheet').forEach(sheet => {
-      sheet.setAttribute("aria-hidden","true");
-      sheet.classList.remove("open");
-    });
+    sheet.setAttribute("aria-hidden", "true");
+    sheet.classList.remove("open");
   }
 
   function bindOnce(shell){
@@ -562,13 +246,9 @@ function closeSheet(shell){
     shell.addEventListener("click", (e) => {
       const act = e.target.closest("[data-ia-msg-action]");
       if (act) {
-        // If action is an anchor, prevent the default "#" navigation.
-        if (act.tagName === 'A') { try { e.preventDefault(); } catch(_){} }
         const a = act.getAttribute("data-ia-msg-action");
         if (a === "new") openSheet(shell);
-        if (a === "prefs") openPrefs(shell);
         if (a === "back") setMobile(shell, "list");
-        if (a === "close") closeMessages();
         return;
       }
 
@@ -622,77 +302,6 @@ function closeSheet(shell){
       });
     }
 
-
-    const upBtn = el(shell, "[data-ia-msg-upload-btn]");
-    const upInp = el(shell, "[data-ia-msg-upload-input]");
-    if (upBtn && upInp) {
-      upBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        try { upInp.click(); } catch(_) {}
-      });
-
-      upInp.addEventListener("change", async () => {
-        const files = upInp.files ? Array.from(upInp.files) : [];
-        upInp.value = "";
-        if (!files.length) return;
-
-        const ta = el(shell, "[data-ia-msg-send-input]");
-        const prog = el(shell, "[data-ia-msg-upload-progress]");
-        const progLabel = el(shell, "[data-ia-msg-upload-label]");
-        const progPct = el(shell, "[data-ia-msg-upload-pct]");
-        const progFill = el(shell, "[data-ia-msg-upload-fill]");
-
-        const showProg = (name) => {
-          if (!prog) return;
-          prog.hidden = false;
-          if (progLabel) progLabel.textContent = "Uploading " + (name || "…");
-          if (progPct) progPct.textContent = "0%";
-          if (progFill) progFill.style.width = "0%";
-        };
-        const setProg = (pct) => {
-          if (pct == null) return;
-          if (progPct) progPct.textContent = String(pct) + "%";
-          if (progFill) progFill.style.width = String(pct) + "%";
-        };
-        const hideProgSoon = () => {
-          if (!prog) return;
-          try { setTimeout(() => { prog.hidden = true; }, 800); } catch(_) {}
-        };
-
-        for (let i = 0; i < files.length; i++) {
-          const f = files[i];
-          showProg(f && f.name ? f.name : "");
-
-          try {
-            const res = await postFileProgress("ia_message_upload", f, {}, (pct) => setProg(pct));
-            if (res && res.success && res.data && res.data.url) {
-              const url = String(res.data.url);
-              if (ta) {
-                const cur = String(ta.value || "");
-                ta.value = (cur ? (cur.trimEnd() + "\n") : "") + url;
-              }
-              setProg(100);
-            } else {
-              alert("Upload failed.");
-            }
-          } catch (e) {
-            alert("Upload failed.");
-          }
-        }
-
-        hideProgSoon();
-        if (ta) { try { ta.focus(); } catch(_){} }
-      });
-    }
-
-
-    // Defensive: on some Atrium/mobile builds, global scripts can hide buttons/
-    // header actions in narrow portrait after initial paint. The symptom is
-    // "visible for a split second, then gone". We lock the visibility of the
-    // Messages sidebar actions (New + Settings) by observing attribute changes
-    // and restoring a safe display/visibility state.
-    lockSidebarActions(shell);
-
     const qNew = el(shell, "[data-ia-msg-new-q]");
     const sugNew = el(shell, "[data-ia-msg-new-suggest]");
     const hid = el(shell, "[data-ia-msg-new-to-phpbb]");
@@ -707,12 +316,12 @@ function closeSheet(shell){
         hid.value = "";
         start.disabled = true;
 
-        if (v.length < 1) { sugNew.classList.remove("open"); sugNew.innerHTML = ""; return; }
+        if (v.length < 2) { sugNew.classList.remove("open"); sugNew.innerHTML = ""; return; }
 
         st.userTimer = setTimeout(async () => {
           const results = await userSearch(v);
           renderSuggest(sugNew, results, (picked) => {
-            qNew.value = picked.display || picked.username || "";
+            qNew.value = picked.label || "";
             hid.value = String(picked.id || "");
             start.disabled = !(Number(hid.value) || 0);
             sugNew.classList.remove("open");
@@ -721,116 +330,13 @@ function closeSheet(shell){
         }, 220);
       });
     }
-
-    // Click outside closes new chat suggestions
-    document.addEventListener('click', (e) => {
-      const sheet = el(shell, '[data-ia-msg-sheet="newchat"]');
-      if (!sheet || !sheet.classList.contains('open')) return;
-      const q = el(sheet, '[data-ia-msg-new-q]');
-      const box = el(sheet, '[data-ia-msg-new-suggest]');
-      if (!box) return;
-      if (e.target === q || box.contains(e.target)) return;
-      box.classList.remove('open');
-      box.innerHTML = '';
-    }, { capture: true });
-
-const chatQ = el(shell, "[data-ia-msg-chat-q]");
-    if (chatQ) {
-      chatQ.addEventListener("input", () => {
-        applyThreadFilter(shell, chatQ.value || "");
-      });
-    }
-  }
-
-  // ---------------------------
-  // Notifications (badge + poll)
-  // ---------------------------
-  function findChatNavTargets(){
-    const out = [];
-    // Common patterns: href contains tab=messages or data-tab="messages"
-    qa(document, 'a[href*="tab=messages"], button[data-tab="messages"], a[data-tab="messages"]').forEach(el => out.push(el));
-    // Fallback: bottom nav item whose text is "Chat"
-    qa(document, 'a,button').forEach(el => {
-      if (out.includes(el)) return;
-      const t = (el.textContent || '').trim().toLowerCase();
-      if (t === 'chat') out.push(el);
-    });
-    // De-dupe
-    return Array.from(new Set(out));
-  }
-
-  function ensureBadge(target){
-    if (!target) return null;
-    // Prefer positioning relative to the icon itself (not the whole nav item)
-    // so the badge overlaps the icon corner on both mobile and desktop.
-    let wrap = target.querySelector('.ia-msg-badge-wrap');
-    let badge = target.querySelector('.ia-msg-badge');
-    if (wrap && badge) return badge;
-
-    // If the target is a nav link/button that contains an icon, wrap the icon.
-    const icon = target.querySelector('svg, i, .ia-icon, .dashicons, .fa, .lucide');
-    const iconNode = icon || target;
-
-    if (iconNode && iconNode !== wrap){
-      // Create wrapper once
-      wrap = document.createElement('span');
-      wrap.className = 'ia-msg-badge-wrap';
-
-      // Insert wrapper in place of the iconNode
-      const parent = iconNode.parentNode;
-      if (parent) { parent.insertBefore(wrap, iconNode); wrap.appendChild(iconNode); }
-    }
-
-    // Attach badge to wrapper (or target if wrapping wasn't possible)
-    const host = wrap || target;
-    badge = host.querySelector('.ia-msg-badge');
-    if (badge) return badge;
-    badge = document.createElement('span');
-    badge.className = 'ia-msg-badge';
-    badge.textContent = '';
-    badge.style.display = 'none';
-    host.appendChild(badge);
-    return badge;
-  }
-
-  async function fetchUnreadCount(){
-    try {
-      const res = await post("ia_message_unread_count", { nonce: IA_MESSAGE.nonceBoot });
-      if (res && res.success && res.data) return Number(res.data.count || 0) || 0;
-    } catch(e){}
-    return 0;
-  }
-
-  async function updateBadges(){
-    const count = await fetchUnreadCount();
-    const targets = findChatNavTargets();
-    targets.forEach(t => {
-      const b = ensureBadge(t);
-      if (!b) return;
-      if (count > 0) {
-        b.textContent = String(count);
-        b.style.display = '';
-      } else {
-        b.textContent = '';
-        b.style.display = 'none';
-      }
-    });
-  }
-
-  function startBadgeLoop(){
-    updateBadges();
-    window.setInterval(updateBadges, 15000);
   }
 
   function activate(){
     const shells = findShells();
     if (!shells.length) return;
 
-    // Start global badge updater (unread count)
-    startBadgeLoop();
-
     shells.forEach(bindOnce);
-    setFullscreen(true);
     shells.forEach(loadThreads);
 
     // Deep-link support: ?ia_msg_to=<phpbb_id>
@@ -857,99 +363,11 @@ const chatQ = el(shell, "[data-ia-msg-chat-q]");
 
   }
 
-  function setFullscreen(on){
-    try {
-      const mobile = window.matchMedia && window.matchMedia('(max-width: 820px)').matches;
-      const enable = !!on && !!mobile;
-      document.body.classList.toggle('ia-msg-fullscreen', enable);
-    } catch(e) {}
-  }
-
-  
-function closeMessages(){
-  // Exit fullscreen first (so Atrium tabs/nav are visible again).
-  setFullscreen(false);
-
-  const stripDeepLinkParams = (url) => {
-    try {
-      const u = new URL(url);
-      // Force connect and remove known deep-link params that can hijack navigation.
-      u.searchParams.set('tab','connect');
-      ['ia_msg_to','ia_profile','ia_profile_name','iad_topic','iad_post','iad_page','iad_reply','iad_comment'].forEach(k => u.searchParams.delete(k));
-      return u.toString();
-    } catch(e) { return null; }
-  };
-
-  const tryAtrium = () => {
-    // If Atrium exposes a JS router, prefer it.
-    try {
-      if (window.IA_ATRIUM && typeof window.IA_ATRIUM.setTab === 'function') {
-        window.IA_ATRIUM.setTab('connect');
-        return true;
-      }
-    } catch(e){}
-    try {
-      if (window.IA_ATRIUM && typeof window.IA_ATRIUM.openTab === 'function') {
-        window.IA_ATRIUM.openTab('connect');
-        return true;
-      }
-    } catch(e){}
-    // Some shells listen for this custom event.
-    try {
-      const ev = new CustomEvent('ia_atrium:requestTab', { detail: { tab: 'connect', source: 'ia-message' } });
-      window.dispatchEvent(ev);
-      document.dispatchEvent(ev);
-      return true;
-    } catch(e){}
-    return false;
-  };
-
-  const clickConnect = () => {
-    const sel = [
-      'a[href*="tab=connect"]',
-      'button[data-tab="connect"]',
-      'a[data-tab="connect"]',
-      'button[data-ia-tab="connect"]',
-      'a[data-ia-tab="connect"]',
-      '[data-tab-key="connect"]',
-      '[data-ia-tab-key="connect"]'
-    ].join(',');
-    const btn = document.querySelector(sel);
-    if (btn) { try { btn.click(); return true; } catch(e){} }
-    return false;
-  };
-
-  // Try in order: Atrium router → click Connect tab → URL fallback.
-  if (tryAtrium()) return;
-
-  // Tabs may re-appear a tick after fullscreen class is removed, so retry a few times.
-  const attempts = [0, 40, 140];
-  for (const ms of attempts) {
-    if (ms === 0) {
-      if (clickConnect()) return;
-    } else {
-      setTimeout(() => { try { clickConnect(); } catch(_){} }, ms);
-    }
-  }
-
-  // Deterministic fallback (prevents "Druids" deep-link return).
-  const fixed = stripDeepLinkParams(window.location.href);
-  if (fixed) { try { window.location.href = fixed; return; } catch(e){} }
-
-  // Final fallback.
-  try { window.location.href = (window.location.origin || "") + "/?tab=connect"; } catch(e) {}
-}
-
-
   // Atrium event (and direct URL load)
   function bindAtrium(){
     const handler = (ev) => {
       const tab = ev && ev.detail && ev.detail.tab;
-      if (tab === IA_MESSAGE.panelKey) {
-        activate();
-      } else {
-        setFullscreen(false);
-      }
+      if (tab === IA_MESSAGE.panelKey) activate();
     };
     window.addEventListener("ia_atrium:tabChanged", handler);
     document.addEventListener("ia_atrium:tabChanged", handler);
@@ -957,199 +375,8 @@ function closeMessages(){
     try {
       const urlTab = (new URL(window.location.href)).searchParams.get("tab");
       if (urlTab === IA_MESSAGE.panelKey) activate();
-      else setFullscreen(false);
     } catch(e){}
-
-    // Keep fullscreen state in sync with viewport.
-    const onR = () => {
-      const active = (() => {
-        try { return (new URL(window.location.href)).searchParams.get('tab') === IA_MESSAGE.panelKey; } catch(e){ return false; }
-      })();
-      setFullscreen(active);
-    };
-    window.addEventListener('resize', onR, { passive:true });
-    window.addEventListener('orientationchange', onR, { passive:true });
   }
 
   ready(bindAtrium);
-
-  // ---------------------------
-  // Media Viewer (fullscreen)
-  // ---------------------------
-  const IA_MSG_MEDIA_VIEWER = (() => {
-    let viewerEl = null;
-    let items = [];
-    let idx = 0;
-    let scale = 1;
-
-    function ensure(){
-      if (viewerEl) return viewerEl;
-      const el = document.createElement("div");
-      el.className = "ia-msg-media-viewer";
-      el.innerHTML = `
-        <div class="ia-msg-media-viewer__backdrop" data-ia-msg-mv-close="1"></div>
-        <div class="ia-msg-media-viewer__frame" role="dialog" aria-modal="true" aria-label="Media viewer">
-          <div class="ia-msg-media-viewer__topbar">
-            <button type="button" class="ia-msg-media-viewer__btn" data-ia-msg-mv-prev="1" aria-label="Previous">‹</button>
-            <div class="ia-msg-media-viewer__title" data-ia-msg-mv-title></div>
-            <div class="ia-msg-media-viewer__count" data-ia-msg-mv-count></div>
-            <a class="ia-msg-media-viewer__btn" data-ia-msg-mv-download href="#" download aria-label="Download">⬇</a>
-            <button type="button" class="ia-msg-media-viewer__btn" data-ia-msg-mv-close="1" aria-label="Close">×</button>
-            <button type="button" class="ia-msg-media-viewer__btn" data-ia-msg-mv-next="1" aria-label="Next">›</button>
-          </div>
-          <div class="ia-msg-media-viewer__body" data-ia-msg-mv-body></div>
-          <div class="ia-msg-media-viewer__toolbar" data-ia-msg-mv-toolbar>
-            <button type="button" class="ia-msg-media-viewer__btn" data-ia-msg-mv-zoomout="1" aria-label="Zoom out">−</button>
-            <button type="button" class="ia-msg-media-viewer__btn" data-ia-msg-mv-zoomreset="1" aria-label="Reset zoom">⟲</button>
-            <button type="button" class="ia-msg-media-viewer__btn" data-ia-msg-mv-zoomin="1" aria-label="Zoom in">+</button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(el);
-      viewerEl = el;
-
-      // controls
-      el.addEventListener("click", (ev) => {
-        const t = ev.target;
-        if (!(t instanceof Element)) return;
-        if (t.closest('[data-ia-msg-mv-close="1"]')) { close(); return; }
-        if (t.closest('[data-ia-msg-mv-prev="1"]')) { prev(); return; }
-        if (t.closest('[data-ia-msg-mv-next="1"]')) { next(); return; }
-        if (t.closest('[data-ia-msg-mv-zoomin="1"]')) { zoomBy(0.15); return; }
-        if (t.closest('[data-ia-msg-mv-zoomout="1"]')) { zoomBy(-0.15); return; }
-        if (t.closest('[data-ia-msg-mv-zoomreset="1"]')) { zoomSet(1); return; }
-      });
-
-      // keyboard
-      document.addEventListener("keydown", (ev) => {
-        if (!isOpen()) return;
-        if (ev.key === "Escape") { close(); }
-        else if (ev.key === "ArrowLeft") { prev(); }
-        else if (ev.key === "ArrowRight") { next(); }
-        else if (ev.key === "+" || ev.key === "=") { zoomBy(0.15); }
-        else if (ev.key === "-" || ev.key === "_") { zoomBy(-0.15); }
-      });
-
-      return el;
-    }
-
-    function isOpen(){ return !!viewerEl && viewerEl.classList.contains("is-open"); }
-
-    function open(list, startIndex){
-      ensure();
-      items = Array.isArray(list) ? list : [];
-      idx = Math.max(0, Math.min(items.length - 1, Number(startIndex)||0));
-      viewerEl.classList.add("is-open");
-      document.documentElement.classList.add("ia-msg-modal-open");
-      render();
-    }
-
-    function close(){
-      if (!viewerEl) return;
-      viewerEl.classList.remove("is-open");
-      document.documentElement.classList.remove("ia-msg-modal-open");
-      const body = viewerEl.querySelector('[data-ia-msg-mv-body]');
-      if (body) body.innerHTML = "";
-      scale = 1;
-      items = [];
-      idx = 0;
-    }
-
-    function prev(){ if (!items.length) return; idx = (idx - 1 + items.length) % items.length; scale = 1; render(); }
-    function next(){ if (!items.length) return; idx = (idx + 1) % items.length; scale = 1; render(); }
-
-    function zoomSet(v){
-      scale = Math.max(0.25, Math.min(5, Number(v)||1));
-      applyZoom();
-    }
-    function zoomBy(delta){ zoomSet(scale + delta); }
-
-    function applyZoom(){
-      if (!viewerEl) return;
-      const img = viewerEl.querySelector(".ia-msg-media-viewer__img");
-      if (img) img.style.transform = `scale(${scale})`;
-    }
-
-    function render(){
-      if (!viewerEl) return;
-      const it = items[idx];
-      if (!it) return;
-
-      const title = viewerEl.querySelector('[data-ia-msg-mv-title]');
-      const count = viewerEl.querySelector('[data-ia-msg-mv-count]');
-      const body = viewerEl.querySelector('[data-ia-msg-mv-body]');
-      const dl = viewerEl.querySelector('[data-ia-msg-mv-download]');
-      const tb = viewerEl.querySelector('[data-ia-msg-mv-toolbar]');
-
-      const url = String(it.url || "");
-      const type = String(it.type || "file");
-      const name = it.name ? String(it.name) : fileNameFromUrl(url);
-
-      if (title) title.textContent = name;
-      if (count) count.textContent = items.length > 1 ? `${idx+1}/${items.length}` : "";
-      if (dl) dl.setAttribute("href", url);
-
-      if (body) body.innerHTML = "";
-
-      // toolbar only meaningful for images
-      if (tb) tb.style.display = (type === "image") ? "" : "none";
-
-      if (!body) return;
-
-      if (type === "image") {
-        const wrap = document.createElement("div");
-        wrap.className = "ia-msg-media-viewer__media";
-        wrap.innerHTML = `<img class="ia-msg-media-viewer__img" src="${esc(url)}" alt="${esc(name)}">`;
-        body.appendChild(wrap);
-
-        // wheel zoom desktop
-        wrap.addEventListener("wheel", (ev) => {
-          ev.preventDefault();
-          const dir = ev.deltaY > 0 ? -0.1 : 0.1;
-          zoomBy(dir);
-        }, { passive:false });
-
-        applyZoom();
-      } else if (type === "video") {
-        body.innerHTML = `<div class="ia-msg-media-viewer__media"><video src="${esc(url)}" controls playsinline></video></div>`;
-      } else if (type === "audio") {
-        body.innerHTML = `<div class="ia-msg-media-viewer__media"><audio src="${esc(url)}" controls></audio></div>`;
-      } else {
-        // fallback
-        body.innerHTML = `<div class="ia-msg-media-viewer__media"><a class="ia-msg-pill" href="${esc(url)}" target="_blank" rel="noopener noreferrer">📄 ${esc(name)}</a></div>`;
-      }
-    }
-
-    return { open, close, isOpen };
-  })();
-
-  // Delegate clicks on inline media to open viewer with nav across the whole thread
-  document.addEventListener("click", (ev) => {
-    const t = ev.target instanceof Element ? ev.target : null;
-    if (!t) return;
-    const btn = t.closest(".ia-msg-media[data-ia-msg-media-url]");
-    if (!btn) return;
-
-    ev.preventDefault();
-
-    const url = btn.getAttribute("data-ia-msg-media-url") || "";
-    const type = btn.getAttribute("data-ia-msg-media-type") || "file";
-
-    // Build gallery list from current open chat log
-    const log = document.querySelector('.ia-msg-shell[data-panel="'+ esc(IA_MESSAGE.panelKey) +'"] [data-ia-msg-chat-messages]') || document.querySelector("[data-ia-msg-chat-messages]");
-    const nodes = log ? Array.from(log.querySelectorAll(".ia-msg-media[data-ia-msg-media-url]")) : [];
-    const list = nodes.map(n => ({
-      url: n.getAttribute("data-ia-msg-media-url") || "",
-      type: n.getAttribute("data-ia-msg-media-type") || "file",
-      name: fileNameFromUrl(n.getAttribute("data-ia-msg-media-url") || "")
-    })).filter(it => it.url);
-
-    let startIndex = 0;
-    for (let i=0;i<list.length;i++){
-      if (list[i].url === url) { startIndex = i; break; }
-    }
-
-    IA_MSG_MEDIA_VIEWER.open(list, startIndex);
-  });
-
 })();

@@ -18,7 +18,6 @@ function ia_message_boot(): void {
     ia_message_require('includes/services/threads.php');
     ia_message_require('includes/services/messages.php');
 	ia_message_require('includes/services/users.php');
-    ia_message_require('includes/services/notify.php');
 
 
     // Render

@@ -209,7 +209,7 @@ final class IA_User {
                     'phpbb_username_clean' => (string)($phpbb_user['username_clean'] ?? ''),
                     'email'                => (string)($phpbb_user['user_email'] ?? ''),
                     'wp_user_id'           => $wp_user_id,
-                    'status'               => 'partial',
+                    'status'               => 'linked',
                     'last_error'           => '',
                 ]);
             }
@@ -262,153 +262,26 @@ final class IA_User {
         return (int)$new_id;
     }
 
-    private function maybe_mint_peertube_token(array $phpbb_user, string $identifier, string $password, int $phpbb_user_id): void {
+    private function maybe_mint_peertube_token(string $identifier, string $password, int $phpbb_user_id): void {
         if (!class_exists('IA_Auth')) return;
 
         $auth = IA_Auth::instance();
-        $opt  = $auth->options();
+        $opt = $auth->options();
         if (($opt['peertube_oauth_method'] ?? 'password_grant') !== 'password_grant') return;
 
-        $engine_api = $this->peertube_api_cfg();
-        $email = (string)($phpbb_user['user_email'] ?? '');
-        $uname = (string)($phpbb_user['username_clean'] ?? ($phpbb_user['username'] ?? ''));
-        $uname = $uname !== '' ? $uname : $identifier;
+        $pt = $auth->peertube->password_grant($identifier, $password, $this->peertube_api_cfg());
+        if (empty($pt['ok'])) return;
 
-        // Always move identity into "partial" until we prove a user token is stored.
-        $auth->db->upsert_identity([
-            'phpbb_user_id'        => $phpbb_user_id,
-            'phpbb_username_clean' => (string)($phpbb_user['username_clean'] ?? ''),
-            'email'                => $email,
-            'status'               => 'partial',
-            'last_error'           => '',
-        ]);
-
-        $candidates = [];
-        foreach ([$identifier, $uname, $email] as $c) {
-            $c = trim((string)$c);
-            if ($c !== '' && !in_array($c, $candidates, true)) $candidates[] = $c;
-        }
-
-        $last_fail = '';
-
-        $try_grant = function(string $who) use ($auth, $password, $engine_api, &$last_fail): array {
-            $pt = $auth->peertube->password_grant($who, $password, $engine_api);
-            if (empty($pt['ok'])) {
-                $last_fail = (string)($pt['message'] ?? 'PeerTube password_grant failed.');
-                return ['ok' => false];
-            }
-            return ['ok' => true, 'token' => (array)($pt['token'] ?? [])];
-        };
-
-        // 1) Try grant with candidate identifiers.
-        $token_payload = null;
-        foreach ($candidates as $who) {
-            $r = $try_grant($who);
-            if (!empty($r['ok'])) { $token_payload = $r['token']; break; }
-        }
-
-        // 2) If grant failed, attempt Option-2 provisioning via admin token: find/create user, sync password, retry.
-        if (!$token_payload) {
-            $pt_user = null;
-
-            // Search by email first, then username, then whatever the user typed.
-            foreach ([$email, $uname, $identifier] as $needle) {
-                $needle = trim((string)$needle);
-                if ($needle === '') continue;
-                $found = $auth->peertube->admin_find_user($needle, $engine_api);
-                if (!empty($found['ok']) && !empty($found['user']) && is_array($found['user'])) {
-                    $pt_user = $found['user'];
-                    break;
-                } elseif (!empty($found['message'])) {
-                    $last_fail = (string)$found['message'];
-                }
-            }
-
-            if ($pt_user) {
-                $pt_uid = (int)($pt_user['id'] ?? 0);
-                if ($pt_uid > 0) {
-                    $upd = $auth->peertube->admin_update_user_password($pt_uid, $password, $engine_api);
-                    if (empty($upd['ok'])) {
-                        $last_fail = (string)($upd['message'] ?? 'PeerTube password update failed.');
-                    }
-                }
-            } else {
-                // Create a PeerTube user if missing (uses same password).
-                $create_email = $email !== '' ? $email : ($uname . '@example.invalid');
-                $create = $auth->peertube->admin_create_user($uname, $create_email, $password, $uname, $engine_api);
-                if (!empty($create['ok'])) {
-                    $pt_uid = (int)($create['peertube_user_id'] ?? 0);
-                    $pt_aid = (int)($create['peertube_account_id'] ?? 0);
-
-                    // Store discovered PeerTube ids (still partial until token stored).
-                    $auth->db->upsert_identity([
-                        'phpbb_user_id'        => $phpbb_user_id,
-                        'phpbb_username_clean' => (string)($phpbb_user['username_clean'] ?? ''),
-                        'email'                => $email,
-                        'peertube_user_id'     => $pt_uid ?: null,
-                        'peertube_account_id'  => $pt_aid ?: null,
-                        'status'               => 'partial',
-                        'last_error'           => '',
-                    ]);
-                } else {
-                    $last_fail = (string)($create['message'] ?? 'PeerTube user creation failed.');
-                }
-            }
-
-            // Retry grant after provisioning.
-            foreach ($candidates as $who) {
-                $r = $try_grant($who);
-                if (!empty($r['ok'])) { $token_payload = $r['token']; break; }
-            }
-        }
-
-        if (!$token_payload) {
-            // Record why we couldn't mint a token.
-            $auth->db->upsert_identity([
-                'phpbb_user_id'        => $phpbb_user_id,
-                'phpbb_username_clean' => (string)($phpbb_user['username_clean'] ?? ''),
-                'email'                => $email,
-                'status'               => 'partial',
-                'last_error'           => $last_fail !== '' ? $last_fail : 'PeerTube token minting failed.',
-            ]);
-            return;
-        }
-
-        // Store token encrypted.
-        $expires_in = (int)($token_payload['expires_in'] ?? 0);
+        $tok = (array)($pt['token'] ?? []);
+        $expires_in = (int)($tok['expires_in'] ?? 0);
         $expires_at_utc = $expires_in > 0 ? gmdate('Y-m-d H:i:s', time() + $expires_in) : null;
 
         $auth->db->store_peertube_token($phpbb_user_id, [
-            'access_token_enc'  => $auth->crypto->encrypt((string)($token_payload['access_token'] ?? '')),
-            'refresh_token_enc' => $auth->crypto->encrypt((string)($token_payload['refresh_token'] ?? '')),
+            'access_token_enc'  => $auth->crypto->encrypt((string)($tok['access_token'] ?? '')),
+            'refresh_token_enc' => $auth->crypto->encrypt((string)($tok['refresh_token'] ?? '')),
             'expires_at_utc'    => $expires_at_utc,
             'scope'             => '',
             'token_source'      => 'password_grant',
-        ]);
-
-        // Read-back verify (prevents "linked but no token" state).
-        global $wpdb;
-        $table = $wpdb->prefix . 'ia_peertube_tokens';
-        $enc = $wpdb->get_var($wpdb->prepare("SELECT access_token_enc FROM {$table} WHERE phpbb_user_id=%d LIMIT 1", $phpbb_user_id));
-
-        if (!is_string($enc) || $enc === '') {
-            $auth->db->upsert_identity([
-                'phpbb_user_id'        => $phpbb_user_id,
-                'phpbb_username_clean' => (string)($phpbb_user['username_clean'] ?? ''),
-                'email'                => $email,
-                'status'               => 'partial',
-                'last_error'           => 'Token store failed (no row written).',
-            ]);
-            return;
-        }
-
-        // Mark fully linked only once token exists.
-        $auth->db->upsert_identity([
-            'phpbb_user_id'        => $phpbb_user_id,
-            'phpbb_username_clean' => (string)($phpbb_user['username_clean'] ?? ''),
-            'email'                => $email,
-            'status'               => 'linked',
-            'last_error'           => '',
         ]);
     }
 
@@ -418,8 +291,6 @@ final class IA_User {
         $id = trim((string)($_POST['identifier'] ?? ''));
         $pw = (string)($_POST['password'] ?? '');
         $redirect_to = !empty($_POST['redirect_to']) ? esc_url_raw((string)$_POST['redirect_to']) : home_url('/');
-
-        $did_wp_signon = false;
 
         if ($id === '' || $pw === '') {
             wp_send_json_error(['message' => 'Missing username/password.'], 400);
@@ -453,8 +324,6 @@ if ($wp_user_id <= 0) {
         if ($u && !is_wp_error($u)) $login = $u->user_login;
     }
 
-    $did_wp_signon = true;
-
     $user = wp_signon([
         'user_login'    => $login,
         'user_password' => $pw,
@@ -481,68 +350,11 @@ if ($verified !== '1') {
     wp_send_json_error(['message' => 'Please verify your email to activate this account.'], 403);
 }
 
-// Let per-user PeerTube token mint plugins capture the plaintext password for this request.
-        do_action('ia_pt_user_password', $wp_user_id, $pw, $id);
-        // Hard-call capture to avoid reliance on action wiring in shadow-session stacks.
-        if (class_exists('IA_PT_Password_Capture') && method_exists('IA_PT_Password_Capture', 'capture_for_user')) {
-            try { IA_PT_Password_Capture::capture_for_user((int)$wp_user_id, (string)$pw, (string)$id); } catch (Throwable $e) { /* ignore */ }
-        }
+wp_set_current_user($wp_user_id);
+wp_set_auth_cookie($wp_user_id, true);
 
-
-        // Opportunistically mint the per-user PeerTube token now (non-blocking).
-        // This avoids later Stream write actions needing access to the plaintext password.
-        if (class_exists('IA_PeerTube_Token_Helper') && method_exists('IA_PeerTube_Token_Helper', 'get_token_for_current_user')) {
-            try {
-                IA_PeerTube_Token_Helper::get_token_for_current_user();
-            } catch (Throwable $e) {
-                // Non-fatal.
-            }
-        }
-
-        // If we did not use wp_signon (phpBB-auth manual login), fire wp_login so downstream hooks run.
-        if (!$did_wp_signon) {
-            $uobj = get_user_by('id', $wp_user_id);
-            if ($uobj && !is_wp_error($uobj)) {
-                do_action('wp_login', $uobj->user_login, $uobj);
-            }
-        }
-
-        wp_set_current_user($wp_user_id);
-        wp_set_auth_cookie($wp_user_id, true);
-
-// --- PeerTube write identity requires a phpBB id mapping ---
-// Prefer the phpBB id returned from phpBB auth, else fall back to the WP user's stored phpBB id.
-$phpbb_user_id = (int)($phpbb_user['user_id'] ?? 0);
-if ($phpbb_user_id <= 0) {
-    $phpbb_user_id = (int)get_user_meta($wp_user_id, 'ia_phpbb_user_id', true);
-}
-if ($phpbb_user_id > 0) {
-    // Persist the mapping on the WP user as a cheap fallback for other plugins.
-    update_user_meta($wp_user_id, 'ia_phpbb_user_id', (string)$phpbb_user_id);
-
-    // If IA Auth is available, keep the canonical identity map table up to date.
-    if (class_exists('IA_Auth')) {
-        try {
-            $auth = IA_Auth::instance();
-            $auth->db->upsert_identity([
-                'phpbb_user_id'        => $phpbb_user_id,
-                'phpbb_username_clean' => (string)($phpbb_user['username_clean'] ?? ''),
-                'email'                => (string)($phpbb_user['user_email'] ?? ''),
-                'wp_user_id'           => (int)$wp_user_id,
-                'status'               => 'partial',
-                'last_error'           => '',
-            ]);
-        } catch (Throwable $e) {
-            // Non-fatal.
-        }
-    }
-}
-
-// Mint a *user* PeerTube token so Stream writes are attributed to the logged-in user.
-// Use the identifier the user actually provided (can be username or email).
-if ($phpbb_user_id > 0) {
-    $this->maybe_mint_peertube_token($phpbb_user, $id, $pw, $phpbb_user_id);
-}
+// If PeerTube provisioning is enabled, mint/refresh an admin token for follow-on calls when needed.
+$this->maybe_mint_peertube_token((string)($phpbb_user['username'] ?? $id), $pw, (int)($phpbb_user['user_id'] ?? 0));
 
         do_action('ia_user_after_login', $phpbb_user, $wp_user_id);
 
@@ -560,8 +372,6 @@ if ($phpbb_user_id > 0) {
         $pw       = (string)($_POST['password'] ?? '');
         $pw2      = (string)($_POST['password2'] ?? '');
         $redirect_to = !empty($_POST['redirect_to']) ? esc_url_raw((string)$_POST['redirect_to']) : home_url('/');
-
-        $did_wp_signon = false;
 
         if ($username === '' || $email === '' || $pw === '' || $pw2 === '') {
             wp_send_json_error(['message' => 'All fields are required.'], 400);

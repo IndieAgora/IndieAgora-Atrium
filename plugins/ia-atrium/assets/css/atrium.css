@@ -56,11 +56,40 @@
 .ia-atrium-main {
   width: 100%;
   margin-top: 16px;
+  /* In "panel scroll" mode, JS sets an explicit height on .ia-atrium-main
+     and the active panel becomes the scroll container. */
+  overflow: hidden;
 }
 
 /* Panels now span full width */
 .ia-panel { display: none; }
 .ia-panel.active { display: block; }
+
+/* ───────────────────────────────────────────── */
+/* Panel scroll mode (independent scroll per tab) */
+/* ───────────────────────────────────────────── */
+
+html.ia-atrium-mode,
+body.ia-atrium-mode {
+  height: 100%;
+  overflow: hidden; /* disable window scroll; panels scroll instead */
+}
+
+.ia-atrium-shell[data-ia-scroll-mode="panels"] {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.ia-atrium-shell[data-ia-scroll-mode="panels"] .ia-atrium-main {
+  /* height is set by JS via inline style (fallback remains auto) */
+  overflow: hidden;
+}
+
+.ia-atrium-shell[data-ia-scroll-mode="panels"] .ia-panel {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* Inner content is wide but capped for readability */
 .ia-panel-inner {

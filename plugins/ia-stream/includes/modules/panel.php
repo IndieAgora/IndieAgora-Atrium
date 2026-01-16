@@ -19,7 +19,8 @@ final class IA_Stream_Module_Panel implements IA_Stream_Module_Interface {
     ?>
     <div id="ia-stream-shell"
          class="ia-stream-shell"
-         data-surface="stream">
+         data-surface="stream"
+         data-logged-in="<?php echo is_user_logged_in() ? '1' : '0'; ?>">
 
       <header class="ia-stream-header" role="navigation" aria-label="Stream tabs">
         <div class="ia-stream-tabs" role="tablist">
@@ -37,6 +38,12 @@ final class IA_Stream_Module_Panel implements IA_Stream_Module_Interface {
             Channels
           </button>
         </div>
+
+<div class="ia-stream-actions-top">
+  <?php if (is_user_logged_in()): ?>
+    <button class="ia-stream-upload-btn" type="button">Upload</button>
+  <?php endif; ?>
+</div>
       </header>
 
       <main class="ia-stream-main" role="main">
@@ -60,7 +67,16 @@ final class IA_Stream_Module_Panel implements IA_Stream_Module_Interface {
             </div>
           </div>
         </section>
-      </main>
+
+        <section class="ia-stream-panel"
+                 data-panel="subs"
+                 role="tabpanel"
+                 hidden>
+          <div class="ia-stream-subs">
+            <div class="ia-stream-placeholder">Loading subscriptions…</div>
+          </div>
+        </section>
+      </main
 
     </div>
     <?php

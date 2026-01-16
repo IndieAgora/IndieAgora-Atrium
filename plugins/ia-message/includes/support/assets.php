@@ -24,8 +24,7 @@ add_action('wp_enqueue_scripts', function () {
     'ajaxUrl'   => admin_url('admin-ajax.php'),
     'nonceBoot' => ia_message_nonce_field('boot'),
   ]);
-}, 999);
-
+});
 
  /**
   * Inject the panel template so Atrium can mount it at runtime.

@@ -27,6 +27,7 @@ function ia_stream_assets_boot(): void {
     wp_enqueue_style('ia-stream-channels', IA_STREAM_URL . 'assets/css/ia-stream.channels.css', ['ia-stream-layout'], $ver);
     wp_enqueue_style('ia-stream-player', IA_STREAM_URL . 'assets/css/ia-stream.player.css', ['ia-stream-cards'], $ver);
     wp_enqueue_style('ia-stream-modal', IA_STREAM_URL . 'assets/css/ia-stream.modal.css', ['ia-stream-layout'], $ver);
+    wp_enqueue_style('ia-stream-subs', IA_STREAM_URL . 'assets/css/ia-stream.subs.css', ['ia-stream-layout','ia-stream-cards'], $ver);
 
     /* ---------- JS ---------- */
     wp_enqueue_script('ia-stream-core', IA_STREAM_URL . 'assets/js/ia-stream.core.js', [], $ver, true);
@@ -37,53 +38,29 @@ function ia_stream_assets_boot(): void {
     wp_enqueue_script('ia-stream-ui-shell', IA_STREAM_URL . 'assets/js/ia-stream.ui.shell.js', ['ia-stream-core'], $ver, true);
     wp_enqueue_script('ia-stream-ui-feed', IA_STREAM_URL . 'assets/js/ia-stream.ui.feed.js', ['ia-stream-api'], $ver, true);
     wp_enqueue_script('ia-stream-ui-channels', IA_STREAM_URL . 'assets/js/ia-stream.ui.channels.js', ['ia-stream-api'], $ver, true);
+    wp_enqueue_script('ia-stream-ui-subs', IA_STREAM_URL . 'assets/js/ia-stream.ui.subs.js', ['ia-stream-api'], $ver, true);
     wp_enqueue_script('ia-stream-ui-video', IA_STREAM_URL . 'assets/js/ia-stream.ui.video.js', ['ia-stream-ui-feed'], $ver, true);
     wp_enqueue_script('ia-stream-ui-comments', IA_STREAM_URL . 'assets/js/ia-stream.ui.comments.js', ['ia-stream-ui-video'], $ver, true);
+    wp_enqueue_script('ia-stream-ui-upload', IA_STREAM_URL . 'assets/js/ia-stream.ui.upload.js', ['ia-stream-api'], $ver, true);
 
     // Boot waits for everything (including state + UI modules)
     wp_enqueue_script('ia-stream-boot', IA_STREAM_URL . 'assets/js/ia-stream.boot.js', [
       'ia-stream-ui-shell',
       'ia-stream-ui-feed',
       'ia-stream-ui-channels',
+      'ia-stream-ui-subs',
       'ia-stream-ui-video',
       'ia-stream-ui-comments',
+      'ia-stream-ui-upload',
       'ia-stream-state',
     ], $ver, true);
 
     // Inject config for JS API layer
-    // Resolve current identity (best-effort) for UI gating (delete buttons, etc.)
-    $identity = [
-      'loggedIn' => is_user_logged_in(),
-      'wpUserId' => (int) get_current_user_id(),
-      'phpbbUserId' => 0,
-      'peertubeUserId' => 0,
-      'canModerate' => false,
-    ];
-
-    if (is_user_logged_in()) {
-      $identity['canModerate'] = current_user_can('manage_options') || current_user_can('moderate_comments');
-      global $wpdb;
-      if ($wpdb instanceof wpdb) {
-        $map = $wpdb->prefix . 'ia_identity_map';
-        $row = $wpdb->get_row(
-          $wpdb->prepare("SELECT phpbb_user_id, peertube_user_id FROM {$map} WHERE wp_user_id=%d LIMIT 1", $identity['wpUserId']),
-          ARRAY_A
-        );
-        if (is_array($row)) {
-          $identity['phpbbUserId'] = (int)($row['phpbb_user_id'] ?? 0);
-          $identity['peertubeUserId'] = (int)($row['peertube_user_id'] ?? 0);
-        }
-      }
-      if ($identity['phpbbUserId'] <= 0) {
-        $identity['phpbbUserId'] = (int) get_user_meta($identity['wpUserId'], 'ia_phpbb_user_id', true);
-      }
-    }
-
     wp_add_inline_script('ia-stream-api', 'window.IA_STREAM_CFG = ' . wp_json_encode([
       'ajaxUrl' => admin_url('admin-ajax.php'),
       'nonce'   => function_exists('ia_stream_create_nonce') ? ia_stream_create_nonce() : '',
       'ver'     => $ver,
-      'identity' => $identity,
+      'loggedIn' => is_user_logged_in() ? 1 : 0,
     ]) . ';', 'before');
 
     // Optional: tiny boot trace (remove later)

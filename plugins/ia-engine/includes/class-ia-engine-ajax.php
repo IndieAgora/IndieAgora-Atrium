@@ -113,7 +113,7 @@ final class IA_Engine_Ajax {
         $resp = wp_remote_get($url, [
             'timeout' => 5,
             'headers' => [
-                'User-Agent' => 'IA-Engine/0.2.1',
+                'User-Agent' => 'IA-Engine/0.2.0',
             ],
         ]);
 

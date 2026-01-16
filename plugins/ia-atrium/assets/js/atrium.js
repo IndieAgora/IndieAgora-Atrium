@@ -37,6 +37,19 @@
     const tabs = qsa(".ia-tab", shell);
     const panels = qsa(".ia-panel", shell);
 
+    // --- Panel-scroll mode: save current panel scrollTop before switching.
+    // Atrium uses display:none/block for panels; by default the page scroll (window)
+    // is shared across tabs. In panel-scroll mode we disable window scrolling and
+    // make each panel its own scroll container.
+    try {
+      const cur = qs('.ia-panel.active', shell);
+      if (cur) {
+        const curKey = cur.dataset.panel || "";
+        const st = (cur.scrollTop || 0);
+        sessionStorage.setItem('ia_atrium_panel_scroll_' + curKey, String(st));
+      }
+    } catch (e) {}
+
     const hasTopTab = tabs.some(btn => btn.dataset.target === tabKey);
 
     // Only update the top tab strip if this tab exists there.
@@ -55,7 +68,51 @@
       panel.setAttribute("aria-hidden", isActive ? "false" : "true");
     });
 
+    // --- Panel-scroll mode: restore target panel scrollTop after switching.
+    try {
+      const next = qs('.ia-panel.active', shell);
+      if (next) {
+        const nextKey = next.dataset.panel || "";
+        const raw = sessionStorage.getItem('ia_atrium_panel_scroll_' + nextKey);
+        const st = raw ? (parseInt(raw, 10) || 0) : 0;
+        // Let layout settle before restoring.
+        requestAnimationFrame(() => {
+          try { next.scrollTop = st; } catch (e1) {}
+        });
+      }
+    } catch (e) {}
+
     dispatch("ia_atrium:tabChanged", { tab: tabKey });
+  }
+
+  function enablePanelScrollMode(shell) {
+    if (!shell) return;
+    try {
+      shell.setAttribute('data-ia-scroll-mode', 'panels');
+      document.documentElement.classList.add('ia-atrium-mode');
+      document.body.classList.add('ia-atrium-mode');
+    } catch (e) {}
+
+    const topbar = qs('.ia-atrium-topbar', shell);
+    const bottom = qs('.ia-bottom-nav', shell);
+    const main = qs('.ia-atrium-main', shell);
+    if (!main) return;
+
+    function setHeights() {
+      try {
+        const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        const th = topbar ? topbar.getBoundingClientRect().height : 0;
+        const bh = bottom ? bottom.getBoundingClientRect().height : 0;
+        // shell has margin-top (main) and internal spacing; keep a small cushion.
+        const cushion = 24;
+        const h = Math.max(200, Math.floor(vh - th - bh - cushion));
+        main.style.height = h + 'px';
+      } catch (e) {}
+    }
+
+    setHeights();
+    window.addEventListener('resize', setHeights);
+    window.addEventListener('orientationchange', setHeights);
   }
 
   function openModal(modal) {
@@ -243,6 +300,11 @@
   document.addEventListener("DOMContentLoaded", function () {
     const shell = qs("#ia-atrium-shell");
     if (!shell) return;
+
+    // Enable independent scrolling per tab by making each panel its own scroll container.
+    // This is the only reliable way to prevent "all tabs scroll together" given the
+    // current shell structure.
+    enablePanelScrollMode(shell);
 
     // Ensure the browser is allowed to restore scroll positions when using back/forward.
     // (Some environments default to manual; we prefer native behaviour.)

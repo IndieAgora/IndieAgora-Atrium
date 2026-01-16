@@ -353,24 +353,11 @@ class IA_Auth_DB {
             $this->wpdb->prepare("SELECT phpbb_user_id FROM $table WHERE phpbb_user_id=%d", $phpbb_user_id)
         );
 
-        $ok = false;
         if ($exists) {
-            $r = $this->wpdb->update($table, $data, ['phpbb_user_id' => $phpbb_user_id]);
-            // update() returns false on error, 0 if no change, >0 if updated.
-            $ok = ($r !== false);
+            $this->wpdb->update($table, $data, ['phpbb_user_id' => $phpbb_user_id]);
         } else {
             $data['phpbb_user_id'] = $phpbb_user_id;
-            $r = $this->wpdb->insert($table, $data);
-            $ok = (bool)$r;
-        }
-
-        if (!$ok) {
-            $this->log->error('store_peertube_token_failed', [
-                'phpbb_user_id' => $phpbb_user_id,
-                'table' => $table,
-                'last_error' => (string)$this->wpdb->last_error,
-            ]);
-            return false;
+            $this->wpdb->insert($table, $data);
         }
 
         return true;
