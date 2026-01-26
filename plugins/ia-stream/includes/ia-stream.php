@@ -20,6 +20,7 @@ $req = [
 
   // Services (PeerTube API-first)
   IA_STREAM_PATH . 'includes/services/peertube-api.php',
+  IA_STREAM_PATH . 'includes/services/comment-votes.php',
   IA_STREAM_PATH . 'includes/services/auth.php',
   IA_STREAM_PATH . 'includes/services/text.php',
 
@@ -34,7 +35,6 @@ $req = [
   IA_STREAM_PATH . 'includes/modules/channels.php',
   IA_STREAM_PATH . 'includes/modules/video.php',
   IA_STREAM_PATH . 'includes/modules/comments.php',
-  IA_STREAM_PATH . 'includes/modules/subscriptions.php',
   IA_STREAM_PATH . 'includes/modules/panel.php',
 
   // Optional general helpers

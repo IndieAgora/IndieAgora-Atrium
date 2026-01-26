@@ -2,7 +2,7 @@
 /**
  * Plugin Name: IA Discuss
  * Description: Atrium Discuss panel (phpBB-backed) with mobile-first feed + agoras + modal topic view.
- * Version: 0.3.1
+ * Version: 0.3.13
  * Author: IndieAgora
  * Text Domain: ia-discuss
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) exit;
  * Root constants MUST exist before any includes.
  * This file must live at: wp-content/plugins/ia-discuss/ia-discuss.php
  */
-if (!defined('IA_DISCUSS_VERSION')) define('IA_DISCUSS_VERSION', '0.3.1');
+if (!defined('IA_DISCUSS_VERSION')) define('IA_DISCUSS_VERSION','0.3.13');
 if (!defined('IA_DISCUSS_PATH'))    define('IA_DISCUSS_PATH', plugin_dir_path(__FILE__));
 if (!defined('IA_DISCUSS_URL'))     define('IA_DISCUSS_URL', plugin_dir_url(__FILE__));
 

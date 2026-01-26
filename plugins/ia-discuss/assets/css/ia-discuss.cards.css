@@ -92,6 +92,42 @@
   display: block;
 }
 
+/* -----------------------------
+   Feed view: make images preview-sized on desktop
+   - shrink width + cap height so attachments don't dominate
+----------------------------- */
+@media (min-width: 761px){
+  /* Constrain attachment container in feed so images render as previews (not banners) */
+  .iad-feed-list .iad-attwrap{
+    max-width: 420px !important;
+    margin: 12px auto !important;
+  }
+
+  /* Attachment media in feed cards */
+  .iad-feed-list .iad-att-media{
+    max-width: 420px !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+  }
+  .iad-feed-list .iad-att-img{
+    width: 100% !important;
+    height: auto;
+    max-height: 320px !important;
+    object-fit: contain !important;
+  }
+
+  /* Any images that arrive through excerpt HTML */
+  .iad-feed-list .iad-card-excerpt img{
+    display: block;
+    max-width: 420px !important;
+    height: auto;
+    max-height: 280px !important;
+    object-fit: contain !important;
+    margin: 8px auto !important;
+    border-radius: 12px;
+  }
+}
+
 /* Avoid excerpt HTML injecting margins that push layout weirdly */
 .iad-card-excerpt{
   max-width: 100%;

@@ -62,48 +62,27 @@
     return NS.api.post("ia_stream_comments", opts || {});
   };
 
-  NS.api.fetchMySubs = function (opts) {
-    return NS.api.post("ia_stream_my_subs", opts || {});
+  NS.api.fetchCommentThread = function (opts) {
+    return NS.api.post("ia_stream_comment_thread", opts || {});
   };
 
-// ---------------------------
-// Write actions (PeerTube via WP AJAX)
-// ---------------------------
+  NS.api.createCommentThread = function (opts) {
+    return NS.api.post("ia_stream_comment_create", opts || {});
+  };
 
-NS.api.rateVideo = function (videoId, rating) {
-  return NS.api.post("ia_stream_rate", { video_id: videoId, rating: rating || "like" });
-};
+  NS.api.replyToComment = function (opts) {
+    return NS.api.post("ia_stream_comment_reply", opts || {});
+  };
 
-NS.api.subscribe = function (uri) {
-  return NS.api.post("ia_stream_subscribe", { uri: uri || "" });
-};
+  NS.api.rateVideo = function (opts) {
+    return NS.api.post("ia_stream_video_rate", opts || {});
+  };
 
-NS.api.commentCreate = function (videoId, text) {
-  return NS.api.post("ia_stream_comment_create", { video_id: videoId, text: text || "" });
-};
+  NS.api.rateComment = function (opts) {
+    return NS.api.post("ia_stream_comment_rate", opts || {});
+  };
 
-// Upload uses multipart FormData (handled by WP AJAX)
-NS.api.upload = async function (file, name, description) {
-  const cfg = window.IA_STREAM_CFG || null;
-  if (!cfg || !cfg.ajaxUrl) return { ok: false, error: "IA_STREAM_CFG missing (ajax not wired yet)." };
-
-  const fd = new FormData();
-  fd.append("action", "ia_stream_upload");
-  fd.append("nonce", cfg.nonce || "");
-  fd.append("videofile", file);
-  if (name) fd.append("name", String(name));
-  if (description) fd.append("description", String(description));
-
-  try {
-    const res = await fetch(cfg.ajaxUrl, { method: "POST", credentials: "same-origin", body: fd });
-    const txt = await res.text();
-    const json = NS.util.safeJson(txt, null);
-    if (!json) return { ok: false, error: "Non-JSON response", raw: txt };
-    return json;
-  } catch (e) {
-    return { ok: false, error: e && e.message ? e.message : "Network error" };
-  }
-};
-
-
+  NS.api.deleteComment = function (opts) {
+    return NS.api.post("ia_stream_comment_delete", opts || {});
+  };
 })();

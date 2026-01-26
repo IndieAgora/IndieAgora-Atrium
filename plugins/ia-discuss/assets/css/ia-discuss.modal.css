@@ -197,6 +197,107 @@
 }
 
 
+
+/* -----------------------------
+   Topic view: keep uploaded images from dominating the screen
+   - mobile: cap height
+   - desktop: cap width + height
+----------------------------- */
+.iad-topic-modal .iad-att-media{
+  max-width: 100%;
+}
+.iad-topic-modal .iad-att-img{
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+}
+@media (min-width: 761px){
+  .iad-topic-modal .iad-att-media{
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .iad-topic-modal .iad-att-img{
+    max-height: 520px;
+  }
+}
+
+/* -----------------------------
+   Fullscreen image viewer (for attachments)
+----------------------------- */
+.iad-imgv{
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.iad-imgv[hidden]{ display:none; }
+.iad-imgv-backdrop{
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+}
+.iad-imgv-inner{
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+}
+.iad-imgv-img{
+  max-width: 96vw;
+  max-height: 92vh;
+  width: auto;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.25);
+}
+.iad-imgv-close{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.55);
+  color: rgba(255,255,255,0.92);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.iad-imgv-close:hover{
+  background: rgba(0,0,0,0.70);
+}
+
+/* Mobile: truly fullscreen viewer (no "floating card") */
+@media (max-width: 780px){
+  .iad-imgv-inner{
+    padding: 0;
+  }
+  .iad-imgv-img{
+    max-width: 100vw;
+    max-height: 100vh;
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    border: 0;
+    object-fit: contain;
+    background: rgba(0,0,0,0.25);
+  }
+  .iad-imgv-close{
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    right: calc(10px + env(safe-area-inset-right, 0px));
+  }
+}
+
 /* Fullscreen topic view (like ia-message chat) */
 .iad-topic-modal.is-fullscreen .iad-modal-sheet{
   left: 0;

@@ -134,6 +134,11 @@
           ${makeToolbar()}
           <textarea class="iad-textarea" data-iad-bodytext placeholder="Text (BBCode supported)"></textarea>
 
+          ${mode === "topic" ? `<label class="iad-check" style="display:flex;align-items:center;gap:8px;margin:8px 0 2px 0;user-select:none;">
+            <input type="checkbox" data-iad-notify checked />
+            <span>Email me replies to this topic</span>
+          </label>` : ``}
+
           <div data-iad-error aria-live="polite"></div>
 
           <div class="iad-attachlist" data-iad-attachlist></div>
@@ -368,10 +373,14 @@
       const bodyText = (ta.value || "").trim();
       const titleText = title ? (title.value || "").trim() : "";
 
+      const notifyEl = qs('[data-iad-notify]', box);
+      const notifyVal = notifyEl ? (notifyEl.checked ? 1 : 0) : 1;
+
       const payload = {
         mode,
         title: titleText,
         body: bodyText,
+        notify: (mode === 'topic') ? notifyVal : 1,
         attachments
       };
 

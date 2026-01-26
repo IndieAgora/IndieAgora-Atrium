@@ -21,9 +21,84 @@ final class IA_Discuss_Render_BBCode {
 
     $html = $has_real_html ? $raw : $this->bbcode_to_html($raw);
 
+    // Normalise paragraph structure before running HTML-level transforms.
     $html = $this->nl2p($html);
 
+    // If the post already contains HTML (eg. phpBB stored <a> links), we still want
+    // video links to render inline (where they appear) rather than being duplicated
+    // into the bottom media area.
+    $html = $this->embed_video_links_in_html($html);
+
     return wp_kses($html, $this->allowed_tags());
+  }
+
+  private function embed_video_links_in_html(string $html): string {
+    $s = (string)$html;
+
+    // Replace <a href="...">...</a> where the href is a video-like URL.
+    $s = preg_replace_callback('~<a\b[^>]*href=(["\'])(https?://[^"\']+)\1[^>]*>.*?</a>~is', function($m){
+      $u = rtrim((string)$m[2], ".,);:]");
+      $embed = $this->video_embed_html($u);
+      return $embed !== '' ? $embed : (string)$m[0];
+    }, $s);
+
+    // Replace any remaining standalone URLs that survive as plain text inside HTML.
+    // (Keep it conservative: only when surrounded by whitespace or paragraph boundaries.)
+    $s = preg_replace_callback('~(^|[\s>])((?:https?://)[^\s<>"\']+)~i', function($m){
+      $lead = (string)$m[1];
+      $u = rtrim((string)$m[2], ".,);:]");
+      $embed = $this->video_embed_html($u);
+      return $embed !== '' ? $lead . $embed : (string)$m[0];
+    }, $s);
+
+    return $s;
+  }
+
+  private function video_embed_html(string $url): string {
+    $raw = trim((string)$url);
+    if ($raw === '') return '';
+    $lu = strtolower($raw);
+
+    // Direct file videos
+    if (preg_match('~\.(mp4|webm|mov)(\?|$)~i', $lu)) {
+      $src = esc_url($raw);
+      if (!$src) return '';
+      return '<div class="iad-attwrap"><div class="iad-att-media iad-att-video">'
+        . '<video class="iad-att-video" controls playsinline preload="none">'
+        . '<source src="' . $src . '" />'
+        . '</video></div></div>';
+    }
+
+    // YouTube
+    $yid = '';
+    if (preg_match('~youtu\.be/([^\?/#]+)~i', $raw, $mm)) $yid = (string)$mm[1];
+    if ($yid === '' && preg_match('~[\?&]v=([^&]+)~i', $raw, $mm)) $yid = (string)$mm[1];
+    if ($yid === '' && preg_match('~youtube\.com/shorts/([^\?/#]+)~i', $raw, $mm)) $yid = (string)$mm[1];
+    if ($yid === '' && preg_match('~youtube\.com/live/([^\?/#]+)~i', $raw, $mm)) $yid = (string)$mm[1];
+    if ($yid !== '') {
+      $embed = 'https://www.youtube-nocookie.com/embed/' . rawurlencode($yid) . '?autoplay=0&playsinline=1&rel=0';
+      $eu = esc_url($embed);
+      if (!$eu) return '';
+      return '<div class="iad-attwrap"><div class="iad-att-media iad-att-video">'
+        . '<iframe class="iad-att-iframe" src="' . $eu . '" title="Video" frameborder="0" loading="lazy" referrerpolicy="origin-when-cross-origin"'
+        . ' allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe>'
+        . '</div></div>';
+    }
+
+    // PeerTube-ish: /videos/watch/{uuid} or /w/{id} -> /videos/embed/{id}
+    if (preg_match('~^(https?://[^/]+)/(?:w|videos/watch)/([^\?/#]+)~i', $raw, $mm)) {
+      $base = rtrim((string)$mm[1], '/');
+      $vid  = (string)$mm[2];
+      $embed = $base . '/videos/embed/' . rawurlencode($vid) . '?autoplay=0';
+      $eu = esc_url($embed);
+      if (!$eu) return '';
+      return '<div class="iad-attwrap"><div class="iad-att-media iad-att-video">'
+        . '<iframe class="iad-att-iframe" src="' . $eu . '" title="Video" frameborder="0" loading="lazy" referrerpolicy="origin-when-cross-origin"'
+        . ' allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe>'
+        . '</div></div>';
+    }
+
+    return '';
   }
 
   public function excerpt_html(string $text, int $maxChars): string {
@@ -170,36 +245,8 @@ final class IA_Discuss_Render_BBCode {
     $s = preg_replace_callback('~(^|\n)\s*(https?://[^\s<>"\']+)\s*(?=\n|$)~i', function($m){
       $lead = $m[1];
       $u = rtrim((string)$m[2], ".,);:]");
-      $lu = strtolower($u);
-      $is_video = (strpos($lu, 'youtube.com/watch') !== false) || (strpos($lu, 'youtu.be/') !== false) || (strpos($lu, 'youtube.com/shorts/') !== false) || (strpos($lu, 'youtube.com/live/') !== false) || (strpos($lu, '/videos/watch/') !== false) || (strpos($lu, '/videos/embed/') !== false) || preg_match('~https?://[^/]+/w/[^\s\?/#]+~i', $u) || preg_match('~\.(mp4|webm|mov)(\?|$)~', $lu);
-      if (!$is_video) return $m[0];
-      $embed = $u;
-
-      // PeerTube-ish embed URL (/w/<id> or /videos/watch/<id>)
-      if (preg_match('~^(https?://[^/]+)/(?:w|videos/watch)/([^\?/#]+)~i', $u, $mm)) {
-        $base = rtrim($mm[1], '/');
-        $vid  = $mm[2];
-        $embed = $base . '/videos/embed/' . rawurlencode($vid);
-      }
-
-      // YouTube embed URL
-      if (strpos($lu, 'youtu.be/') !== false || strpos($lu, 'youtube.com') !== false) {
-        $id = '';
-        if (preg_match('~youtu\.be/([^\?/#]+)~i', $u, $mm)) $id = $mm[1];
-        if ($id === '' && preg_match('~[\?&]v=([^&]+)~i', $u, $mm)) $id = $mm[1];
-        if ($id === '' && preg_match('~youtube\.com/shorts/([^\?/#]+)~i', $u, $mm)) $id = $mm[1];
-        if ($id === '' && preg_match('~youtube\.com/live/([^\?/#]+)~i', $u, $mm)) $id = $mm[1];
-        if ($id !== '') $embed = 'https://www.youtube.com/embed/' . rawurlencode($id);
-      }
-
-      // PeerTube embed URL (best-effort): /videos/watch/{uuid} -> /videos/embed/{uuid}
-      if (strpos($lu, '/videos/watch/') !== false) {
-        $embed = preg_replace('~(/videos)/watch/~i', '$1/embed/', $u);
-      }
-
-      $eu = esc_url($embed);
-      if (!$eu) return $lead;
-      return $lead . '<div class="iad-attwrap"><div class="iad-att-media iad-att-video"><iframe class="iad-att-iframe" src="' . $eu . '" title="Video" frameborder="0" loading="lazy" referrerpolicy="origin-when-cross-origin" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe></div></div>';
+      $embed = $this->video_embed_html($u);
+      return $embed !== '' ? $lead . $embed : $m[0];
     }, $s);
 
     // Auto-link remaining standalone URLs as rich link cards (favicon + title/desc/image).
@@ -431,6 +478,16 @@ final class IA_Discuss_Render_BBCode {
         'allow' => true,
         'allowfullscreen' => true,
         'class' => true,
+      ],
+      'video' => [
+        'controls' => true,
+        'playsinline' => true,
+        'preload' => true,
+        'class' => true,
+      ],
+      'source' => [
+        'src' => true,
+        'type' => true,
       ],
     ];
   }

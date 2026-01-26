@@ -1,0 +1,30 @@
+/* Connect typography refresh – scoped */
+.ia-connect {
+  --ia-font-ui: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+  --ia-font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-family: var(--ia-font-ui);
+}
+
+.ia-connect .ia-username,
+.ia-connect .ia-title {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.ia-connect .ia-meta,
+.ia-connect .ia-time {
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.ia-connect .ia-post-body,
+.ia-connect .ia-comment-body {
+  font-family: var(--ia-font-body);
+  line-height: 1.55;
+}
+
+.ia-connect button,
+.ia-connect .ia-pill {
+  font-family: var(--ia-font-ui);
+  letter-spacing: 0.02em;
+}

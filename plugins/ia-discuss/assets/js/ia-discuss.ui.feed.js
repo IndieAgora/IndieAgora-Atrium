@@ -612,7 +612,8 @@ function ensureVideoModal() {
   }
 
   async function loadFeed(view, forumId, offset) {
-    const tab = "new_posts";
+    let tab = "new_posts";
+    if (view === "noreplies") tab = "no_replies";
     const res = await API.post("ia_discuss_feed", {
       tab,
       offset: offset || 0,
@@ -869,6 +870,14 @@ function ensureVideoModal() {
         const card = agoraBtn.closest && agoraBtn.closest("[data-topic-id]");
         const fid = parseInt(agoraBtn.getAttribute("data-forum-id") || (card ? (card.getAttribute("data-forum-id") || "0") : "0"), 10) || 0;
         const nm = (agoraBtn.getAttribute("data-forum-name") || (card ? (card.getAttribute("data-forum-name") || "") : "")) || "";
+
+        // If we're already in this Agora view, ignore (prevents accidental reload-to-top on card clicks)
+        try {
+          const u = new URL(window.location.href);
+          const curView = (u.searchParams.get("view") || "");
+          const curFid = parseInt(u.searchParams.get("forum_id") || "0", 10) || 0;
+          if (curView === "agora" && curFid === fid) return;
+        } catch (err) {}
         if (fid) {
           window.dispatchEvent(new CustomEvent("iad:open_agora", { detail: { forum_id: fid, forum_name: nm } }));
         }

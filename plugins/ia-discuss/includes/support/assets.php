@@ -73,6 +73,7 @@ function ia_discuss_register_assets(): void {
   // UI shell + modules
   wp_register_script('ia-discuss-ui-shell', IA_DISCUSS_URL . 'assets/js/ia-discuss.ui.shell.js', ['ia-discuss-core'], $ver, $in_footer);
   wp_register_script('ia-discuss-ui-agora', IA_DISCUSS_URL . 'assets/js/ia-discuss.ui.agora.js', ['ia-discuss-core', 'ia-discuss-api'], $ver, $in_footer);
+  wp_register_script('ia-discuss-ui-agora-membership', IA_DISCUSS_URL . 'assets/js/ia-discuss.ui.agora.membership.js', ['ia-discuss-core', 'ia-discuss-api'], $ver, $in_footer);
   wp_register_script('ia-discuss-ui-feed', IA_DISCUSS_URL . 'assets/js/ia-discuss.ui.feed.js', ['ia-discuss-core', 'ia-discuss-api', 'ia-discuss-state'], $ver, $in_footer);
   wp_register_script('ia-discuss-ui-composer', IA_DISCUSS_URL . 'assets/js/ia-discuss.ui.composer.js', ['ia-discuss-core', 'ia-discuss-api'], $ver, $in_footer);
   wp_register_script('ia-discuss-ui-search', IA_DISCUSS_URL . 'assets/js/ia-discuss.ui.search.js', ['ia-discuss-core', 'ia-discuss-api'], $ver, $in_footer);
@@ -105,6 +106,7 @@ function ia_discuss_register_assets(): void {
       'ia-discuss-ui-shell',
       'ia-discuss-ui-feed',
       'ia-discuss-ui-agora',
+      'ia-discuss-ui-agora-membership',
       'ia-discuss-ui-topic',
       'ia-discuss-ui-composer',
       'ia-discuss-ui-search',
@@ -133,6 +135,7 @@ function ia_discuss_register_assets(): void {
       'ia-discuss-ui-shell',
       'ia-discuss-ui-feed',
       'ia-discuss-ui-agora',
+      'ia-discuss-ui-agora-membership',
       'ia-discuss-ui-topic',
       'ia-discuss-ui-composer',
       'ia-discuss-ui-search',

@@ -7,6 +7,30 @@
   border: 0;
 }
 
+/* Topic view: keep inline video players smaller on desktop so they don't dominate the thread */
+.iad-topic-modal .iad-attwrap{
+  align-items: start;
+}
+
+.iad-topic-modal .iad-att-media.iad-att-video{
+  width: min(720px, 100%);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+@media (min-width: 980px){
+  .iad-topic-modal .iad-att-media.iad-att-video{
+    width: 640px;
+    max-width: 640px;
+  }
+}
+
+.iad-topic-modal .iad-att-media.iad-att-video video.iad-att-video,
+.iad-topic-modal .iad-att-media.iad-att-video .iad-att-iframe{
+  width: 100%;
+  max-width: 100%;
+}
+
 .iad-compose-overlay {
   position: absolute;
   inset: 0;
@@ -129,7 +153,7 @@
 .iad-backtop{
   position: fixed;
   right: 18px;
-  bottom: 92px; /* sits above the bottom nav bar */
+  bottom: 150px; /* sits above the topic nav + bottom nav bar */
   z-index: 9999;
   border: 1px solid rgba(255,255,255,0.18);
   background: rgba(0,0,0,0.55);
@@ -142,6 +166,49 @@
   backdrop-filter: blur(6px);
 }
 .iad-backtop:hover{ background: rgba(0,0,0,0.70); }
+
+/* Topic-to-topic navigation (topic view) */
+.iad-topic-nav{
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 92px; /* sits above Atrium bottom nav bar */
+  z-index: 9999;
+  height: 36px;
+  pointer-events: none; /* allow clicks only on buttons */
+}
+
+.iad-topic-navbtn{
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  width: 44px;
+  height: 36px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  bottom: 0;
+  pointer-events: auto;
+}
+
+.iad-topic-navbtn.is-prev{ left: 14px; }
+.iad-topic-navbtn.is-top{
+  left: 50%;
+  transform: translateX(-50%);
+}
+.iad-topic-navbtn.is-next{ right: 14px; }
+.iad-topic-navbtn:hover{ background: rgba(255,255,255,0.10); }
+.iad-topic-navbtn:active{ transform: translateY(1px); }
+.iad-topic-navbtn[disabled]{
+  opacity: 0.35;
+  cursor: default;
+}
 
 /* Collapse control (Reddit-style expand/collapse of body) */
 .iad-collapse{

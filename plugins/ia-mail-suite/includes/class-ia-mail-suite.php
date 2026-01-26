@@ -48,6 +48,12 @@ final class IA_Mail_Suite {
       ],
       'templates' => $this->default_templates(),
       'matchers' => [],
+      'ia_message_new_message' => [
+        'label' => 'IA: New private message notification',
+        'enabled' => 1,
+        'subject' => '[{site_name}] New message from {from_username}',
+        'body' => "Hi {display_name},\n\nYou have a new private message from {from_username}:\n\n{message_preview}\n\nOpen Messages: {messages_url}\n",
+      ],
     ];
   }
 
@@ -95,6 +101,70 @@ final class IA_Mail_Suite {
         'subject' => '[{site_name}] Message',
         'body' => "Hi {display_name},\n\n{message}\n\n— {site_name}\n",
       ],
+      'ia_message_new_message' => [
+        'label' => 'IA: New private message notification',
+        'enabled' => 1,
+        'subject' => '[{site_name}] New message from {from_username}',
+        'body' => "Hi {display_name},\n\nYou have a new private message from {from_username}:\n\n{message_preview}\n\nOpen Messages: {messages_url}\n",
+      ],
+
+      // IA Connect notifications (template keys used by ia-connect).
+      'ia_connect_share_to_wall' => [
+        'label' => 'IA Connect: Someone shared a post to your wall',
+        'enabled' => 1,
+        'subject' => '[{site_name}] {actor_name} shared a post with you',
+        'body' => "Hi {display_name},\n\n{actor_name} shared a post with you.\n\nOpen post: {post_url}\n",
+      ],
+      'ia_connect_comment_new' => [
+        'label' => 'IA Connect: New comment on a post you follow',
+        'enabled' => 1,
+        'subject' => '[{site_name}] New comment from {actor_name}',
+        'body' => "Hi {display_name},\n\n{actor_name} commented on a post you follow.\n\nOpen comment: {comment_url}\n",
+      ],
+      'ia_connect_mention_post' => [
+        'label' => 'IA Connect: You were mentioned in a post',
+        'enabled' => 1,
+        'subject' => '[{site_name}] You were mentioned by {actor_name}',
+        'body' => "Hi {display_name},\n\nYou were mentioned by {actor_name} in a post.\n\nOpen post: {post_url}\n",
+      ],
+      'ia_connect_mention_comment' => [
+        'label' => 'IA Connect: You were mentioned in a comment',
+        'enabled' => 1,
+        'subject' => '[{site_name}] You were mentioned by {actor_name}',
+        'body' => "Hi {display_name},\n\nYou were mentioned by {actor_name} in a comment.\n\nOpen comment: {comment_url}\n",
+      ],
+'ia_connect_account_deactivated' => [
+  'label' => 'IA Connect: Account deactivated confirmation',
+  'enabled' => 1,
+  'subject' => '[{site_name}] Your account has been deactivated',
+  'body' => "Hi {display_name},\n\nYour IndieAgora Atrium account has been deactivated.\n\nTo reactivate your account, simply log back in: {reactivate_url}\n\nIf you did not request this, please contact support.\n",
+],
+      'ia_connect_reshare_shared_post' => [
+        'label' => 'IA Connect: Someone reshared a post you shared',
+        'enabled' => 1,
+        'subject' => '[{site_name}] {actor_name} reshared a post you shared',
+        'body' => "Hi {display_name},\n\n{actor_name} shared a post that you previously shared.\n\nOpen post: {post_url}\n",
+      ],
+      // IA Discuss notifications (template keys used by ia-discuss).
+      'ia_discuss_reply' => [
+        'label' => 'IA Discuss: Reply to a topic you follow',
+        'enabled' => 1,
+        'subject' => '[{site_name}] New reply in {topic_title}',
+        'body' => "Hi {display_name},\n\n{actor_name} replied in “{topic_title}”.\n\nOpen reply: {post_url}\n",
+      ],
+      'ia_discuss_agora_kicked' => [
+        'label' => 'IA Discuss: You were removed from an Agora',
+        'enabled' => 1,
+        'subject' => '[{site_name}] Removed from agora/{agora_name}',
+        'body' => "Hi {display_name},\n\nYou have been removed from agora/{agora_name}.\n\nOpen agora: {agora_url}\n",
+      ],
+      'ia_discuss_agora_readded' => [
+        'label' => 'IA Discuss: You were re-added to an Agora',
+        'enabled' => 1,
+        'subject' => '[{site_name}] Re-added to agora/{agora_name}',
+        'body' => "Hi {display_name},\n\nYou have been re-added to agora/{agora_name}.\n\nOpen agora: {agora_url}\n",
+      ],
+
     ];
   }
 
@@ -212,6 +282,7 @@ final class IA_Mail_Suite {
           Use placeholders in Subject/Body:
           <code>{site_name}</code> <code>{site_url}</code> <code>{user_login}</code> <code>{user_email}</code> <code>{display_name}</code>
           <code>{reset_url}</code> <code>{verify_url}</code> <code>{ip}</code> <code>{date}</code> <code>{message}</code>.
+          For IA Connect notifications: <code>{actor_name}</code> <code>{actor_username}</code> <code>{post_url}</code> <code>{comment_url}</code>.
           Also supports <code>[site_name]</code> style.
         </p>
 
@@ -348,6 +419,40 @@ final class IA_Mail_Suite {
     return !empty($o['templates'][$key]['enabled']);
   }
 
+
+  /**
+   * Render a template (subject + body) with token replacement.
+   * Returns ['subject'=>string,'body'=>string].
+   */
+  public function render_template(string $key, array $ctx = []): array {
+    $o = $this->get_opts();
+    if (empty($o['templates'][$key])) return ['subject'=>'', 'body'=>''];
+    $tpl = $o['templates'][$key];
+
+    $subject = $this->apply_tokens((string)($tpl['subject'] ?? ''), $ctx);
+    $body    = $this->apply_tokens((string)($tpl['body'] ?? ''), $ctx);
+    return ['subject' => $subject, 'body' => $body];
+  }
+
+  /**
+   * Send an email using a stored template key (if enabled).
+   */
+  public function send_template(string $key, string $to_email, array $ctx = [], $headers = []): bool {
+    $to_email = sanitize_email($to_email);
+    if ($to_email === '' || !is_email($to_email)) return false;
+
+    // If template exists but disabled, do nothing.
+    if (!$this->template_enabled($key)) return false;
+
+    $rendered = $this->render_template($key, $ctx);
+    $subject = $rendered['subject'] ?? '';
+    $body = $rendered['body'] ?? '';
+    if (trim((string)$subject) === '' || trim((string)$body) === '') return false;
+
+    return wp_mail($to_email, $subject, $body, $headers);
+  }
+
+
   private function apply_tokens(string $text, array $ctx): string {
     $tokens = [
       '{site_name}' => get_bloginfo('name') ?: 'WordPress',
@@ -355,12 +460,19 @@ final class IA_Mail_Suite {
       '{date}' => gmdate('c'),
       '{ip}' => $this->client_ip(),
     ];
-    foreach (['user_login','user_email','display_name','reset_url','verify_url','message'] as $k) {
+    foreach ([
+      'user_login','user_email','display_name','reset_url','verify_url','message',
+      'from_username','message_preview','messages_url',
+      // IA Connect tokens
+      'actor_name','actor_username','post_url','comment_url','post_id','comment_id','reactivate_url',
+      // IA Discuss tokens
+      'topic_title','topic_url','topic_id','agora_name','agora_url','forum_id'
+    ] as $k) {
       $tokens['{'.$k.'}'] = isset($ctx[$k]) ? (string)$ctx[$k] : '';
     }
 
     // [token] style
-    $text = preg_replace_callback('/\[(site_name|site_url|date|ip|user_login|user_email|display_name|reset_url|verify_url|message)\]/', function($m) use ($tokens){
+    $text = preg_replace_callback('/\[(site_name|site_url|date|ip|user_login|user_email|display_name|reset_url|verify_url|reactivate_url|message|actor_name|actor_username|post_url|comment_url|post_id|comment_id)\]/', function($m) use ($tokens){
       return $tokens['{'.$m[1].'}'] ?? '';
     }, $text);
 

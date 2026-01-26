@@ -65,6 +65,7 @@ function ia_message_install(): void {
     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
     thread_id BIGINT(20) UNSIGNED NOT NULL,
     author_phpbb_user_id BIGINT(20) UNSIGNED NOT NULL,
+    reply_to_message_id BIGINT(20) UNSIGNED DEFAULT NULL,
     body LONGTEXT NOT NULL,
     body_format VARCHAR(20) NOT NULL DEFAULT 'plain',
     created_at DATETIME NOT NULL,
@@ -73,6 +74,7 @@ function ia_message_install(): void {
     PRIMARY KEY (id),
     KEY thread_id (thread_id),
     KEY author_phpbb_user_id (author_phpbb_user_id),
+    KEY reply_to_message_id (reply_to_message_id),
     KEY created_at (created_at)
   ) {$charset};";
 

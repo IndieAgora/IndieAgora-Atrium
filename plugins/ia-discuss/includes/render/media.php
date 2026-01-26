@@ -34,7 +34,9 @@ final class IA_Discuss_Render_Media {
     $text = str_replace(["\r\n", "\r"], "\n", (string)$text);
 
     $urls = $this->extract_urls($text);
-    $video = $this->pick_video_url($urls);
+    // We no longer surface a single "primary" video at the bottom of the post.
+    // Video links are rendered inline at their exact position in the post body.
+    $video = null;
 
     // If a URL is on its own line in the post body, the BBCode renderer will
     // render it inline (video embed or link card). In that case we must NOT

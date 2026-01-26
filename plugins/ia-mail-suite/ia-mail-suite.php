@@ -2,7 +2,7 @@
 /**
  * Plugin Name: IA Mail Suite
  * Description: Manage WordPress email sender, SMTP, templates, overrides, and one-off user emails (IndieAgora Atrium).
- * Version: 0.1.0
+ * Version: 0.2.0
  * Author: IndieAgora
  * License: GPLv2 or later
  */

@@ -2,14 +2,14 @@
 /**
  * Plugin Name: IA Message
  * Description: Atrium-native messaging module (DM + group) with email-first import adapters.
- * Version: 1.0.2
+ * Version: 0.4.1
  * Author: IndieAgora
  * Text Domain: ia-message
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('IA_MESSAGE_VERSION', '0.1.1');
+define('IA_MESSAGE_VERSION', '1.0.22');
 define('IA_MESSAGE_PATH', plugin_dir_path(__FILE__));
 define('IA_MESSAGE_URL', plugin_dir_url(__FILE__));
 

@@ -48,6 +48,25 @@ function ia_message_user_in_thread(int $thread_id, int $phpbb_user_id): bool {
   return !empty($id);
 }
 
+
+function ia_message_thread_member_phpbb_ids(int $thread_id): array {
+  global $wpdb;
+  $members = ia_message_tbl('ia_msg_thread_members');
+  $rows = $wpdb->get_col($wpdb->prepare(
+    "SELECT phpbb_user_id FROM {$members} WHERE thread_id = %d",
+    $thread_id
+  ));
+  $out = [];
+  if ($rows) {
+    foreach ($rows as $r) {
+      $id = (int)$r;
+      if ($id > 0) $out[] = $id;
+    }
+  }
+  return array_values(array_unique($out));
+}
+
+
 function ia_message_touch_thread(int $thread_id, int $last_message_id): void {
   global $wpdb;
   $threads = ia_message_tbl('ia_msg_threads');
@@ -114,4 +133,59 @@ function ia_message_upsert_member(int $thread_id, int $phpbb_user_id): void {
      VALUES (%d, %d, %s, NULL, 0, 0, %s, %s)",
     $thread_id, $phpbb_user_id, '1970-01-01 00:00:00', $now, $now
   ));
+}
+
+
+/**
+ * Total unread messages for a phpbb_user_id.
+ * Unread = messages with id > last_read_message_id per thread membership.
+ */
+function ia_message_total_unread(int $phpbb_user_id): int {
+  global $wpdb;
+  $phpbb_user_id = (int)$phpbb_user_id;
+  if ($phpbb_user_id <= 0) return 0;
+
+  $members = ia_message_tbl('ia_msg_thread_members');
+  $threads = ia_message_tbl('ia_msg_threads');
+  $msgs    = ia_message_tbl('ia_msg_messages');
+
+  // last_read_message_id may be NULL => treat as 0
+  $sql = "
+    SELECT SUM(GREATEST(0, (
+      SELECT COUNT(1)
+      FROM {$msgs} mm
+      WHERE mm.thread_id = m.thread_id
+        AND mm.id > COALESCE(m.last_read_message_id, 0)
+    ))) AS c
+    FROM {$members} m
+    INNER JOIN {$threads} t ON t.id = m.thread_id
+    WHERE m.phpbb_user_id = %d
+  ";
+
+  $c = $wpdb->get_var($wpdb->prepare($sql, $phpbb_user_id));
+  return (int)($c ?: 0);
+}
+
+
+function ia_message_set_last_read(int $thread_id, int $phpbb_user_id, int $last_message_id): void {
+  global $wpdb;
+  $thread_id = (int)$thread_id;
+  $phpbb_user_id = (int)$phpbb_user_id;
+  $last_message_id = (int)$last_message_id;
+  if ($thread_id <= 0 || $phpbb_user_id <= 0 || $last_message_id <= 0) return;
+
+  $members = ia_message_tbl('ia_msg_thread_members');
+  $now = current_time('mysql');
+
+  // Only advance the pointer (never move backwards)
+  $wpdb->query(
+    $wpdb->prepare(
+      "UPDATE {$members}
+       SET last_read_at = %s,
+           last_read_message_id = GREATEST(COALESCE(last_read_message_id, 0), %d),
+           updated_at = %s
+       WHERE thread_id = %d AND phpbb_user_id = %d",
+      $now, $last_message_id, $now, $thread_id, $phpbb_user_id
+    )
+  );
 }

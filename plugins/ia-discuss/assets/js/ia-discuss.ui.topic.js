@@ -71,7 +71,9 @@
         last_post_time: data.last_post_time,
         posts: Array.isArray(data.posts) ? data.posts : [],
         has_more: !!data.has_more,
-        posts_total: (data.posts_total != null) ? data.posts_total : 0
+        posts_total: (data.posts_total != null) ? data.posts_total : 0,
+        notify_enabled: (data.notify_enabled != null) ? data.notify_enabled : 0,
+        viewer: data.viewer || {}
       };
 
       if (!append) {
@@ -102,6 +104,19 @@
 
         // bind quote/reply actions (modal)
         if (A.bindTopicActions) A.bindTopicActions(mount, topicId);
+
+        // topic-level email toggle
+        try {
+          const chk = mount.querySelector('[data-iad-topic-notify]');
+          if (chk) {
+            chk.addEventListener('change', () => {
+              window.IA_DISCUSS_API.post('ia_discuss_topic_notify_set', {
+                topic_id: topicId,
+                enabled: chk.checked ? 1 : 0
+              }).then(() => {}).catch(() => {});
+            });
+          }
+        } catch (e) {}
 
         try {
           if (window.IA_DISCUSS_STATE && typeof window.IA_DISCUSS_STATE.markRead === "function") {
@@ -301,7 +316,9 @@
 
 
       function bindBackTop() {
-        const body = qs(".iad-modal-body", mount);
+        // NOTE: the scroll container for modals is the sheet (overflow:auto).
+        // The body is just padded content.
+        const body = qs(".iad-modal-sheet", mount) || qs(".iad-modal-body", mount);
         const btn  = qs("[data-iad-back-top]", mount);
         if (!body || !btn) return;
 
@@ -326,6 +343,77 @@
           catch (e) { body.scrollTop = 0; }
           setVisible(false);
         };
+      }
+
+      function bindTopicNav() {
+        const prevBtn = qs('[data-iad-topic-prev]', mount);
+        const nextBtn = qs('[data-iad-topic-next]', mount);
+        const topBtn  = qs('[data-iad-topic-top]', mount);
+        // Scroll container is the sheet (overflow:auto)
+        const body    = qs('.iad-modal-sheet', mount) || qs('.iad-modal-body', mount);
+        if (!prevBtn && !nextBtn && !topBtn) return;
+
+        let ids = [];
+        try {
+          const s = (window.IA_DISCUSS_STATE && typeof window.IA_DISCUSS_STATE.get === 'function') ? window.IA_DISCUSS_STATE.get() : {};
+          const nav = s && s.topic_nav ? s.topic_nav : null;
+          if (nav && Array.isArray(nav.ids)) ids = nav.ids.map((n) => parseInt(n, 10) || 0).filter((n) => n > 0);
+        } catch (e) { ids = []; }
+
+        const idx = ids.length ? ids.indexOf(parseInt(topicId || '0', 10) || 0) : -1;
+        const prevId = (idx > 0) ? ids[idx - 1] : 0;
+        const nextId = (idx >= 0 && idx < ids.length - 1) ? ids[idx + 1] : 0;
+
+        if (prevBtn) prevBtn.disabled = !prevId;
+        if (nextBtn) nextBtn.disabled = !nextId;
+
+        // Center "back to top" (topic view)
+        if (topBtn && body) {
+          const syncTop = () => {
+            const cur = body.scrollTop || 0;
+            topBtn.disabled = (cur < 8);
+          };
+          body.addEventListener('scroll', syncTop, { passive: true });
+          syncTop();
+          topBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Re-resolve the scroll container at click time (Atrium can keep shells alive).
+            const sc = (topBtn.closest && topBtn.closest('.iad-modal-sheet')) || qs('.iad-modal-sheet', mount) || qs('.iad-modal-body', mount) || body;
+            if (!sc) return;
+
+            // Make this extremely robust across browsers: set scrollTop first, then try both
+            // scrollTo signatures, then enforce again on the next frame.
+            try { sc.scrollTop = 0; } catch (_) {}
+            try {
+              if (typeof sc.scrollTo === 'function') {
+                try { sc.scrollTo({ top: 0, left: 0, behavior: 'smooth' }); }
+                catch (e1) { sc.scrollTo(0, 0); }
+              }
+            } catch (_) {}
+            try {
+              requestAnimationFrame(() => { try { sc.scrollTop = 0; } catch (_) {} });
+            } catch (_) {}
+          };
+        }
+
+        if (prevBtn) {
+          prevBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!prevId) return;
+            window.dispatchEvent(new CustomEvent('iad:open_topic_page', { detail: { topic_id: prevId } }));
+          };
+        }
+
+        if (nextBtn) {
+          nextBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!nextId) return;
+            window.dispatchEvent(new CustomEvent('iad:open_topic_page', { detail: { topic_id: nextId } }));
+          };
+        }
       }
 
       // Load more replies (reveal from cache first, then fetch next server page)
@@ -444,6 +532,7 @@
         if (A.bindTopicActions) A.bindTopicActions(mount, topicId);
         bindAttachmentsModal();
         bindBackTop();
+        bindTopicNav();
 
         // Jump to the last rendered reply and highlight it.
         setTimeout(() => {
@@ -512,6 +601,7 @@
       
       bindAttachmentsModal();
       bindBackTop();
+      bindTopicNav();
     }
 
     fetchTopic(topicId, 0)

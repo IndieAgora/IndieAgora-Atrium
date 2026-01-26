@@ -215,6 +215,52 @@ final class IA_Auth_PeerTube {
         return ['ok' => true, 'token' => $this->normalize_token($res['json'])];
     }
 
+    /**
+     * Admin: Find a PeerTube user by username or email.
+     * Uses GET /api/v1/users?search=...
+     * Returns the first exact match (username/email) when available,
+     * otherwise falls back to the first result.
+     */
+    public function admin_find_user(string $search, array $engine_peertube_api): array {
+        $search = trim((string)$search);
+        if ($search === '') return ['ok' => false, 'message' => 'Missing search string.'];
+
+        // Requires admin token.
+        $token = $this->resolve_bearer_token($engine_peertube_api);
+        if ($token === '') {
+            return ['ok' => false, 'message' => 'PeerTube admin token not available.'];
+        }
+
+        $res = $this->req('GET', '/api/v1/users?search=' . rawurlencode($search) . '&count=10', $engine_peertube_api, [], false, true);
+        if (!$res['ok']) {
+            $msg = 'PeerTube user search failed.';
+            if (!empty($res['code'])) $msg .= ' HTTP ' . (int)$res['code'] . '.';
+            return ['ok' => false, 'message' => $msg, 'debug' => $res];
+        }
+
+        $list = $res['json'];
+        if (!is_array($list) || empty($list)) {
+            return ['ok' => false, 'message' => 'User not found.'];
+        }
+
+        $needle = strtolower($search);
+        $pick = null;
+        foreach ($list as $u) {
+            if (!is_array($u)) continue;
+            $un = strtolower((string)($u['username'] ?? ''));
+            $em = strtolower((string)($u['email'] ?? ''));
+            if ($un === $needle || $em === $needle) {
+                $pick = $u;
+                break;
+            }
+        }
+
+        if (!$pick) $pick = is_array($list[0]) ? $list[0] : null;
+        if (!$pick) return ['ok' => false, 'message' => 'User not found.'];
+
+        return ['ok' => true, 'user' => $pick];
+    }
+
     private function normalize_token($json): array {
         $access     = (string)($json['access_token'] ?? '');
         $refresh    = (string)($json['refresh_token'] ?? '');
@@ -330,4 +376,125 @@ final class IA_Auth_PeerTube {
         return ['ok' => true, 'code' => (int)($res['code'] ?? 0)];
     }
 
+
+    /**
+ * Admin: Update a PeerTube user's email.
+ * Uses PUT /api/v1/users/{id} with body { email: "..." }.
+ */
+public function admin_update_user_email(int $peertube_user_id, string $new_email, array $engine_peertube_api): array {
+    $peertube_user_id = (int)$peertube_user_id;
+    $new_email = trim((string)$new_email);
+    if ($peertube_user_id <= 0 || $new_email === '') {
+        return ['ok' => false, 'message' => 'Bad input (missing user id or email).'];
+    }
+
+    $bearer = $this->resolve_bearer_token($engine_peertube_api);
+    if (!$bearer) {
+        return ['ok' => false, 'message' => 'PeerTube admin token not configured.'];
+    }
+
+    $body = [ 'email' => $new_email ];
+    $res = $this->req('PUT', '/api/v1/users/' . $peertube_user_id, $engine_peertube_api, [
+        'headers' => [
+            'Accept'        => 'application/json',
+            'User-Agent'    => 'IA-Auth',
+            'Content-Type'  => 'application/json',
+            'Authorization' => 'Bearer ' . $bearer,
+        ],
+        'body' => wp_json_encode($body),
+        'timeout' => 20,
+    ], true, false);
+
+    if (empty($res['ok'])) {
+        $msg = 'PeerTube email update failed.';
+        if (!empty($res['code'])) $msg .= ' HTTP ' . (int)$res['code'] . '.';
+        if (is_array($res['json'])) {
+            if (!empty($res['json']['detail'])) $msg .= ' ' . (string)$res['json']['detail'];
+            elseif (!empty($res['json']['message'])) $msg .= ' ' . (string)$res['json']['message'];
+            elseif (!empty($res['json']['error'])) $msg .= ' ' . (string)$res['json']['error'];
+        }
+        $res['message'] = $msg;
+        return $res;
+    }
+
+    return ['ok' => true, 'code' => (int)($res['code'] ?? 0)];
+}
+
+/**
+ * Admin: Delete a PeerTube user.
+ * Uses DELETE /api/v1/users/{id}.
+ */
+public function admin_delete_user(int $peertube_user_id, array $engine_peertube_api): array {
+    $peertube_user_id = (int)$peertube_user_id;
+    if ($peertube_user_id <= 0) {
+        return ['ok' => false, 'message' => 'Bad input (missing user id).'];
+    }
+
+    $bearer = $this->resolve_bearer_token($engine_peertube_api);
+    if (!$bearer) {
+        return ['ok' => false, 'message' => 'PeerTube admin token not configured.'];
+    }
+
+    $res = $this->req('DELETE', '/api/v1/users/' . $peertube_user_id, $engine_peertube_api, [
+        'headers' => [
+            'Accept'        => 'application/json',
+            'User-Agent'    => 'IA-Auth',
+            'Authorization' => 'Bearer ' . $bearer,
+        ],
+        'timeout' => 20,
+    ], true, false);
+
+    if (empty($res['ok'])) {
+        $msg = 'PeerTube delete failed.';
+        if (!empty($res['code'])) $msg .= ' HTTP ' . (int)$res['code'] . '.';
+        if (is_array($res['json'])) {
+            if (!empty($res['json']['detail'])) $msg .= ' ' . (string)$res['json']['detail'];
+            elseif (!empty($res['json']['message'])) $msg .= ' ' . (string)$res['json']['message'];
+            elseif (!empty($res['json']['error'])) $msg .= ' ' . (string)$res['json']['error'];
+        }
+        $res['message'] = $msg;
+        return $res;
+    }
+
+    return ['ok' => true, 'code' => (int)($res['code'] ?? 0)];
+}
+
+/**
+ * User: Update displayName via /api/v1/users/me (requires user access token).
+ */
+public function user_update_me_display_name(string $access_token, string $display_name, array $engine_peertube_api): array {
+    $access_token = trim((string)$access_token);
+    $display_name = trim((string)$display_name);
+    if ($access_token === '' || $display_name === '') {
+        return ['ok' => false, 'message' => 'Bad input (missing token or display name).'];
+    }
+
+    // For this request, bearer must be the user token.
+    $body = [ 'displayName' => $display_name ];
+    $engine = $engine_peertube_api;
+    $res = $this->req('PUT', '/api/v1/users/me', $engine, [
+        'headers' => [
+            'Accept'        => 'application/json',
+            'User-Agent'    => 'IA-Auth',
+            'Content-Type'  => 'application/json',
+            'Authorization' => 'Bearer ' . $access_token,
+        ],
+        'body' => wp_json_encode($body),
+        'timeout' => 20,
+    ], true, false);
+
+    if (empty($res['ok'])) {
+        $msg = 'PeerTube update failed.';
+        if (!empty($res['code'])) $msg .= ' HTTP ' . (int)$res['code'] . '.';
+        if (is_array($res['json'])) {
+            if (!empty($res['json']['detail'])) $msg .= ' ' . (string)$res['json']['detail'];
+            elseif (!empty($res['json']['message'])) $msg .= ' ' . (string)$res['json']['message'];
+            elseif (!empty($res['json']['error'])) $msg .= ' ' . (string)$res['json']['error'];
+        }
+        $res['message'] = $msg;
+        return $res;
+    }
+
+    return ['ok' => true, 'code' => (int)($res['code'] ?? 0)];
+}
 }

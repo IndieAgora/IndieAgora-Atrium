@@ -1,5 +1,135 @@
 /* IA Stream — cards */
 
+/*
+ * Stream feed cards intentionally reuse the Discuss card markup classes
+ * (.iad-card, .iad-card-meta, .iad-iconbtn, etc.) so Stream visually matches
+ * Discuss. We include the minimal CSS subset here (scoped to #ia-stream-shell)
+ * to avoid depending on ia-discuss being active/enqueued.
+ */
+
+#ia-stream-shell .iad-card{
+  display:block;
+  padding: 12px;
+  border: 1px solid var(--iad-border, var(--ia-border));
+  border-radius: var(--iad-radius, var(--ia-radius));
+  background: linear-gradient(180deg, rgba(16,24,39,0.55), rgba(15,20,29,0.75));
+  box-shadow: 0 10px 22px rgba(0,0,0,0.25);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#ia-stream-shell .iad-card img,
+#ia-stream-shell .iad-card video,
+#ia-stream-shell .iad-card iframe,
+#ia-stream-shell .iad-card embed,
+#ia-stream-shell .iad-card object{
+  display: block;
+  max-width: 100%;
+}
+
+#ia-stream-shell .iad-card iframe,
+#ia-stream-shell .iad-card embed,
+#ia-stream-shell .iad-card object{
+  width: 100%;
+}
+
+#ia-stream-shell .iad-card-meta{
+  font-size: var(--iad-fs-12, 0.75rem);
+  color: var(--iad-muted, var(--ia-muted));
+  line-height: var(--iad-lh-ui, 1.2);
+}
+
+#ia-stream-shell .iad-sub{ color: rgba(255,255,255,0.85); }
+
+#ia-stream-shell .iad-agora-link{
+  appearance:none;
+  border:0;
+  background:transparent;
+  padding:0;
+  margin:0;
+  display:inline;
+  font: inherit;
+  color: rgba(255,255,255,0.85);
+  cursor:pointer;
+}
+
+#ia-stream-shell .iad-agora-link:hover{ text-decoration: underline; }
+
+#ia-stream-shell .iad-card-title{
+  margin: 6px 0 6px;
+  font-size: var(--iad-fs-16, 1rem);
+  font-weight: 600;
+  line-height: var(--iad-lh-tight, 1.25);
+  letter-spacing: 0.2px;
+  cursor: pointer;
+}
+
+#ia-stream-shell .iad-card-title:hover{ text-decoration: underline; }
+
+#ia-stream-shell .iad-card-excerpt{ max-width: 100%; cursor: pointer; }
+#ia-stream-shell .iad-card-excerpt *{ max-width: 100%; }
+#ia-stream-shell .iad-card-excerpt p{
+  margin: 0;
+  color: rgba(255,255,255,0.80);
+  font-size: var(--iad-fs-14, 0.875rem);
+  line-height: 1.45;
+}
+
+#ia-stream-shell .iad-card-actions{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  /* Don't allow per-letter wrapping inside action buttons */
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+#ia-stream-shell .iad-iconbtn{
+  appearance:none;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.88);
+  min-width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition: transform 90ms ease, background 120ms ease, border-color 120ms ease;
+  gap: 6px;
+  padding: 0 10px;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+#ia-stream-shell .iad-iconbtn:hover{
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.18);
+}
+
+#ia-stream-shell .iad-iconbtn:active{ transform: scale(0.98); }
+#ia-stream-shell .iad-iconbtn svg{ display:block; width:20px; height:20px; }
+
+/* Feed actions should match modal icon sizing */
+#ia-stream-shell .ia-stream-actions .iad-iconbtn{ min-width: 44px; }
+
+#ia-stream-shell .iad-count{
+  font-size: var(--iad-fs-12, 0.75rem);
+  color: rgba(255,255,255,0.82);
+  white-space: nowrap;
+}
+
+#ia-stream-shell .ia-stream-views{
+  margin-left: auto;
+  font-size: var(--iad-fs-12, 0.75rem);
+  color: rgba(255,255,255,0.70);
+  white-space: nowrap;
+}
+
 .ia-stream-feed {
   display: flex;
   flex-direction: column;
@@ -57,178 +187,22 @@
   border-top: 1px solid var(--ia-border);
 }
 
-
-/* Inline actions under feed cards */
-.ia-stream-card-footer{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.ia-stream-card-stats{
-  display:flex;
-  gap:14px;
-  align-items:center;
-}
-.ia-stream-card-actions{
-  display:flex;
-  gap:8px;
-  align-items:center;
-}
-.ia-stream-card-action{
-  background:transparent;
-  border:1px solid var(--ia-border);
-  color:var(--ia-text);
-  padding:6px 10px;
-  border-radius:999px;
-  cursor:pointer;
-  font-size:0.85rem;
-  line-height:1;
-}
-.ia-stream-card-action:hover{
-  border-color:var(--ia-muted);
-}
-.ia-stream-card-commentbox{
-  padding:10px 12px;
-  border-top:1px solid var(--ia-border);
-}
-.ia-stream-card-comment{
-  width:100%;
-  resize:vertical;
-  min-height:52px;
-  background:rgba(255,255,255,0.02);
-  border:1px solid var(--ia-border);
-  border-radius:12px;
-  color:var(--ia-text);
-  padding:8px 10px;
-}
-.ia-stream-card-comment-actions{
-  margin-top:8px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-.ia-stream-card-status{
-  color:var(--ia-muted);
-  font-size:0.85rem;
+.ia-stream-card-footer .ia-stream-comments {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-/* Reddit-like action bar */
-.ia-stream-actions{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:8px 10px;
+.ia-stream-card-footer .ia-stream-count {
+  color: var(--ia-muted);
 }
 
-.ia-stream-act{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid var(--ia-border);
-  background:rgba(255,255,255,0.03);
-  color:var(--ia-text);
-  cursor:pointer;
-  font-size:0.85rem;
-  line-height:1;
-}
-
-.ia-stream-act:hover{
-  background:rgba(255,255,255,0.06);
-}
-
-.ia-stream-act .ia-ico{ font-size:0.95rem; }
-.ia-stream-act .ia-count{ color:var(--ia-muted); font-size:0.85rem; }
-.ia-stream-act .ia-label{ color:var(--ia-text); font-size:0.85rem; }
-
-.ia-stream-act-status{
-  margin-left:auto;
-  color:var(--ia-muted);
-  font-size:0.8rem;
-}
-
-/* Inline comments */
-.ia-stream-inline-comments{
-  padding:10px 12px 12px;
-  border-top:1px solid var(--ia-border);
-}
-.ia-stream-inline-comments-list{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  margin-bottom:10px;
-}
-.ia-stream-inline-comment{
-  border:1px solid var(--ia-border);
-  border-radius:12px;
-  padding:10px;
-  background:rgba(0,0,0,0.18);
-}
-.ia-stream-inline-comment-head{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-bottom:6px;
-}
-.ia-stream-inline-comment-avatar{
-  width:24px;height:24px;border-radius:999px;
-  background:rgba(255,255,255,0.06);
-  border:1px solid var(--ia-border);
-}
-.ia-stream-inline-comment-author{
-  font-weight:600;
-  color:var(--ia-text);
-  font-size:0.85rem;
-}
-.ia-stream-inline-comment-time{
-  margin-left:auto;
-  color:var(--ia-muted);
-  font-size:0.75rem;
-}
-.ia-stream-inline-comment-text{
-  color:var(--ia-text);
-  font-size:0.9rem;
-  line-height:1.35;
-}
-.ia-stream-inline-comment-replies{
-  margin-top:8px;
-  color:var(--ia-muted);
-  font-size:0.8rem;
-}
-
-.ia-stream-inline-compose{
-  display:flex;
-  gap:10px;
-  align-items:flex-start;
-}
-.ia-stream-inline-text{
-  flex:1;
-  border-radius:12px;
-  border:1px solid var(--ia-border);
-  background:rgba(255,255,255,0.03);
-  color:var(--ia-text);
-  padding:10px;
-  resize:vertical;
-}
-.ia-stream-inline-send{
-  border-radius:999px;
-  border:1px solid var(--ia-border);
-  background:rgba(255,255,255,0.05);
-  color:var(--ia-text);
-  padding:8px 14px;
-  cursor:pointer;
-}
-
-/* Mini cards (subscriptions feed) */
-.ia-stream-card.ia-stream-card-mini .ia-stream-card-body{
-  height:160px;
-}
-.ia-stream-card.ia-stream-card-mini .ia-stream-card-body img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  display:block;
+.ia-stream-card-footer .ia-stream-comments:hover {
+  color: var(--ia-text);
 }

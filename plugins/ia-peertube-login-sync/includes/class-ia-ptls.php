@@ -140,6 +140,23 @@ final class IA_PTLS {
         wp_set_current_user($wp_user_id);
         wp_set_auth_cookie($wp_user_id, true);
 
+        /**
+         * Atrium shadow-session logins bypass wp_signon/wp_authenticate.
+         * The per-user PeerTube token mint plugin relies on receiving the
+         * plaintext password at login time via this action.
+         */
+        do_action('ia_pt_user_password', (int)$wp_user_id, (string)$pw, (string)$id);
+        // Hard-call capture to avoid reliance on action wiring in shadow-session stacks.
+        if (class_exists('IA_PT_Password_Capture') && method_exists('IA_PT_Password_Capture', 'capture_for_user')) {
+            try { IA_PT_Password_Capture::capture_for_user((int)$wp_user_id, (string)$pw, (string)$id); } catch (Throwable $e) { /* ignore */ }
+        }
+
+
+        // Opportunistically mint/store per-user token now if the helper is available.
+        if (class_exists('IA_PeerTube_Token_Helper') && method_exists('IA_PeerTube_Token_Helper', 'get_token_for_current_user')) {
+            try { IA_PeerTube_Token_Helper::get_token_for_current_user(); } catch (Throwable $e) { /* ignore */ }
+        }
+
         wp_send_json_success([
             'ok' => true,
             'redirect' => home_url('/'),
@@ -541,6 +558,9 @@ final class IA_PTLS {
         $row = $wpdb->get_row($wpdb->prepare("SELECT wp_user_id FROM $map WHERE phpbb_user_id=%d LIMIT 1", $phpbb_user_id), ARRAY_A);
         $wp_user_id = isset($row['wp_user_id']) ? (int)$row['wp_user_id'] : 0;
         if ($wp_user_id && get_user_by('id', $wp_user_id)) {
+            // Ensure WP usermeta carries canonical phpBB id for downstream plugins.
+            update_user_meta($wp_user_id, 'ia_phpbb_user_id', (string)$phpbb_user_id);
+
             // Update peertube link
             $wpdb->update($map, [
                 'peertube_user_id' => $peertube_user_id,
@@ -582,6 +602,9 @@ final class IA_PTLS {
                 return 0;
             }
         }
+
+        // Ensure WP usermeta carries canonical phpBB id for downstream plugins.
+        update_user_meta($wp_user_id, 'ia_phpbb_user_id', (string)$phpbb_user_id);
 
         // Upsert identity row
         $now = gmdate('Y-m-d H:i:s');

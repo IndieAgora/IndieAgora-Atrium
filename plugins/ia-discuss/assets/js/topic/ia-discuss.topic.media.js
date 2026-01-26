@@ -116,52 +116,31 @@
     const blocks = [];
 
     if (atts && atts.length) {
-      const vids = atts.filter((a) => isVideoMime(a && a.mime));
+      // Inline previews for uploaded attachments.
+      // - If the first attachment is a video, render it inline (topic view previously showed only the pill).
+      // - Images render as inline previews (same classes as feed for the fullscreen viewer).
+
+      const vids = atts.filter((a) => isVideoMime(a && a.mime) || isLikelyVideoUrl(a && a.url));
+      const firstVid = vids.length ? vids[0] : null;
+      if (firstVid && firstVid.url) {
+        blocks.push(buildVideoEmbedHtml(String(firstVid.url)));
+      }
+
       const imgs = atts.filter((a) => isImageMime(a && a.mime));
-
-      vids.slice(0, 4).forEach((v) => {
-        const url = v && v.url ? String(v.url) : "";
-        if (!url) return;
-        blocks.push(`
-          <div class="iad-att-media">
-            <video class="iad-att-video" controls playsinline preload="metadata">
-              <source src="${esc(url)}" />
-            </video>
-          </div>
-        `);
-      });
-
       imgs.slice(0, 8).forEach((im) => {
         const url = im && im.url ? String(im.url) : "";
         if (!url) return;
         const alt = im && im.filename ? String(im.filename) : "";
         blocks.push(`
           <div class="iad-att-media">
-            <img class="iad-att-img" src="${esc(url)}" alt="${esc(alt)}" loading="lazy" />
+            <img class="iad-att-img" src="${esc(url)}" alt="${esc(alt)}" loading="lazy" decoding="async" />
           </div>
         `);
       });
     }
 
-    const urls = [];
-    const primary = (media && media.video_url) ? String(media.video_url) : "";
-    if (primary) urls.push(primary);
-
-    const urlList = (media && Array.isArray(media.urls)) ? media.urls : [];
-    urlList.forEach((u) => {
-      const s = String(u || "").trim();
-      if (!s) return;
-      if (primary && s === primary) return;
-      urls.push(s);
-    });
-
-    const seen = new Set();
-    urls.forEach((u) => {
-      if (seen.has(u)) return;
-      seen.add(u);
-      if (!isLikelyVideoUrl(u)) return;
-      blocks.push(buildVideoEmbedHtml(u));
-    });
+    // NOTE: We intentionally do not render "media.video_url" or other detected video URLs here.
+    // Video links are embedded inline in the post body and must not be duplicated at the bottom.
 
     if (!blocks.length) return "";
     return `<div class="iad-attwrap">${blocks.join("")}</div>`;

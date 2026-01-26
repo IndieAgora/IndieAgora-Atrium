@@ -35,3 +35,17 @@ function ia_message_atrium_present(): bool {
       || function_exists('ia_atrium_boot')
       || defined('IA_ATRIUM_VERSION');
 }
+
+/**
+ * Undo WordPress magic slashes / accidental addslashes, but only when it
+ * looks like quote escaping is present. This avoids stripping intentional
+ * backslashes in most normal cases.
+ */
+function ia_message_maybe_unslash(string $s): string {
+  if ($s === '') return $s;
+  // Only unslash when we see the typical escaped-quote sequences.
+  if (strpos($s, "\\'") !== false || strpos($s, '\\"') !== false) {
+    return wp_unslash($s);
+  }
+  return $s;
+}

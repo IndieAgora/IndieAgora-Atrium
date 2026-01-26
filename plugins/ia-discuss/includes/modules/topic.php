@@ -7,24 +7,45 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
   private $bbcode;
   private $media;
   private $auth;
+  private $notify;
+  private $membership;
   private $atts;
 
   public function __construct(
     IA_Discuss_Service_PhpBB $phpbb,
     IA_Discuss_Render_BBCode $bbcode,
     IA_Discuss_Render_Media $media,
-    IA_Discuss_Service_Auth $auth
+    IA_Discuss_Service_Auth $auth,
+    IA_Discuss_Service_Notify $notify,
+    IA_Discuss_Service_Membership $membership
   ) {
     $this->phpbb  = $phpbb;
     $this->bbcode = $bbcode;
     $this->media  = $media;
     $this->auth   = $auth;
+    $this->notify = $notify;
+    $this->membership = $membership;
 
     // stable attachments API
     $this->atts = new IA_Discuss_Render_Attachments();
   }
 
   public function boot(): void {}
+
+  private function effective_topic_notify(int $viewer_phpbb_id, int $forum_id, int $topic_id): bool {
+    if ($viewer_phpbb_id <= 0 || $topic_id <= 0) return false;
+    $state = $this->notify->topic_notify_state($viewer_phpbb_id, $topic_id);
+    $bell = false;
+    if ($forum_id > 0) {
+      try { $bell = $this->membership->get_notify_agora($viewer_phpbb_id, $forum_id); } catch (Throwable $e) { $bell = false; }
+    }
+    if ($bell) {
+      // Default ON when bell is enabled; explicit opt-out wins.
+      return ($state === null) ? true : ($state === 1);
+    }
+    // Bell off: only explicit topic opt-in counts.
+    return ($state === 1);
+  }
 
   public function ajax_routes(): array {
     return [
@@ -202,6 +223,9 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
       'posts'          => $posts,
       'has_more'       => $has_more ? 1 : 0,
       'posts_total'    => $posts_total,
+      // Effective notification checkbox state (Agora bell defaults + per-topic overrides)
+      'notify_enabled' => $this->effective_topic_notify($viewer_phpbb_id, $forum_id, $topic_id) ? 1 : 0,
+
 
       'viewer'         => [
         'phpbb_user_id' => $viewer_phpbb_id,

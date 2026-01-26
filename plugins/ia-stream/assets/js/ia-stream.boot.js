@@ -16,9 +16,27 @@
       typeof window.IA_STREAM.ui.feed.load === "function" &&
       window.IA_STREAM.ui.channels &&
       typeof window.IA_STREAM.ui.channels.load === "function" &&
-      window.IA_STREAM.ui.upload &&
-      typeof window.IA_STREAM.ui.upload.boot === "function"
+      window.IA_STREAM.ui.video &&
+      typeof window.IA_STREAM.ui.video.open === "function"
     );
+  }
+
+  function openFromUrlIfPresent() {
+    try {
+      const u = new URL(window.location.href);
+      const tab = u.searchParams.get('tab') || '';
+      const vid = u.searchParams.get('video') || u.searchParams.get('v') || '';
+      if (tab !== 'stream' || !vid) return;
+
+      // optional focus (e.g. focus=comments)
+      const focus = u.searchParams.get('focus') || '';
+      const opts = focus ? { focus: focus } : {};
+
+      // Delay slightly so the shell is rendered before the modal.
+      setTimeout(function () {
+        try { NS.ui.video.open(String(vid), opts); } catch (e) {}
+      }, 50);
+    } catch (e) {}
   }
 
   function boot() {
@@ -31,20 +49,13 @@
     // init tabs + restore state
     NS.ui.shell.boot();
 
-    // upload modal binder (only shows button for logged-in users)
-    NS.ui.upload.boot();
-
-    // allow upload success to trigger refresh
-    NS.util.on(window, "ia:stream:refresh", function(){
-      const t2 = NS.state.activeTab || "feed";
-      if (t2 === "channels") NS.ui.channels.load();
-      else NS.ui.feed.load();
-    });
-
     // initial load
     const t = NS.state.activeTab || "feed";
-    if (t === "channels") NS.ui.channels.load();
-    else NS.ui.feed.load();
+    if (t === "channels") {
+      Promise.resolve(NS.ui.channels.load()).then(openFromUrlIfPresent);
+    } else {
+      Promise.resolve(NS.ui.feed.load()).then(openFromUrlIfPresent);
+    }
   }
 
   function start(retries) {

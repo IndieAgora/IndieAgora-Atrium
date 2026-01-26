@@ -1,0 +1,197 @@
+
+
+/* Upload input: keep in DOM for iOS, but visually hidden */
+.ia-msg-upload-input{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0,0,0,0) !important;
+  white-space:nowrap !important;
+  border:0 !important;
+}
+
+
+
+/* Upload status (attachments) — compact, non-layout shifting */
+.ia-msg-composer{ position: sticky; } /* ensure positioned context comes from layout.css, but safe */
+
+/* visually hidden text */
+.ia-msg-sr{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0,0,0,0) !important;
+  white-space:nowrap !important;
+  border:0 !important;
+}
+
+.ia-msg-upload-progress{
+  position: absolute;
+  left: 48px;            /* just to the right of the paperclip */
+  top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--ia-line2);
+  background: rgba(0,0,0,0.28);
+  font-size: 12px;
+  color: var(--ia-muted);
+  max-width: calc(100% - 120px); /* never force textarea off-screen */
+  pointer-events: none;  /* don't steal taps */
+  z-index: 35;
+}
+.ia-msg-upload-progress[hidden]{ display:none !important; }
+
+.ia-msg-upload-spinner{
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,0.22);
+  border-top-color: rgba(255,255,255,0.65);
+  animation: iaMsgSpin 0.8s linear infinite;
+  flex: 0 0 auto;
+}
+
+@keyframes iaMsgSpin{
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.ia-msg-upload-progress__pct{
+  flex: 0 0 auto;
+  line-height: 1;
+}
+
+/* Upload input: keep in DOM for iOS, but visually hidden */
+.ia-msg-upload-input{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0,0,0,0) !important;
+  white-space:nowrap !important;
+  border:0 !important;
+}
+
+
+/* Upload progress (attachments) */
+.ia-msg-upload-progress{
+  flex: 1 1 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--ia-line2);
+  background: rgba(0,0,0,0.22);
+}
+.ia-msg-upload-progress[hidden]{ display:none !important; }
+.ia-msg-upload-progress__top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ia-muted);
+  margin-bottom: 6px;
+}
+.ia-msg-upload-progress__label{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  max-width: 75%;
+}
+.ia-msg-upload-progress__bar{
+  height: 8px;
+  border-radius: 999px;
+  overflow:hidden;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.ia-msg-upload-progress__fill{
+  height:100%;
+  width:0%;
+  background: rgba(167,139,250,0.70);
+  transition: width 120ms linear;
+}
+
+
+/* Reply bar (quote above composer) */
+.ia-msg-replybar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  margin:10px 10px 0 10px;
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:14px;
+  background:rgba(255,255,255,0.03);
+}
+
+/* Respect the HTML hidden attribute (the display:flex rule above would otherwise override it) */
+.ia-msg-replybar[hidden]{
+  display:none !important;
+}
+.ia-msg-replybar__meta{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:120px;
+}
+.ia-msg-replybar__label{
+  font-size:12px;
+  opacity:0.75;
+}
+.ia-msg-replybar__who{
+  font-size:13px;
+  font-weight:600;
+}
+.ia-msg-replybar__quote{
+  flex:1 1 auto;
+  text-align:left;
+  border:0;
+  background:transparent;
+  padding:0;
+  color:inherit;
+  opacity:0.9;
+  font-size:13px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  cursor:pointer;
+}
+.ia-msg-replybar__close{
+  flex:0 0 auto;
+  width:34px;
+  height:34px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,0.10);
+  background:rgba(0,0,0,0.15);
+  color:inherit;
+  cursor:pointer;
+}
+
+/* Composer row: keep input full height under reply bar */
+.ia-msg-composer{
+  display:flex;
+  flex-direction:column;
+}
+.ia-msg-composer-row{
+  display:flex;
+  align-items:flex-end;
+  gap:10px;
+  padding:10px;
+}
+.ia-msg-composer-row .ia-msg-text{
+  flex:1 1 auto;
+  min-height:44px;
+  resize:none;
+}

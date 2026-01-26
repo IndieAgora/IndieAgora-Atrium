@@ -171,11 +171,29 @@
       </button>
     `;
 
+    const lastReplyPill = `
+      <button type="button" class="iad-pill" data-iad-goto-last title="Go to last reply">
+        Last reply
+      </button>
+    `;
+
+    const notifyOn = (data && (data.notify_enabled === 1 || data.notify_enabled === '1')) ? 1 : 0;
+    const notifyToggle = `
+      <label class="iad-pill" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+        <input type="checkbox" data-iad-topic-notify ${notifyOn ? 'checked' : ''} />
+        <span>Email replies</span>
+      </label>
+    `;
+
     const pager = `
       <div class="iad-topic-pager">
-        <div class="iad-topic-pager-left"></div>
-        <div class="iad-topic-pager-right">
+        <div class="iad-topic-pager-left">
+          <span class="iad-topic-count" data-iad-topic-count></span>
+        </div>
+        <div class="iad-topic-pager-right" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           ${postReplyPill}
+          ${lastReplyPill}
+          ${(data && data.viewer && data.viewer.phpbb_user_id) ? notifyToggle : ``}
         </div>
       </div>
     `;
@@ -205,7 +223,7 @@
 
             ${pager}
 
-            <button type="button" class="iad-backtop" data-iad-back-top hidden title="Back to top">↑ Top</button>
+            <!-- back-to-top is now handled via the centered topic-nav button -->
 
             ${postsHtml || `<div class="iad-empty">No posts found.</div>`}
 
@@ -213,6 +231,12 @@
               <button type="button" class="iad-more" data-iad-more>Load more replies</button>
             ` : ``}
 
+          </div>
+
+          <div class="iad-topic-nav" aria-label="Topic navigation">
+            <button type="button" class="iad-topic-navbtn is-prev" data-iad-topic-prev aria-label="Previous topic" title="Previous topic">←</button>
+            <button type="button" class="iad-topic-navbtn is-top" data-iad-topic-top aria-label="Back to top" title="Back to top">↑</button>
+            <button type="button" class="iad-topic-navbtn is-next" data-iad-topic-next aria-label="Next topic" title="Next topic">→</button>
           </div>
         </div>
       </div>

@@ -49,6 +49,8 @@ if (!function_exists('ia_discuss_boot')) {
 
     // Services
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/auth.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/membership.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/notify.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/phpbb.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/text.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/upload.php');
@@ -60,6 +62,8 @@ if (!function_exists('ia_discuss_boot')) {
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/feed.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/topic.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/agoras.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/membership.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/forum-meta.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/upload.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/write.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/diag.php');
@@ -96,17 +100,29 @@ if (!function_exists('ia_discuss_boot')) {
       $atts   = new IA_Discuss_Render_Attachments();
 
       $auth   = new IA_Discuss_Service_Auth($phpbb);
+      $membership = new IA_Discuss_Service_Membership($phpbb, $auth);
+      $membership->boot();
+      $notify = new IA_Discuss_Service_Notify($phpbb, $auth);
+      $notify->set_membership_service($membership);
+      $notify->boot();
       $upload = new IA_Discuss_Service_Upload();
       $write  = new IA_Discuss_Service_PhpBB_Write($phpbb, $auth);
       $write->boot();
 
+      // Wire cron handler.
+      add_action('ia_discuss_agora_inactivity_tick', function () use ($membership, $notify) {
+        try { $membership->cron_inactivity_tick($notify); } catch (Throwable $e) {}
+      });
+
       $modules = [
         new IA_Discuss_Module_Feed($phpbb, $bbcode, $media, $atts),
-        new IA_Discuss_Module_Topic($phpbb, $bbcode, $media, $auth),
-        new IA_Discuss_Module_Agoras($phpbb, $bbcode),
+        new IA_Discuss_Module_Topic($phpbb, $bbcode, $media, $auth, $notify, $membership),
+        new IA_Discuss_Module_Agoras($phpbb, $bbcode, $auth, $membership, $write),
+        new IA_Discuss_Module_Forum_Meta($phpbb, $bbcode, $auth, $membership, $write),
+        new IA_Discuss_Module_Membership($auth, $phpbb, $write, $membership),
         new IA_Discuss_Module_Agora_Create($phpbb, $bbcode, $auth),
         new IA_Discuss_Module_Upload($upload),
-        new IA_Discuss_Module_Write($phpbb, $bbcode, $auth, $write),
+        new IA_Discuss_Module_Write($phpbb, $bbcode, $auth, $write, $notify, $membership),
         new IA_Discuss_Module_Diag($phpbb),
 
         // ✅ NEW: Search

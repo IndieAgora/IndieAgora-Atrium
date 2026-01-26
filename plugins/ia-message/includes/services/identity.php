@@ -115,3 +115,75 @@ function ia_message_detect_phpbb_users_table(): string {
 
   return '';
 }
+
+
+/**
+ * Resolve WP user id (shadow) for a given phpBB user id.
+ * Uses canonical mapping tables when present.
+ */
+function ia_message_wp_user_id_for_phpbb(int $phpbb_user_id): int {
+  if ($phpbb_user_id <= 0) return 0;
+  global $wpdb;
+
+  $phpbb_map = $wpdb->prefix . 'phpbb_user_map';
+  try {
+    $has_phpbb_map = ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $phpbb_map)) === $phpbb_map);
+    if ($has_phpbb_map) {
+      $wp = (int) $wpdb->get_var($wpdb->prepare("SELECT wp_user_id FROM {$phpbb_map} WHERE phpbb_user_id=%d LIMIT 1", $phpbb_user_id));
+      if ($wp > 0) return $wp;
+    }
+  } catch (Throwable $e) {}
+
+  $map = $wpdb->prefix . 'ia_identity_map';
+  try {
+    $has_map = ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $map)) === $map);
+    if ($has_map) {
+      $wp = (int) $wpdb->get_var($wpdb->prepare("SELECT wp_user_id FROM {$map} WHERE phpbb_user_id=%d LIMIT 1", $phpbb_user_id));
+      if ($wp > 0) return $wp;
+    }
+  } catch (Throwable $e) {}
+
+  // Fallback: meta scan (slow, but bounded).
+  if (class_exists('WP_User_Query')) {
+    $q = new WP_User_Query([
+      'meta_query' => [
+        'relation' => 'OR',
+        [ 'key' => 'ia_phpbb_user_id', 'value' => (string)$phpbb_user_id, 'compare' => '=' ],
+        [ 'key' => 'phpbb_user_id',    'value' => (string)$phpbb_user_id, 'compare' => '=' ],
+        [ 'key' => 'ia_phpbb_uid',     'value' => (string)$phpbb_user_id, 'compare' => '=' ],
+        [ 'key' => 'phpbb_uid',        'value' => (string)$phpbb_user_id, 'compare' => '=' ],
+      ],
+      'number' => 1,
+      'fields' => ['ID'],
+    ]);
+    $r = $q->get_results();
+    if (!empty($r)) return (int)$r[0]->ID;
+  }
+
+  return 0;
+}
+
+function ia_message_recipient_allows_messages(int $recipient_phpbb_user_id, int $sender_phpbb_user_id = 0): bool {
+  if ($recipient_phpbb_user_id <= 0) return true;
+
+  // Admin bypass
+  if (current_user_can('manage_options')) return true;
+
+  if ($sender_phpbb_user_id > 0 && $recipient_phpbb_user_id === $sender_phpbb_user_id) return true;
+
+  $wp_id = ia_message_wp_user_id_for_phpbb($recipient_phpbb_user_id);
+  if ($wp_id <= 0) return true; // default allow if no shadow user exists
+
+  $raw = get_user_meta($wp_id, 'ia_connect_privacy', true);
+  $allow = null;
+  if (is_array($raw) && array_key_exists('allow_messages', $raw)) {
+    $allow = (int) !!$raw['allow_messages'];
+  } elseif (is_string($raw) && $raw !== '') {
+    $j = json_decode($raw, true);
+    if (is_array($j) && array_key_exists('allow_messages', $j)) $allow = (int) !!$j['allow_messages'];
+  }
+
+  // Default ON when unset.
+  if ($allow === null) return true;
+  return (bool) $allow;
+}

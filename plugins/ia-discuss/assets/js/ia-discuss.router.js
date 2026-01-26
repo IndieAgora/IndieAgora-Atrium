@@ -51,7 +51,7 @@
     let searchPrev = { view: "new", forum_id: 0, forum_name: "" };
     let lastSearchQ = "";
 
-    function render(view, forumId, forumName) {
+    function render(view, forumId, forumName, opts) {
       const mountEl = qs("[data-iad-view]", root);
       if (!mountEl) return;
 
@@ -100,17 +100,38 @@
             ? `<div class="iad-agora-row__desc">${descHtml}</div>`
             : (descText ? `<div class="iad-agora-row__desc">${esc(descText)}</div>` : ``);
 
+          const joined = (String(f.joined||'0') === '1');
+          const bell = (String(f.bell||'0') === '1');
+          const banned = (String(f.banned||'0') === '1');
+          const cover = (f.cover_url !== undefined && f.cover_url !== null) ? String(f.cover_url) : "";
+
+          const bellSvg = `<svg class="iad-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a2.2 2.2 0 0 0 2.2-2.2h-4.4A2.2 2.2 0 0 0 12 22Zm7-6.2v-5.2a7 7 0 1 0-14 0v5.2L3.6 17.2c-.6.6-.2 1.6.7 1.6h15.4c.9 0 1.3-1 .7-1.6L19 15.8Z" fill="currentColor"/></svg>`;
+
+          const joinLabel = banned ? 'Kicked' : (joined ? 'Joined' : 'Join');
+          const joinDisabled = banned ? 'disabled aria-disabled="true"' : '';
+
           return `
-            <button
-              type="button"
-              class="iad-agora-row"
+            <div
+              class="iad-agora-row ${joined ? 'iad-joined' : ''} ${banned ? 'iad-banned' : ''}"
+              data-iad-agora-row
               data-forum-id="${fid}"
               data-forum-name="${esc(name)}"
-            >
-              <div class="iad-agora-row__name">${esc(name)}</div>
-              ${descBlock}
-              <div class="iad-agora-row__meta">${topics} topics • ${posts} posts</div>
-            </button>
+              data-iad-cover="${esc(cover)}"
+             data-joined="${joined?1:0}" data-bell="${bell?1:0}">
+              <button type="button" class="iad-agora-row__open">
+                <div class="iad-agora-row__thumb" ${cover ? `style="background-image:url(${esc(cover)})"` : ''}></div>
+                <div class="iad-agora-row__main">
+                  <div class="iad-agora-row__name">${esc(name)}</div>
+                  ${descBlock}
+                  <div class="iad-agora-row__meta">${topics} topics • ${posts} posts</div>
+                </div>
+              </button>
+
+              <div class="iad-agora-row__actions">
+                <button type="button" class="iad-bell ${bell ? 'is-on' : ''}" data-iad-bell="${fid}" aria-label="Notifications" aria-pressed="${bell ? 'true':'false'}">${bellSvg}</button>
+                <button type="button" class="iad-join ${joined ? 'is-joined' : ''}" data-iad-join="${fid}" ${joinDisabled}>${joinLabel}</button>
+              </div>
+            </div>
           `;
         }
 
@@ -180,7 +201,7 @@
             e.stopPropagation();
             const id = parseInt(row.getAttribute("data-forum-id") || "0", 10);
             const nm = row.getAttribute("data-forum-name") || "";
-            render("agora", id, nm);
+            render("agora", id, nm, { joined: (row.getAttribute("data-joined")==="1"), bell: (row.getAttribute("data-bell")==="1") });
           }
         };
 
@@ -200,7 +221,7 @@
         window.IA_DISCUSS_UI_SHELL.setActiveTab("agoras");
         setParam("iad_topic", "");
 
-        window.IA_DISCUSS_UI_AGORA.renderAgora(root, lastForumId, lastForumName);
+        window.IA_DISCUSS_UI_AGORA.renderAgora(root, lastForumId, lastForumName, opts||null);
         return;
       }
 
@@ -240,6 +261,7 @@
     // fewer items, the browser clamps scrollTop back to ~0.
 
     let savedFeedState = null;
+    let lastTopicNav = null; // { view, forum_id, ids: number[], ts }
 
     function getFeedMount() {
       try { return qs("[data-iad-view]", root); } catch (e) { return null; }
@@ -271,8 +293,47 @@
         const scrollTop = (sc && typeof sc.scrollTop === 'number') ? sc.scrollTop : 0;
         const itemCount = mountEl ? (mountEl.querySelectorAll('[data-topic-id]') || []).length : 0;
         const ctl = (mountEl && mountEl.__iadFeedCtl) ? mountEl.__iadFeedCtl : null;
+
+        // Only capture/overwrite feed scroll + topic navigation state when we are
+        // actually in a feed list context. When navigating topic-to-topic inside
+        // the topic view, the feed controller isn't mounted, and capturing here
+        // would collapse the nav list to a single item (breaking Prev).
+        if (!ctl) return;
+
+        // Atrium keeps panels in the DOM; the feed controller property can remain attached
+        // even after we replace the mount's HTML with topic view. In that case, querying
+        // [data-topic-id] would return 0/1 elements and would overwrite topic navigation
+        // state with a collapsed list (breaking Prev/Next after the first hop).
+        //
+        // Only capture navigation/scroll state when we clearly have a feed list.
+        if (itemCount < 2) return;
         const st = (ctl && typeof ctl.getState === 'function') ? ctl.getState() : null;
         const anchor = (sc && mountEl) ? computeFeedAnchor(sc, mountEl) : { topic_id: 0, delta: 0 };
+
+        // Capture the current feed order so topic view can do prev/next navigation
+        // without returning to the feed.
+        let ids = [];
+        try {
+          ids = mountEl ? Array.from(mountEl.querySelectorAll('[data-topic-id]')).map((el) => {
+            return parseInt(el.getAttribute('data-topic-id') || '0', 10) || 0;
+          }).filter((n) => n > 0) : [];
+        } catch (eIds) { ids = []; }
+
+        // Defensive: don't overwrite an existing nav list with a tiny/invalid one.
+        if (ids.length < 2) return;
+
+        lastTopicNav = {
+          view: String(lastListView || 'new'),
+          forum_id: lastForumId || 0,
+          ids: ids,
+          ts: Date.now()
+        };
+
+        try {
+          if (window.IA_DISCUSS_STATE && typeof window.IA_DISCUSS_STATE.set === 'function') {
+            window.IA_DISCUSS_STATE.set({ topic_nav: lastTopicNav });
+          }
+        } catch (eNav) {}
 
         savedFeedState = {
           view: String(lastListView || 'new'),
@@ -456,6 +517,50 @@
       });
     });
 
+    function viewToTab(v) {
+      if (v === 'noreplies') return 'no_replies';
+      // 'unread' is a client-side filter over the new_posts feed
+      return 'new_posts';
+    }
+
+    // Random topic (from current list context)
+    (function bindRandomTopic(){
+      const btn = root.querySelector('[data-iad-random-topic]');
+      if (!btn || !window.IA_DISCUSS_API) return;
+
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Determine current context: list view + (optional) agora forum.
+        const v = (inSearch ? (searchPrev && searchPrev.view) : lastListView) || 'new';
+        const forum = (v === 'agora' || inAgora) ? (lastForumId || 0) : 0;
+
+        btn.disabled = true;
+        const oldTxt = btn.textContent;
+        btn.textContent = 'Random…';
+
+        let tid = 0;
+        try {
+          const res = await window.IA_DISCUSS_API.post('ia_discuss_random_topic', {
+            tab: viewToTab(v),
+            forum_id: forum,
+            q: ''
+          });
+          if (res && res.success && res.data && res.data.topic_id) {
+            tid = parseInt(res.data.topic_id, 10) || 0;
+          }
+        } catch (err) {}
+
+        btn.disabled = false;
+        btn.textContent = oldTxt || 'Random';
+
+        if (tid) {
+          openTopicPage(tid, {});
+        }
+      });
+    })();
+
     window.addEventListener("iad:open_topic_page", (e) => {
       const d = (e && e.detail) ? e.detail : {};
       const tid = d.topic_id ? d.topic_id : 0;
@@ -598,7 +703,8 @@
             window.IA_DISCUSS_API.post("ia_discuss_new_topic", {
               forum_id: forumId,
               title,
-              body
+              body,
+              notify: (payload && payload.notify != null) ? payload.notify : 1
             }).then((res) => {
               if (!res || !res.success) {
                 ui.setError((res && res.data && res.data.message) ? res.data.message : "New topic failed");

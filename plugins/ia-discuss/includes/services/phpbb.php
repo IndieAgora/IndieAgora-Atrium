@@ -130,6 +130,11 @@ final class IA_Discuss_Service_PhpBB {
     $order = "ORDER BY t.topic_last_post_time DESC";
     if ($tab === 'new_topics') $order = "ORDER BY t.topic_time DESC";
 
+    // Topics with no replies (only the first approved post exists)
+    if ($tab === 'no_replies') {
+      $where .= " AND t.topic_posts_approved <= 1";
+    }
+
     $sql = "
       SELECT
         t.topic_id,
@@ -167,7 +172,80 @@ final class IA_Discuss_Service_PhpBB {
       throw new Exception('phpBB SQL error: ' . $this->db->last_error . ' | ' . $this->last_query);
     }
 
+    // phpBB content may contain slashes if upstream systems stored "slashed" request payloads.
+    // Normalize for Discuss rendering.
+    if (is_array($rows)) {
+      foreach ($rows as &$r) {
+        if (isset($r['post_text']) && is_string($r['post_text'])) {
+          $r['post_text'] = function_exists('wp_unslash') ? wp_unslash($r['post_text']) : stripslashes($r['post_text']);
+        }
+      }
+      unset($r);
+    }
+
     return is_array($rows) ? $rows : [];
+  }
+
+  public function get_random_topic_id(string $tab, string $q = '', int $forum_id = 0): int {
+    if (!$this->db) throw new Exception('phpBB adapter not available');
+
+    $tab = $tab ?: 'new_posts';
+    $forum_id = max(0, (int)$forum_id);
+
+    $t = $this->prefix . 'topics';
+    $p = $this->prefix . 'posts';
+
+    $where = "WHERE 1=1";
+    $args = [];
+
+    $where .= " AND t.topic_visibility = 1";
+
+    if ($forum_id > 0) {
+      $where .= " AND t.forum_id = %d";
+      $args[] = $forum_id;
+    }
+
+    if ($q !== '') {
+      // Join to first post text for simple keyword matching.
+      $where .= " AND (t.topic_title LIKE %s OR p.post_text LIKE %s)";
+      $like = '%' . $this->db->esc_like($q) . '%';
+      $args[] = $like;
+      $args[] = $like;
+    }
+
+    if ($tab === 'no_replies') {
+      $where .= " AND t.topic_posts_approved <= 1";
+    }
+
+    $order = "ORDER BY t.topic_last_post_time DESC";
+    if ($tab === 'new_topics') $order = "ORDER BY t.topic_time DESC";
+
+    // Pull a reasonably small candidate set (latest N) and pick randomly in PHP.
+    // This avoids expensive ORDER BY RAND() on large tables.
+    $limit = 500;
+
+    $sql = "
+      SELECT t.topic_id
+      FROM {$t} t
+      LEFT JOIN {$p} p ON p.post_id = t.topic_first_post_id
+      {$where}
+      {$order}
+      LIMIT %d
+    ";
+
+    $args[] = $limit;
+    $prepared = $this->db->prepare($sql, ...$args);
+    $this->last_query = $prepared;
+
+    $rows = $this->db->get_results($prepared, ARRAY_A);
+    if (!empty($this->db->last_error)) {
+      throw new Exception('phpBB SQL error: ' . $this->db->last_error . ' | ' . $this->last_query);
+    }
+
+    if (!is_array($rows) || !count($rows)) return 0;
+
+    $idx = random_int(0, count($rows) - 1);
+    return (int)($rows[$idx]['topic_id'] ?? 0);
   }
 
   public function get_agoras_rows(int $offset, int $limit, string $q = ''): array {
@@ -269,6 +347,16 @@ final class IA_Discuss_Service_PhpBB {
     );
 
     if (!empty($this->db->last_error)) throw new Exception('phpBB SQL error: ' . $this->db->last_error);
+
+    if (is_array($rows)) {
+      foreach ($rows as &$r) {
+        if (isset($r['post_text']) && is_string($r['post_text'])) {
+          $r['post_text'] = function_exists('wp_unslash') ? wp_unslash($r['post_text']) : stripslashes($r['post_text']);
+        }
+      }
+      unset($r);
+    }
+
     return is_array($rows) ? $rows : [];
   }
 

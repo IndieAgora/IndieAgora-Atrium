@@ -25,7 +25,28 @@ final class IA_Discuss_Module_Feed implements IA_Discuss_Module_Interface {
   public function ajax_routes(): array {
     return [
       'ia_discuss_feed' => ['method' => 'ajax_feed', 'public' => true],
+      'ia_discuss_random_topic' => ['method' => 'ajax_random_topic', 'public' => true],
     ];
+  }
+
+  public function ajax_random_topic(): void {
+    $tab   = isset($_POST['tab']) ? sanitize_key((string)$_POST['tab']) : 'new_posts';
+    $q     = isset($_POST['q']) ? sanitize_text_field((string)$_POST['q']) : '';
+    $forum = isset($_POST['forum_id']) ? max(0, (int)$_POST['forum_id']) : 0;
+
+    if (!$this->phpbb->is_ready()) ia_discuss_json_err('phpBB adapter not available (check IA Engine creds)', 503);
+
+    try {
+      $tid = $this->phpbb->get_random_topic_id($tab, $q, $forum);
+    } catch (Throwable $e) {
+      ia_discuss_json_err($e->getMessage(), 500);
+    }
+
+    if (!$tid) ia_discuss_json_err('No matching topic found', 404);
+
+    ia_discuss_json_ok([
+      'topic_id' => (int)$tid,
+    ]);
   }
 
   public function ajax_feed(): void {

@@ -71,6 +71,19 @@ final class IA_Engine_PeerTube_Token {
    */
   public static function refresh(bool $force = false): array {
     $c = IA_Engine::peertube_api();
+    // Prevent stampedes: multiple concurrent requests can trigger refresh at the same time.
+    // This is a best-effort lock and must never break normal page loads.
+    $lockKey = 'ia_engine_pt_refresh_lock';
+    $locked = false;
+    if (!$force && function_exists('get_transient') && function_exists('set_transient')) {
+      if (get_transient($lockKey)) {
+        return ['ok' => true, 'message' => 'Token refresh already in progress.'];
+      }
+      set_transient($lockKey, 1, 60);
+      $locked = true;
+    }
+
+    try {
 
     $publicUrl = trim((string)($c['public_url'] ?? ''));
     if ($publicUrl === '') {
@@ -120,7 +133,13 @@ final class IA_Engine_PeerTube_Token {
     }
 
     return self::grant_password_token($apiBase, $clientId, $clientSecret, $adminUser, $adminPass);
-  }
+  
+    } finally {
+      if (!empty($locked) && $locked && function_exists('delete_transient')) {
+        delete_transient($lockKey);
+      }
+    }
+}
 
   private static function fetch_oauth_client(string $apiBase): array {
     $url = rtrim($apiBase, '/') . '/oauth-clients/local';

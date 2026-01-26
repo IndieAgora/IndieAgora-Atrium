@@ -1,5 +1,6 @@
 /* Discord-ish message blocks with clear in/out differentiation */
 .ia-msg-bubble{
+  overflow:hidden;
   max-width: 78%;
   margin: 10px 0;
   padding: 10px 12px;
@@ -9,27 +10,22 @@
   font-size: 14px;
   color: var(--ia-text);
 
-  /* Incoming default: darker reddit card */
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.22));
+  /* Flat bubble background (no gradients behind bubbles) */
+  background: rgba(0,0,0,0.22);
 }
 
 /* Incoming (other) — subtle cool tint so it’s not identical to panels */
 .ia-msg-bubble:not(.mine){
   margin-right: auto;
   border-color: rgba(255,255,255,0.10);
-  background:
-    radial-gradient(520px 180px at 10% 0%, rgba(59,130,246,0.10), transparent 70%),
-    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.26));
+  background: rgba(0,0,0,0.24);
 }
 
 /* Outgoing (mine) — right aligned, purple gradient */
 .ia-msg-bubble.mine{
   margin-left: auto;
   border-color: rgba(167,139,250,0.38);
-  background:
-    radial-gradient(600px 180px at 20% 0%, rgba(124,58,237,0.26), transparent 70%),
-    linear-gradient(180deg, rgba(124,58,237,0.12), rgba(0,0,0,0.24));
+  background: rgba(124,58,237,0.16);
 }
 
 /* Content */
@@ -52,4 +48,368 @@
 
 .ia-msg-bubble:not(.mine) .ia-msg-when{
   color: rgba(148,163,184,0.85);
+}
+
+
+/* Rich embeds (attachments + link cards) */
+.ia-msg-embed{
+  margin-top: 10px;
+}
+.ia-msg-embed img{
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--ia-line2);
+  display:block;
+}
+.ia-msg-embed video,
+.ia-msg-embed audio{
+  width: 100%;
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--ia-line2);
+  background: rgba(0,0,0,0.25);
+}
+.ia-msg-pill{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ia-line2);
+  background: rgba(0,0,0,0.28);
+  color: var(--ia-text);
+  text-decoration:none;
+  font-size: 13px;
+}
+.ia-msg-pill:hover{
+  border-color: rgba(167,139,250,0.35);
+}
+.ia-msg-linkcard{
+  display:flex;
+  gap: 10px;
+  align-items:center;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--ia-line2);
+  background: rgba(0,0,0,0.28);
+  text-decoration:none;
+  color: var(--ia-text);
+}
+.ia-msg-linkcard .ia-msg-link-ico{
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--ia-line2);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(0,0,0,0.22);
+  flex: 0 0 auto;
+}
+.ia-msg-linkcard .ia-msg-link-meta{
+  min-width:0;
+}
+.ia-msg-linkcard .ia-msg-link-host{
+  font-size: 12px;
+  color: var(--ia-muted);
+}
+.ia-msg-linkcard .ia-msg-link-url{
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* Inline media open buttons */
+.ia-msg-media{
+  width:100%;
+  padding:0;
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  position:relative;
+  display:block;
+}
+.ia-msg-media img{
+  display:block;
+  width:100%;
+  height:auto;
+  border-radius:10px;
+}
+.ia-msg-media video,
+.ia-msg-media audio{
+  width:100%;
+  border-radius:10px;
+}
+.ia-msg-media-open{
+  position:absolute;
+  right:10px;
+  bottom:10px;
+  background:rgba(0,0,0,.55);
+  color:#fff;
+  font-size:12px;
+  padding:6px 8px;
+  border-radius:10px;
+  pointer-events:none;
+}
+
+
+/* Mobile-friendly media sizing: keep attachments from taking over the screen */
+.ia-msg-embed img,
+.ia-msg-media img{
+  max-height: 240px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.ia-msg-embed video,
+.ia-msg-media video{
+  max-height: 260px;
+  width: 100%;
+}
+
+.ia-msg-embed iframe{
+  width: 100% !important;
+  max-height: 260px;
+}
+
+@media (max-width: 820px){
+  .ia-msg-embed img,
+  .ia-msg-media img{ max-height: 220px; }
+  .ia-msg-embed video,
+  .ia-msg-media video{ max-height: 240px; }
+  .ia-msg-embed iframe{ max-height: 240px; }
+}
+/* --- Hardening: prevent message bubbles from exceeding viewport --- */
+
+.iam-message-row,
+.ia-message-row {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.iam-bubble,
+.ia-bubble,
+.iam-message,
+.ia-message,
+.iam-message-body,
+.ia-message-body,
+.iam-message-text,
+.ia-message-text {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.iam-bubble *,
+.ia-bubble * {
+  max-width: 100%;
+}
+
+
+/* Row wrapper to allow "reply" icon outside bubble */
+.ia-msg-row{
+  display:flex;
+  align-items:center;
+  gap:2px;
+  margin: 8px 0;
+}
+.ia-msg-row[data-ia-msg-side="in"]{ justify-content:flex-start; }
+.ia-msg-row[data-ia-msg-side="out"]{ justify-content:flex-end; }
+
+/* Reply icon should be opposite to the bubble side */
+.ia-msg-row[data-ia-msg-side="in"] .ia-msg-bubble{ order:1; }
+.ia-msg-row[data-ia-msg-side="in"] .ia-msg-replybtn{ order:3; }
+.ia-msg-fwdbtn{ order:2; }
+.ia-msg-row[data-ia-msg-side="out"] .ia-msg-replybtn{ order:1; }
+.ia-msg-row[data-ia-msg-side="out"] .ia-msg-fwdbtn{ order:2; }
+.ia-msg-row[data-ia-msg-side="out"] .ia-msg-bubble{ order:3; }
+
+.ia-msg-replybtn{
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,0.10);
+  background:rgba(0,0,0,0.10);
+  color:inherit;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  opacity:0.85;
+  align-self:center;
+}
+
+.ia-msg-fwdbtn{
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,0.10);
+  background:rgba(0,0,0,0.10);
+  color:inherit;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  opacity:0.85;
+  align-self:center;
+}
+.ia-msg-replybtn:hover{ opacity:1; }
+.ia-msg-fwdbtn:hover{ opacity:1; }
+
+/* Pull action buttons closer to bubble */
+.ia-msg-row[data-ia-msg-side="in"] .ia-msg-fwdbtn{ margin-left:-1px; }
+.ia-msg-row[data-ia-msg-side="out"] .ia-msg-fwdbtn{ margin-right:-1px; }
+
+/* Tidy buttons on small screens */
+@media (max-width: 720px){
+  .ia-msg-row{ gap:2px; }
+  .ia-msg-replybtn,
+  .ia-msg-fwdbtn{
+    width:24px;
+    height:24px;
+    border-color: rgba(255,255,255,0.08);
+    background: rgba(0,0,0,0.06);
+    opacity:0.92;
+  }
+}
+
+/* Reply quote nested inside a message */
+.ia-msg-replyquote{
+  display:block;
+  width:100%;
+  text-align:left;
+  border:0;
+  background:rgba(255,255,255,0.04);
+  border-left:3px solid rgba(255,255,255,0.18);
+  padding:8px 10px;
+  margin:0 0 8px 0;
+  border-radius:10px;
+  color:inherit;
+  cursor:pointer;
+}
+.ia-msg-replyquote__who{
+  font-size:12px;
+  font-weight:700;
+  opacity:0.9;
+  margin-bottom:4px;
+}
+.ia-msg-replyquote__txt{
+  font-size:12px;
+  opacity:0.85;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* Jump highlight */
+.ia-msg-bubble.ia-msg-jumpflash{
+  outline:2px solid rgba(255,255,255,0.20);
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.06);
+  transition: box-shadow 0.2s ease, outline-color 0.2s ease;
+}
+
+
+/* Forwarded label + forward sheet chips */
+.ia-msg-meta{
+  font-size:12px;
+  opacity:0.75;
+  margin-bottom:6px;
+}
+
+.ia-msg-forwarded{
+  font-weight:600;
+  letter-spacing:0.02em;
+}
+
+.ia-msg-fwd-preview{
+  padding:10px 12px;
+  border:1px solid rgba(255,255,255,0.10);
+  border-radius:12px;
+  background:rgba(0,0,0,0.20);
+  font-size:13px;
+  line-height:1.35;
+  opacity:0.9;
+}
+
+.ia-msg-fwd-selected{
+  margin-top:10px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.ia-msg-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(0,0,0,0.18);
+  max-width:100%;
+}
+
+.ia-msg-chip-name{
+  font-size:13px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width:220px;
+}
+
+.ia-msg-chip-x{
+  width:22px;
+  height:22px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(0,0,0,0.12);
+  color:inherit;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  line-height:1;
+  padding:0;
+}
+
+
+
+
+/* v1.0.20 — fix action buttons drifting away due to auto margins on bubbles */
+.ia-msg-row .ia-msg-bubble{
+  margin: 8px 0; /* keep vertical rhythm */
+}
+.ia-msg-row .ia-msg-bubble.mine{
+  margin-left: 0 !important; /* remove auto spacer that pushes bubble away from icons */
+}
+.ia-msg-row .ia-msg-bubble:not(.mine){
+  margin-right: 0 !important; /* remove auto spacer that pushes bubble away from icons */
+}
+/* keep row clustering tight */
+.ia-msg-row{
+  gap: 4px !important;
+}
+@media (max-width: 720px){
+  .ia-msg-row{ gap: 3px !important; }
+  .ia-msg-replybtn, .ia-msg-fwdbtn{ width:26px; height:26px; }
+}
+
+
+
+/* v1.0.22: prevent long usernames overflowing inside reply/forward quote header */
+.ia-msg-replyquote__who{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  max-width:100%;
+  display:block;
+}
+
+.ia-msg-replyquote{
+  padding:10px 12px;
+  margin-bottom:10px;
 }

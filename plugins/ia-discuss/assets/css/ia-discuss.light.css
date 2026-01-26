@@ -151,3 +151,95 @@
 .ia-discuss-root[data-iad-theme="light"] .iad-backtop:hover{
   background: rgba(255,255,255,0.92);
 }
+
+/* Search (suggestions + results) */
+.ia-discuss-root[data-iad-theme="light"] .iad-suggest{
+  background: rgba(255,255,255,0.98);
+  border-color: rgba(0,0,0,0.12);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sug-row{
+  color: rgba(0,0,0,0.86);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sug-row:hover{
+  background: rgba(0,0,0,0.04);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sug-row.is-cta{
+  border-bottom-color: rgba(0,0,0,0.08);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sg-title{
+  color: rgba(0,0,0,0.55);
+  opacity: 1;
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sug-sub,
+.ia-discuss-root[data-iad-theme="light"] .iad-sug-sn{
+  color: rgba(0,0,0,0.55);
+  opacity: 1;
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sug-ico,
+.ia-discuss-root[data-iad-theme="light"] .iad-av{
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.10);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-search-title{
+  color: rgba(0,0,0,0.90);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-stab{
+  border-color: rgba(0,0,0,0.12);
+  background: rgba(0,0,0,0.03);
+  color: rgba(0,0,0,0.78);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-stab:hover{
+  background: rgba(0,0,0,0.06);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-stab.is-active{
+  background: rgba(255,69,0,0.12);
+  border-color: rgba(255,69,0,0.30);
+  color: rgba(0,0,0,0.90);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sr-list{
+  color: rgba(0,0,0,0.88);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sr-row{
+  color: rgba(0,0,0,0.88);
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 16px;
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sr-row.is-alt{
+  background: #fbfbfc;
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sr-row:hover{
+  background: rgba(0,0,0,0.03);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sr-title{
+  color: rgba(0,0,0,0.92);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sr-sub{
+  color: rgba(0,0,0,0.60);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sr-sn{
+  color: rgba(0,0,0,0.80);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sr-ico{
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.10);
+}

@@ -7,6 +7,13 @@
   aspect-ratio: 16 / 9;
 }
 
+/* Desktop: prevent the in-feed player from dominating tall viewports */
+@media (min-width: 900px) {
+  .ia-stream-card .ia-stream-player {
+    max-height: 420px;
+  }
+}
+
 .ia-stream-player iframe,
 .ia-stream-player video {
   width: 100%;

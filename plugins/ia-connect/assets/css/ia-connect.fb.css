@@ -1,0 +1,134 @@
+/* Facebook-leaning tidy pass (scoped to ia-connect) */
+
+:root{
+  --iac-card-bg: rgba(0,0,0,0.42);
+  --iac-card-border: rgba(255,255,255,0.10);
+  --iac-soft: rgba(255,255,255,0.06);
+}
+
+.iac-wrap, .iac-profile{
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+.iac-tabs{
+  overflow-x:auto;
+  flex-wrap:nowrap;
+  -webkit-overflow-scrolling: touch;
+  gap:10px;
+  padding-bottom:6px;
+}
+.iac-tabs::-webkit-scrollbar{ height:6px; }
+.iac-tabs::-webkit-scrollbar-thumb{ background: rgba(255,255,255,0.14); border-radius:999px; }
+
+.iac-tab{ white-space:nowrap; border-radius:999px; }
+
+.iac-card, .iac-composer, .iac-feed, .iac-activity, .iac-settings{
+  background: var(--iac-card-bg);
+  border:1px solid var(--iac-card-border);
+  border-radius:16px;
+}
+
+.iac-activity, .iac-settings{ padding:16px; }
+
+.iac-setting{
+  border:1px solid var(--iac-card-border);
+  background: rgba(255,255,255,0.03);
+  border-radius:14px;
+  padding:12px;
+  margin-bottom:12px;
+}
+
+.iac-setting-title{ font-weight:700; }
+
+.iac-input, .iac-textarea{
+  font-family: inherit;
+  border-radius:14px;
+}
+
+.iac-activity-item{ background: rgba(255,255,255,0.03); }
+
+.iac-activity-item-excerpt, .iac-activity-item-title{ word-break: break-word; }
+
+/* Slider switches */
+.iac-switch{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  cursor:pointer;
+  user-select:none;
+  margin-top:10px;
+}
+
+/* input is visually hidden; keep it positioned within the label to avoid scroll jumps */
+
+.iac-switch span{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  font-size:13px;
+  opacity:0.9;
+}
+
+.iac-switch span::before{
+  content:'';
+  width:44px;
+  height:26px;
+  border-radius:999px;
+  background: rgba(255,255,255,0.14);
+  border:1px solid rgba(255,255,255,0.18);
+  position:relative;
+  flex:0 0 auto;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.iac-switch span::after{
+  content:'';
+  width:22px;
+  height:22px;
+  border-radius:999px;
+  background: rgba(0,0,0,0.55);
+  border:1px solid rgba(255,255,255,0.15);
+  position:relative;
+  left:-40px;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.iac-switch input:checked + span::before{
+  background: rgba(99, 163, 255, 0.55);
+  border-color: rgba(99, 163, 255, 0.65);
+}
+
+.iac-switch input:checked + span::after{
+  transform: translateX(18px);
+  background: rgba(0,0,0,0.35);
+}
+
+/* Prevent long words escaping without clipping entire panels */
+.iac-activity, .iac-settings, .iac-composer, .iac-feed{ overflow:visible; }
+.iac-card{ overflow:hidden; }
+
+/* Make switch input safe (avoid any scroll/focus oddities) */
+.iac-switch{ position:relative; }
+.iac-switch input{
+  position:absolute;
+  left:0;
+  top:0;
+  width:1px;
+  height:1px;
+  margin:0;
+  opacity:0;
+}
+
+/* Settings panel rows */
+.iac-setting-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px;}
+.iac-setting-row .iac-input{flex:1;min-width:180px;}
+.iac-setting-hint{margin-top:8px;font-size:13px;color:var(--iac-muted);}
+.iac-post.iac-danger{border:1px solid rgba(255,70,70,.55);background:rgba(255,70,70,.12);}
+.iac-post.iac-danger:disabled{opacity:.55;cursor:not-allowed;}
+
+/* Settings panel rows */
+.iac-setting-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px;}
+.iac-setting-row .iac-input{flex:1;min-width:180px;}
+.iac-setting-hint{margin-top:8px;font-size:13px;color:var(--iac-muted);}
+.iac-post.iac-danger{border:1px solid rgba(255,70,70,.55);background:rgba(255,70,70,.12);}
+.iac-post.iac-danger:disabled{opacity:.55;cursor:not-allowed;}
