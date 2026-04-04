@@ -29,11 +29,22 @@ final class IA_Discuss_Service_Auth {
     $uid = $this->try_external_mapper();
     if ($uid > 0) return $uid;
 
+    // Atrium canonical mapping order (mirrors IA Connect behaviour):
+    // 1) WP usermeta ia_phpbb_user_id
+    // 2) {$wpdb->prefix}ia_identity_map mapping
+    $wp_uid = (int) get_current_user_id();
+    if ($wp_uid > 0) {
+      $meta = (int) get_user_meta($wp_uid, 'ia_phpbb_user_id', true);
+      if ($meta > 0) return $meta;
+
+      $mapped = (int) $this->lookup_phpbb_user_id_by_identity_map($wp_uid);
+      if ($mapped > 0) return $mapped;
+    }
+
     // Next: allow the wider Atrium stack to provide a canonical phpBB id.
     // This is intentionally a simple scalar filter so it can be wired up by
     // ia-auth / ia-user / a fallback bridge without Discuss needing to know
     // implementation details.
-    $wp_uid = (int) get_current_user_id();
     $filtered = (int) apply_filters('ia_current_phpbb_user_id', 0, $wp_uid);
     if ($filtered > 0) return $filtered;
 
@@ -43,6 +54,51 @@ final class IA_Discuss_Service_Auth {
     if ($login === '') return 0;
 
     return $this->lookup_phpbb_user_id_by_username($login);
+  }
+
+  private function lookup_phpbb_user_id_by_identity_map(int $wp_uid): int {
+    global $wpdb;
+    if (!$wpdb || $wp_uid <= 0) return 0;
+
+    $t = $wpdb->prefix . 'ia_identity_map';
+    try {
+      $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $t));
+      if ((string)$exists !== (string)$t) return 0;
+    } catch (Throwable $e) {
+      return 0;
+    }
+
+    // Primary mapping: by wp_user_id (when identity-map has been backfilled).
+    $sql = "SELECT phpbb_user_id FROM {$t} WHERE wp_user_id = %d LIMIT 1";
+    $out = $wpdb->get_var($wpdb->prepare($sql, $wp_uid));
+    $out = (int) ($out ?: 0);
+    if ($out > 0) return $out;
+
+    // Atrium reality: wp_user_id can be NULL for canonical phpBB accounts, and the
+    // WP user is a shadow/session user. In that case we fall back to stable fields.
+    $u = get_userdata($wp_uid);
+    if (!$u) return 0;
+
+    $email = isset($u->user_email) ? trim((string)$u->user_email) : '';
+    if ($email !== '') {
+      $sql2 = "SELECT phpbb_user_id FROM {$t} WHERE email = %s LIMIT 1";
+      $v = $wpdb->get_var($wpdb->prepare($sql2, $email));
+      $v = (int) ($v ?: 0);
+      if ($v > 0) return $v;
+    }
+
+    $login = isset($u->user_login) ? trim((string)$u->user_login) : '';
+    if ($login !== '') {
+      $clean = strtolower(sanitize_user($login, true));
+      if ($clean !== '') {
+        $sql3 = "SELECT phpbb_user_id FROM {$t} WHERE phpbb_username_clean = %s LIMIT 1";
+        $v2 = $wpdb->get_var($wpdb->prepare($sql3, $clean));
+        $v2 = (int) ($v2 ?: 0);
+        if ($v2 > 0) return $v2;
+      }
+    }
+
+    return 0;
   }
 
   private function try_external_mapper(): int {

@@ -12,10 +12,10 @@
     if (!mount) return;
     mount.innerHTML = `
       <div class="iad-modal iad-topic-modal is-fullscreen">
-        <div class="iad-modal-backdrop" data-iad-topic-back></div>
+        <div class="iad-modal-backdrop" data-iad-topic-close></div>
         <div class="iad-modal-sheet">
           <div class="iad-modal-top">
-            <button type="button" class="iad-x" data-iad-topic-back aria-label="Back">←</button>
+            <button type="button" class="iad-x" data-iad-topic-close aria-label="Close">×</button>
             <div class="iad-modal-title">Topic</div>
           </div>
           <div class="iad-modal-body">
@@ -27,10 +27,10 @@
   }
 
   function bindBack(mount) {
-    const els = mount ? mount.querySelectorAll("[data-iad-topic-back]") : [];
+    const els = mount ? mount.querySelectorAll("[data-iad-topic-close]") : [];
     els.forEach((el) => {
       el.addEventListener("click", () => {
-        window.dispatchEvent(new CustomEvent("iad:topic_back"));
+        window.dispatchEvent(new CustomEvent("iad:topic_close"));
       });
     });
   }
@@ -49,10 +49,14 @@
     quote: `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M7 17h4V7H6v6h3v4zm10 0h4V7h-5v6h3v4z" fill="currentColor"/></svg>`,
     reply: `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M10 9V5l-7 7 7 7v-4c6 0 8 2 11 6-1-8-4-12-11-12z" fill="currentColor"/></svg>`,
     link: `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M10 13a5 5 0 0 1 0-7l1.5-1.5a5 5 0 0 1 7 7L17 13" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 11a5 5 0 0 1 0 7L12.5 19.5a5 5 0 0 1-7-7L7 11" fill="none" stroke="currentColor" stroke-width="2"/></svg>`,
+    share: `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M16 8l-4-4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 4v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 20H4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
     edit: `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M3 17.25V21h3.75L17.8 9.95l-3.75-3.75L3 17.25z" fill="currentColor"/><path d="M20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>`,
     del: `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M6 7h12l-1 14H7L6 7zm3-3h6l1 2H8l1-2z" fill="currentColor"/></svg>`,
     kick: `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-8 2-8 6h2c0-3 3-4 6-4s6 1 6 4h2c0-4-4-6-8-6z" fill="currentColor"/><path d="M19 8h4v2h-4z" fill="currentColor"/></svg>`,
+    follow: `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path class="iad-plus" d="M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+    block: `<svg viewBox="0 0 24 24" class="iad-ico"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.5 5.5l13 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
     add: `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-8 2-8 6h2c0-3 3-4 6-4s6 1 6 4h2c0-4-4-6-8-6z" fill="currentColor"/><path d="M19 7h2v4h4v2h-4v4h-2v-4h-4v-2h4z" fill="currentColor"/></svg>`,
+    report: `<svg viewBox="0 0 24 24" class="iad-ico"><path d="M12 9v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 17h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`,
   };
 
   function renderPostHTML(p, index, baseIndex, opts) {
@@ -60,7 +64,10 @@
     const i = (baseIndex || 0) + (index || 0);
 
     const posterId = p.poster_id != null ? p.poster_id : p.user_id || 0;
-    const author = esc(p.poster_username || p.username || "user#" + (posterId || 0));
+    const usernameRaw = (p.poster_username || p.username || ("user#" + (posterId || 0)));
+    const displayRaw = (p.poster_display || usernameRaw);
+    const author = esc(displayRaw);
+    const avatarUrl = p.avatar_url || "";
     const pAgo = timeAgo(p.post_time || p.time || 0);
 
     const body =
@@ -100,21 +107,30 @@
     const rawB64 = b64utf8(p.raw_text || "");
     const forumId = parseInt(p.forum_id || "0", 10) || 0;
 
+    const sigHtml = (p && p.signature_html) ? String(p.signature_html) : "";
+    const signatureBlock = sigHtml
+      ? `<div class="iad-post-signature"><div class="iad-post-sig-divider"></div><div class="iad-post-sig-body">${sigHtml}</div></div>`
+      : ``;
+
     return `
       <article class="iad-post ${isOP ? "is-op" : "is-reply"} ${isAlt ? "is-alt" : ""} " data-post-id="${postIdAttr}">
         <div class="iad-post-meta">
+          ${avatarUrl ? `<img class="iad-uava" src="${esc(avatarUrl)}" alt="" />` : ``}
           <button type="button" class="iad-user-link" data-open-user data-username="${esc(
             p.poster_username || p.username || ""
           )}" data-user-id="${esc(String(posterId || 0))}">
             ${author}
           </button>
 
+          <button type="button" class="iad-iconbtn iad-iconbtn-mini iad-relbtn" data-iad-follow-user data-user-id="${esc(String(posterId || 0))}" title="Follow / Unfollow">${I.follow}</button>
+          <button type="button" class="iad-iconbtn iad-iconbtn-mini iad-relbtn" data-iad-block-user data-user-id="${esc(String(posterId || 0))}" title="Block / Unblock">${I.block}</button>
+
           ${canBan ? (isBanned ? `
             <button type="button" class="iad-iconbtn iad-iconbtn-mini"
               data-iad-unban
               data-user-id="${esc(String(posterId || 0))}"
               data-forum-id="${esc(String(forumId || 0))}"
-              data-username="${esc(p.poster_username || p.username || "")}"
+              data-username="${esc(usernameRaw || "")}"
               title="Reinstate user in this Agora">
               ${I.add}
             </button>
@@ -123,7 +139,7 @@
               data-iad-kick
               data-user-id="${esc(String(posterId || 0))}"
               data-forum-id="${esc(String(forumId || 0))}"
-              data-username="${esc(p.poster_username || p.username || "")}"
+              data-username="${esc(usernameRaw || "")}"
               title="Block user from this Agora">
               ${I.kick}
             </button>
@@ -141,12 +157,15 @@
           ${M.attachmentPillsHTML ? M.attachmentPillsHTML(media) : ""}
         </div>
 
+        ${signatureBlock}
+
         <div class="iad-post-actions iad-post-actions-icons">
           <button type="button" class="iad-iconbtn" data-iad-quote data-quote-author="${esc(
             p.poster_username || p.username || ""
           )}" title="Quote">${I.quote}</button>
           <button type="button" class="iad-iconbtn" data-iad-reply title="Reply">${I.reply}</button>
-          <button type="button" class="iad-iconbtn" data-iad-copylink data-post-id="${postIdAttr}" title="Copy link">${I.link}</button>
+          <button type="button" class="iad-iconbtn" data-iad-report data-post-id="${postIdAttr}" title="Report post" aria-label="Report post">${I.report}</button>
+          ${String((window.IA_DISCUSS_TOPIC_DATA && window.IA_DISCUSS_TOPIC_DATA.forum_is_private) || 0) === "1" ? "" : `<button type="button" class="iad-iconbtn" data-iad-copylink data-post-id="${postIdAttr}" title="Copy link">${I.link}</button><button type="button" class="iad-iconbtn" data-iad-share data-post-id="${postIdAttr}" title="Share to Connect" aria-label="Share to Connect">${I.share}</button>`}
           ${canEdit ? `<button type="button" class="iad-iconbtn" data-iad-edit="${postIdAttr}" data-iad-edit-raw="${rawB64}" title="Edit">${I.edit}</button>` : ``}
           ${canDelete ? `<button type="button" class="iad-iconbtn" data-iad-del="${postIdAttr}" title="Delete">${I.del}</button>` : ``}
         </div>
@@ -155,6 +174,7 @@
   }
 
   function renderTopicHTML(data) {
+    window.IA_DISCUSS_TOPIC_DATA = data || {};
     const topicTitle = esc(data.topic_title || "Topic");
     const forumName = esc(data.forum_name || "agora");
     const ago = timeAgo(data.topic_time || data.last_post_time || 0);
@@ -171,21 +191,39 @@
       </button>
     `;
 
+    const lastReplyPill = `
+      <button type="button" class="iad-pill" data-iad-goto-last title="Go to last reply">
+        Last reply
+      </button>
+    `;
+
+    const notifyOn = (data && (data.notify_enabled === 1 || data.notify_enabled === '1')) ? 1 : 0;
+    const notifyToggle = `
+      <label class="iad-pill" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+        <input type="checkbox" data-iad-topic-notify ${notifyOn ? 'checked' : ''} />
+        <span>Email replies</span>
+      </label>
+    `;
+
     const pager = `
       <div class="iad-topic-pager">
-        <div class="iad-topic-pager-left"></div>
-        <div class="iad-topic-pager-right">
+        <div class="iad-topic-pager-left">
+          <span class="iad-topic-count" data-iad-topic-count></span>
+        </div>
+        <div class="iad-topic-pager-right" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           ${postReplyPill}
+          ${lastReplyPill}
+          ${(data && data.viewer && data.viewer.phpbb_user_id) ? notifyToggle : ``}
         </div>
       </div>
     `;
 
     return `
       <div class="iad-modal iad-topic-modal is-fullscreen">
-        <div class="iad-modal-backdrop" data-iad-topic-back></div>
+        <div class="iad-modal-backdrop" data-iad-topic-close></div>
         <div class="iad-modal-sheet">
           <div class="iad-modal-top">
-            <button type="button" class="iad-x" data-iad-topic-back aria-label="Back">←</button>
+            <button type="button" class="iad-x" data-iad-topic-close aria-label="Close">×</button>
             <div class="iad-modal-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
               ${topicTitle}
             </div>
@@ -205,7 +243,7 @@
 
             ${pager}
 
-            <button type="button" class="iad-backtop" data-iad-back-top hidden title="Back to top">↑ Top</button>
+            <!-- back-to-top is now handled via the centered topic-nav button -->
 
             ${postsHtml || `<div class="iad-empty">No posts found.</div>`}
 
@@ -213,6 +251,12 @@
               <button type="button" class="iad-more" data-iad-more>Load more replies</button>
             ` : ``}
 
+          </div>
+
+          <div class="iad-topic-nav" aria-label="Topic navigation">
+            <button type="button" class="iad-topic-navbtn is-prev" data-iad-topic-prev aria-label="Previous topic" title="Previous topic">←</button>
+            <button type="button" class="iad-topic-navbtn is-top" data-iad-topic-top aria-label="Back to top" title="Back to top">↑</button>
+            <button type="button" class="iad-topic-navbtn is-next" data-iad-topic-next aria-label="Next topic" title="Next topic">→</button>
           </div>
         </div>
       </div>

@@ -1,53 +1,3 @@
-"use strict";
-          return;
-        }
-
-        if (btn.hasAttribute("data-iad-sug-user")) {
-          hideSuggest(box);
-          openConnectProfile({
-            username: btn.getAttribute("data-username") || "",
-            user_id: btn.getAttribute("data-user-id") || "0"
-          });
-          return;
-        }
-
-        if (btn.hasAttribute("data-iad-sug-agora")) {
-          hideSuggest(box);
-          window.dispatchEvent(new CustomEvent("iad:open_agora", {
-            detail: {
-              forum_id: btn.getAttribute("data-forum-id") || "0",
-              forum_name: btn.getAttribute("data-forum-name") || ""
-            }
-          }));
-          return;
-        }
-
-        if (btn.hasAttribute("data-iad-sug-topic")) {
-          hideSuggest(box);
-          window.dispatchEvent(new CustomEvent("iad:open_topic_page", {
-            detail: { topic_id: btn.getAttribute("data-topic-id") || "0" }
-          }));
-          return;
-        }
-
-        if (btn.hasAttribute("data-iad-sug-reply")) {
-          hideSuggest(box);
-          window.dispatchEvent(new CustomEvent("iad:open_topic_page", {
-            detail: {
-              topic_id: btn.getAttribute("data-topic-id") || "0",
-              scroll_post_id: btn.getAttribute("data-post-id") || "0",
-              highlight_new: 1
-            }
-          }));
-          return;
-        }
-      });
-    }
-  }
-
-  // ---------------------------
-  // Results page (tabbed)
-  // ---------------------------
   function resultsShellHTML(q) {
     return `
       <div class="iad-search-page">
@@ -72,7 +22,7 @@
 
   function setActiveType(mount, type) {
     mount.querySelectorAll(".iad-stab").forEach((b) => {
-      var on = b.getAttribute("data-type") === type;
+      const on = b.getAttribute("data-type") === type;
       b.classList.toggle("is-active", on);
       b.setAttribute("aria-selected", on ? "true" : "false");
     });
@@ -83,10 +33,56 @@
   }
 
   function renderResultRow(type, item, idx) {
-    var altClass = (idx % 2 === 1) ? " is-alt" : "";
+    const altClass = (idx % 2 === 1) ? " is-alt" : "";
 
     if (type === "users") {
       return `
-        <button type="button" class="iad-card iad-sr-row${altClass}" data-sr-user data-user-id="${item.user_id}" data-username="${esc(item.username || "")}">
+        <button type="button" class="iad-card iad-sr-row${altClass}" data-sr-user data-user-id="${item.user_id}" data-username="${esc(item.display || item.username || "")}">
           <div class="iad-sr-left">${avatarHTML(item.username, item.avatar_url || "")}</div>
-;
+          <div class="iad-sr-mid">
+            <div class="iad-sr-title">${esc(item.display || item.username || "")}</div>
+            <div class="iad-sr-sub">User</div>
+          </div>
+          <div class="iad-sr-right">${iconBubble("user")}</div>
+        </button>
+      `;
+    }
+
+    if (type === "agoras") {
+      return `
+        <button type="button" class="iad-card iad-sr-row${altClass}" data-sr-agora data-forum-id="${item.forum_id}" data-forum-name="${esc(item.forum_name || "")}">
+          <div class="iad-sr-left">${iconBubble("agora")}</div>
+          <div class="iad-sr-mid">
+            <div class="iad-sr-title">agora/${esc(item.forum_name || "")}</div>
+            <div class="iad-sr-sub">${esc(stripMarkup(item.forum_desc || ""))}</div>
+          </div>
+        </button>
+      `;
+    }
+
+    if (type === "replies") {
+      return `
+        <button type="button" class="iad-card iad-sr-row${altClass}" data-sr-reply data-topic-id="${item.topic_id}" data-post-id="${item.post_id}">
+          <div class="iad-sr-left">${iconBubble("reply")}</div>
+          <div class="iad-sr-mid">
+            <div class="iad-sr-title">${esc(item.topic_title || "")}</div>
+            <div class="iad-sr-sub">agora/${esc(item.forum_name || "")} • by ${esc(item.username || "")} • ${esc(timeAgo(item.post_time || 0))}</div>
+            <div class="iad-sr-sn">${esc(stripMarkup(item.snippet || ""))}</div>
+          </div>
+        </button>
+      `;
+    }
+
+    // topics
+    return `
+      <button type="button" class="iad-card iad-sr-row${altClass}" data-sr-topic data-topic-id="${item.topic_id}">
+        <div class="iad-sr-left">${iconBubble("topic")}</div>
+        <div class="iad-sr-mid">
+          <div class="iad-sr-title">${esc(item.topic_title || "")}</div>
+          <div class="iad-sr-sub">agora/${esc(item.forum_name || "")} • by ${esc(item.username || "")} • ${esc(timeAgo(item.topic_time || 0))}</div>
+          <div class="iad-sr-sn">${esc(stripMarkup(item.snippet || ""))}</div>
+        </div>
+      </button>
+    `;
+  }
+

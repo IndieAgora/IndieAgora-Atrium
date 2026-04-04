@@ -34,7 +34,11 @@ final class IA_Discuss_Render_Media {
     $text = str_replace(["\r\n", "\r"], "\n", (string)$text);
 
     $urls = $this->extract_urls($text);
-    $video = $this->pick_video_url($urls);
+
+    // Capture a single "primary" video URL for contexts that don't render the full
+    // post body (eg. feed cards). Topic view embeds video links inline in the body,
+    // and the UI intentionally avoids duplicating this value.
+    $video = null;
 
     // If a URL is on its own line in the post body, the BBCode renderer will
     // render it inline (video embed or link card). In that case we must NOT
@@ -46,6 +50,13 @@ final class IA_Discuss_Render_Media {
       }
     }
     $standalone = array_values(array_unique($standalone));
+
+    // Prefer the first standalone video-like URL, otherwise fall back to the first
+    // video-like URL anywhere in the post.
+    $video = $this->pick_video_url($standalone);
+    if ($video === null) {
+      $video = $this->pick_video_url($urls);
+    }
 
     // Remove video-like URLs from the general URL list so videos don't render twice.
     // Also remove standalone URLs (rendered inline as cards).
@@ -63,21 +74,6 @@ final class IA_Discuss_Render_Media {
       return true;
     }));
 
-    // If ANY standalone URL is video-like, it will be rendered inline by the
-    // post-body renderer (embed/card). In that case, suppress the bottom video
-    // embed entirely to prevent a “first video duplicates at bottom” case.
-    if (!empty($standalone)) {
-      $has_standalone_video = false;
-      foreach ($standalone as $su) {
-        if ($this->pick_video_url([(string)$su]) !== null) {
-          $has_standalone_video = true;
-          break;
-        }
-      }
-      if ($has_standalone_video) {
-        $video = null;
-      }
-    }
     return [
       'video_url' => $video,
       'urls'      => $urls,

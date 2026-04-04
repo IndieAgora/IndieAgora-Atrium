@@ -3,14 +3,14 @@
 /* Root shell now spans full width */
 .ia-atrium-shell {
   width: 100%;
-  max-width: none;          /* remove centering constraint */
+  max-width: none;
   margin: 0;
-  padding: 16px 0 92px;     /* horizontal padding handled inside */
+  padding: 8px 0 92px;
   box-sizing: border-box;
 }
 
 /* ───────────────────────────────────────────── */
-/* Top tabs (full width, open feel)               */
+/* Top bar (compact, Reddit-like)                */
 /* ───────────────────────────────────────────── */
 
 .ia-atrium-topbar {
@@ -19,34 +19,316 @@
   z-index: 50;
   background: #0b0b0b;
   border-bottom: 1px solid rgba(255,255,255,0.08);
+  transform: translateY(0);
+  transition: transform 180ms ease;
+  will-change: transform;
 }
 
-/* Tabs stretch but remain readable */
-.ia-atrium-tabs {
+.ia-atrium-shell[data-ia-topbar-hidden="1"] .ia-atrium-topbar {
+  transform: translateY(calc(-100% - 1px));
+  position: fixed;
+  left:0;
+  right:0;
+  top:0;
+}
+
+.ia-atrium-topbar-inner {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 12px 16px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.ia-tab {
+.ia-atrium-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  position: relative;
+}
+
+.ia-atrium-brand-text{
+  /* Prefer a dedicated brand font if provided by theme/site; fallback to the general UI stack. */
+  font-family: var(--ia-brand-font, var(--ia-font-ui, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif));
+  font-weight: 750;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+  color: #ff6a2a;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+  opacity: 0.98;
+  max-width: 40vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ia-atrium-logo {
+  /* Slightly larger so it reads at a glance */
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+/* If the site icon is dark, keep it visible on the dark bar */
+.ia-atrium-logo{
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 6px 18px rgba(0,0,0,0.45);
+}
+
+.ia-atrium-logo-fallback {
+  width: 28px;
+  height: 28px;
+  opacity: 0.95;
+}
+
+.ia-atrium-logo-fallback svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+  color: #e8e8e8;
+}
+
+.ia-atrium-tabmenu-toggle {
   appearance: none;
   border: 1px solid rgba(255,255,255,0.12);
   background: #111;
   color: #e8e8e8;
   border-radius: 999px;
-  padding: 12px 14px;
-  font-size: 14px;
+  padding: 8px 10px;
+  font-size: 13px;
   cursor: pointer;
-  min-height: 44px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 70vw;
 }
 
-.ia-tab.active {
-  border-color: rgba(255,255,255,0.35);
-  background: #161616;
+.ia-atrium-tabmenu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ia-atrium-tabmenu {
+  position: absolute;
+  top: 42px;
+  left: 0;
+  width: min(260px, calc(100vw - 24px));
+  background: #0e0e0e;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  overflow: hidden;
+  display: none;
+}
+
+.ia-atrium-tabmenu.open { display: block; }
+
+.ia-atrium-tabmenu-item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #e8e8e8;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ia-atrium-tabmenu-item:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+/* Hide legacy pill tabs (kept in DOM for accessibility/legacy JS) */
+.ia-atrium-tabs {
+  position: absolute;
+  left: -99999px;
+  top: -99999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.ia-atrium-search-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #e8e8e8;
+  border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ia-atrium-search-btn:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.ia-atrium-search-ic {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ia-atrium-search-ic svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+  opacity: 0.95;
+}
+
+/* ───────────────────────────────────────────── */
+/* Fullscreen search overlay                     */
+/* ───────────────────────────────────────────── */
+
+.ia-atrium-search {
+  position: fixed;
+  inset: 0;
+  z-index: 999998;
+  display: none;
+}
+
+.ia-atrium-search.open { display: block; }
+
+.ia-atrium-search-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+}
+
+.ia-atrium-search-panel {
+  position: absolute;
+  inset: 0;
+  background: #0a0a0a;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Typography delegation: match the active tab's visual language */
+.ia-atrium-search[data-scope="connect"] .ia-atrium-search-panel,
+.ia-atrium-search[data-scope="connect"] .ia-atrium-search-panel *{
+  font-family: var(--ia-font-ui, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif);
+}
+
+.ia-atrium-search[data-scope="discuss"] .ia-atrium-search-panel,
+.ia-atrium-search[data-scope="discuss"] .ia-atrium-search-panel *{
+  font-family: var(--iad-font-sans, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Liberation Sans", Ubuntu, Cantarell, sans-serif);
+}
+
+.ia-atrium-search-top {
+  padding: 12px 12px 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.ia-atrium-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #111;
+  color: #e8e8e8;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.ia-atrium-search-close {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #111;
+  color: #e8e8e8;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ia-atrium-search-results {
+  padding: 12px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ia-atrium-search-section {
+  margin-bottom: 16px;
+}
+
+.ia-atrium-search-title {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  opacity: 0.78;
+  margin: 0 0 8px;
+}
+
+.ia-atrium-search-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+  padding: 10px 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.ia-atrium-search-item:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.ia-atrium-search-item img {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.ia-atrium-search-item .ia-atrium-search-meta {
+  min-width: 0;
+}
+
+.ia-atrium-search-item .ia-atrium-search-primary {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e8e8e8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ia-atrium-search-item .ia-atrium-search-secondary {
+  font-size: 12px;
+  opacity: 0.78;
+  color: #e8e8e8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ia-atrium-search-empty {
+  opacity: 0.75;
+  padding: 8px 2px;
+}
+
+/* Hide Connect/Discuss in-panel search bars when Atrium provides global search */
+.ia-atrium-shell .iac-top-search,
+.ia-atrium-shell .iad-search {
+  display: none !important;
 }
 
 /* ───────────────────────────────────────────── */
@@ -55,7 +337,7 @@
 
 .ia-atrium-main {
   width: 100%;
-  margin-top: 16px;
+  margin-top: 10px;
   /* In "panel scroll" mode, JS sets an explicit height on .ia-atrium-main
      and the active panel becomes the scroll container. */
   overflow: hidden;
@@ -83,6 +365,7 @@ body.ia-atrium-mode {
 .ia-atrium-shell[data-ia-scroll-mode="panels"] .ia-atrium-main {
   /* height is set by JS via inline style (fallback remains auto) */
   overflow: hidden;
+  transition: height 180ms ease;
 }
 
 .ia-atrium-shell[data-ia-scroll-mode="panels"] .ia-panel {
@@ -101,6 +384,10 @@ body.ia-atrium-mode {
   border-radius: 18px;
   color: #e8e8e8;
 }
+
+/* Replace per-plugin search bars with the Atrium topbar search */
+.ia-atrium-shell .iac-top-search { display: none !important; }
+.ia-atrium-shell .iad-search { display: none !important; }
 
 /* Slots where micro-plugins render */
 .ia-slot {
@@ -142,6 +429,14 @@ body.ia-atrium-mode {
   font-size: 22px;
   width: 22px;
   height: 22px;
+}
+
+.ia-bottom-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,0.18);
 }
 
 .ia-bottom-label {
@@ -329,9 +624,12 @@ body.ia-atrium-mode {
     gap: 8px;
   }
 
+  /* On small screens the content should read edge-to-edge (Reddit-like). */
   .ia-panel-inner {
-    padding: 12px;
-    border-radius: 14px;
+    padding: 0;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
   }
 
   .ia-atrium-shell {
@@ -361,15 +659,19 @@ html, body {
     margin-right: -50vw !important;
   }
 
-  /* Give it more breathing room (makes it feel larger) */
+  /* Mobile should be wider (less inset) to match Reddit-like scale */
   .ia-atrium-shell {
-    padding: 18px 16px 96px !important;
+    padding: 8px 0 96px !important;
   }
 
-  /* Panel should feel “big” on mobile */
+  /* Let plugins use the full viewport width on mobile */
   .ia-panel-inner {
-    padding: 16px !important;
-    border-radius: 16px !important;
+    max-width: none;
+    margin: 0;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    border: 0;
+    background: transparent;
   }
 
   /* Keep tabs comfortably sized (do NOT shrink) */

@@ -30,6 +30,11 @@ class IA_Atrium_Assets {
             'ajaxUrl'      => admin_url('admin-ajax.php'),
             'isLoggedIn'   => is_user_logged_in(),
             'userId'       => get_current_user_id(),
+            // Nonces for cross-plugin ajax calls (safe even if those plugins are inactive).
+            'nonces'       => array(
+              'connect_user_search' => function_exists('ia_connect_nonce') ? ia_connect_nonce('user_search') : wp_create_nonce('ia_connect:user_search'),
+              'connect_wall_search' => function_exists('ia_connect_nonce') ? ia_connect_nonce('wall_search') : wp_create_nonce('ia_connect:wall_search'),
+            ),
             'loginPostUrl' => site_url('wp-login.php', 'login_post'),
             'registerUrl'  => wp_registration_url(),
             'lostPassUrl'  => wp_lostpassword_url(),

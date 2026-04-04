@@ -37,6 +37,16 @@ final class IA_Stream_Service_PeerTube_API {
     $this->token         = $cfg['token'];
   }
 
+  /**
+   * Override the bearer token used for subsequent requests.
+   *
+   * Used for write actions (comments) so we can post as the currently logged-in
+   * Atrium user when that user has a minted PeerTube token in IA Auth.
+   */
+  public function set_token(string $token): void {
+    $this->token = trim((string)$token);
+  }
+
   /* ---------------------------
    * Configuration
    * ------------------------- */
@@ -154,6 +164,27 @@ final class IA_Stream_Service_PeerTube_API {
     return $this->request('GET', $path);
   }
 
+  /**
+   * Like/dislike a video.
+   *
+   * OpenAPI: PUT /api/v1/videos/{id}/rate  { rating: like|dislike }
+   * Requires an OAuth user token.
+   */
+  public function rate_video(string $id_or_uuid, string $rating): array {
+    if (!$this->is_configured()) return $this->not_configured();
+
+    $id_or_uuid = trim((string) $id_or_uuid);
+    if ($id_or_uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
+
+    $rating = trim((string) $rating);
+    if ($rating !== 'like' && $rating !== 'dislike') {
+      return ['ok' => false, 'error' => 'Invalid rating'];
+    }
+
+    $path = '/api/v1/videos/' . rawurlencode($id_or_uuid) . '/rate';
+    return $this->request('PUT', $path, [], ['rating' => $rating]);
+  }
+
   public function get_comments(string $uuid, array $q = []): array {
     if (!$this->is_configured()) return $this->not_configured();
 
@@ -173,161 +204,73 @@ final class IA_Stream_Service_PeerTube_API {
     return $this->request('GET', $path, $params);
   }
 
+  public function get_comment_thread(string $uuid, string $thread_id): array {
+    if (!$this->is_configured()) return $this->not_configured();
 
+    $uuid = trim((string)$uuid);
+    $thread_id = trim((string)$thread_id);
 
-/* ---------------------------
- * Public API (write / user-scoped)
- * ------------------------- */
+    if ($uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
+    if ($thread_id === '') return ['ok' => false, 'error' => 'Missing thread id'];
 
-public function rate_video(string $uuid, string $rating, string $bearer): array {
-  if (!$this->is_configured()) return $this->not_configured();
-  $uuid = trim((string)$uuid);
-  if ($uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
-  $rating = ($rating === 'dislike') ? 'dislike' : 'like';
-
-  $path = '/api/v1/videos/' . rawurlencode($uuid) . '/rate';
-  // PeerTube returns 204 No Content on success
-  return $this->request('PUT', $path, [], ['rating' => $rating], $bearer);
-}
-
-public function create_comment_thread(string $uuid, string $text, string $bearer): array {
-  if (!$this->is_configured()) return $this->not_configured();
-  $uuid = trim((string)$uuid);
-  $text = trim((string)$text);
-  if ($uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
-  if ($text === '') return ['ok' => false, 'error' => 'Comment text required'];
-
-  $path = '/api/v1/videos/' . rawurlencode($uuid) . '/comment-threads';
-  return $this->request('POST', $path, [], ['text' => $text], $bearer);
-}
-
-public function subscribe_channel(string $uri, string $bearer): array {
-  if (!$this->is_configured()) return $this->not_configured();
-  $uri = trim((string)$uri);
-  if ($uri === '') return ['ok' => false, 'error' => 'Missing channel uri'];
-
-  $path = '/api/v1/users/me/subscriptions';
-  return $this->request('POST', $path, [], ['uri' => $uri], $bearer);
-}
-
-public function list_my_subscriptions(array $q, string $bearer): array {
-  if (!$this->is_configured()) return $this->not_configured();
-
-  $page = max(1, (int)($q['page'] ?? 1));
-  $per  = min(50, max(1, (int)($q['per_page'] ?? 24)));
-  $start = ($page - 1) * $per;
-
-  $params = [
-    'start' => $start,
-    'count' => $per,
-  ];
-
-  $path = '/api/v1/users/me/subscriptions';
-  return $this->request('GET', $path, $params, null, $bearer);
-}
-
-public function list_my_subscription_videos(array $q, string $bearer): array {
-  if (!$this->is_configured()) return $this->not_configured();
-
-  $page = max(1, (int)($q['page'] ?? 1));
-  $per  = min(50, max(1, (int)($q['per_page'] ?? 20)));
-  $start = ($page - 1) * $per;
-
-  $params = [
-    'start' => $start,
-    'count' => $per,
-  ];
-
-  if (!empty($q['sort'])) $params['sort'] = (string)$q['sort'];
-
-  $path = '/api/v1/users/me/subscriptions/videos';
-  return $this->request('GET', $path, $params, null, $bearer);
-}
-
-/**
- * Best-effort: fetch my user info so we can discover a usable default channel id for uploads.
- * The exact shape can vary across PeerTube versions; we just attempt common keys.
- */
-public function get_my_default_channel_id(string $bearer): array {
-  if (!$this->is_configured()) return $this->not_configured();
-
-  $res = $this->request('GET', '/api/v1/users/me', [], null, $bearer);
-  if (!$res['ok']) return $res;
-
-  $data = $res['data'];
-  if (is_array($data) && isset($data[0]) && is_array($data[0])) {
-    $u = $data[0];
-  } elseif (is_array($data)) {
-    $u = $data;
-  } else {
-    return ['ok' => false, 'error' => 'Unexpected /users/me response'];
+    $path = '/api/v1/videos/' . rawurlencode($uuid) . '/comment-threads/' . rawurlencode($thread_id);
+    return $this->request('GET', $path);
   }
 
-  // Common: user.videoChannels[0].id
-  if (isset($u['videoChannels']) && is_array($u['videoChannels']) && isset($u['videoChannels'][0]['id'])) {
-    return ['ok' => true, 'channel_id' => (int)$u['videoChannels'][0]['id']];
-  }
-  // Alternative: user.videoChannel.id
-  if (isset($u['videoChannel']) && is_array($u['videoChannel']) && isset($u['videoChannel']['id'])) {
-    return ['ok' => true, 'channel_id' => (int)$u['videoChannel']['id']];
-  }
+  public function create_comment_thread(string $uuid, string $text): array {
+    if (!$this->is_configured()) return $this->not_configured();
 
-  return ['ok' => false, 'error' => 'Could not determine default channel id'];
-}
+    $uuid = trim((string)$uuid);
+    $text = trim((string)$text);
 
-/**
- * Upload video using legacy single-request endpoint.
- * NOTE: This is not resumable; large uploads may fail due to proxy/PHP limits.
- */
-public function upload_legacy(string $file_path, int $channel_id, string $name, string $bearer, string $description = ''): array {
-  if (!$this->is_configured()) return $this->not_configured();
+    if ($uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
+    if ($text === '') return ['ok' => false, 'error' => 'Missing text'];
 
-  $file_path = (string)$file_path;
-  if ($file_path === '' || !file_exists($file_path)) return ['ok' => false, 'error' => 'Upload file missing'];
-  if ($channel_id <= 0) return ['ok' => false, 'error' => 'Missing channelId'];
-  $name = trim((string)$name);
-  if ($name === '') return ['ok' => false, 'error' => 'Missing name'];
-
-  $base = $this->internal_base !== '' ? $this->internal_base : $this->public_base;
-  $url = rtrim($base, '/') . '/api/v1/videos/upload';
-
-  // Use curl_file_create if available to force multipart upload.
-  $mime = function_exists('mime_content_type') ? @mime_content_type($file_path) : 'application/octet-stream';
-  $cfile = function_exists('curl_file_create') ? curl_file_create($file_path, $mime ?: 'application/octet-stream', basename($file_path)) : $file_path;
-
-  $body = [
-    'videofile' => $cfile,
-    'channelId' => (string)$channel_id,
-    'name'      => $name,
-  ];
-  if ($description !== '') $body['description'] = $description;
-
-  $args = [
-    'timeout' => 600,
-    'headers' => [
-      'Accept'        => 'application/json',
-      'Authorization' => 'Bearer ' . $bearer,
-    ],
-    'body' => $body,
-  ];
-
-  $resp = wp_remote_post($url, $args);
-  if (is_wp_error($resp)) return ['ok' => false, 'error' => $resp->get_error_message()];
-
-  $code = (int) wp_remote_retrieve_response_code($resp);
-  $txt  = (string) wp_remote_retrieve_body($resp);
-  $json = json_decode($txt, true);
-
-  if ($code < 200 || $code >= 300) {
-    return ['ok' => false, 'error' => 'PeerTube HTTP ' . $code, 'body' => is_array($json) ? $json : $txt];
+    $path = '/api/v1/videos/' . rawurlencode($uuid) . '/comment-threads';
+    return $this->request('POST', $path, [], ['text' => $text]);
   }
 
-  if (!is_array($json)) {
-    return ['ok' => false, 'error' => 'Invalid JSON from PeerTube', 'body' => $txt];
+  public function reply_to_comment(string $uuid, string $comment_id, string $text): array {
+    if (!$this->is_configured()) return $this->not_configured();
+
+    $uuid = trim((string)$uuid);
+    $comment_id = trim((string)$comment_id);
+    $text = trim((string)$text);
+
+    if ($uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
+    if ($comment_id === '') return ['ok' => false, 'error' => 'Missing comment id'];
+    if ($text === '') return ['ok' => false, 'error' => 'Missing text'];
+
+    $path = '/api/v1/videos/' . rawurlencode($uuid) . '/comments/' . rawurlencode($comment_id);
+    return $this->request('POST', $path, [], ['text' => $text]);
   }
 
-  return ['ok' => true, 'data' => $json];
-}
+  /**
+   * Delete a comment or reply.
+   * OpenAPI: DELETE /api/v1/videos/{id}/comments/{commentId}
+   * Requires an OAuth user token.
+   */
+  public function delete_comment(string $id_or_uuid, string $comment_id): array {
+    if (!$this->is_configured()) return $this->not_configured();
+
+    $id_or_uuid = trim((string)$id_or_uuid);
+    $comment_id = trim((string)$comment_id);
+    if ($id_or_uuid === '') return ['ok' => false, 'error' => 'Missing video id'];
+    if ($comment_id === '') return ['ok' => false, 'error' => 'Missing comment id'];
+
+    $path = '/api/v1/videos/' . rawurlencode($id_or_uuid) . '/comments/' . rawurlencode($comment_id);
+    $r = $this->request('DELETE', $path);
+
+    // PeerTube may return 409 Conflict when attempting to delete an already-deleted comment.
+    // Atrium UX: treat repeat deletion as idempotent success.
+    if (!is_array($r) || !empty($r['ok'])) return $r;
+    $err = isset($r['error']) ? (string)$r['error'] : '';
+    if (strpos($err, 'PeerTube HTTP 409') !== false) {
+      return ['ok' => true, 'already_deleted' => true, 'raw' => $r];
+    }
+
+    return $r;
+  }
 
   /* ---------------------------
    * HTTP
@@ -340,7 +283,7 @@ public function upload_legacy(string $file_path, int $channel_id, string $name, 
     ];
   }
 
-  private function request(string $method, string $path, array $query = [], $body = null, ?string $bearer = null, array $extra_headers = []): array {
+  private function request(string $method, string $path, array $query = [], $body = null): array {
     $method = strtoupper(trim((string)$method));
     $path   = '/' . ltrim((string)$path, '/');
 
@@ -363,17 +306,9 @@ public function upload_legacy(string $file_path, int $channel_id, string $name, 
       ],
     ];
 
-    // Optional bearer token override (used for user-scoped actions)
-    $tok = ($bearer !== null && $bearer !== '') ? $bearer : $this->token;
-    if ($tok !== '') {
-      $args['headers']['Authorization'] = 'Bearer ' . $tok;
-    }
-
-    // Merge in any additional headers
-    if (!empty($extra_headers)) {
-      foreach ($extra_headers as $hk => $hv) {
-        if (is_string($hk) && $hk !== '') $args['headers'][$hk] = $hv;
-      }
+    // Optional token (some endpoints don’t require auth; token helps for privileged views)
+    if ($this->token !== '') {
+      $args['headers']['Authorization'] = 'Bearer ' . $this->token;
     }
 
     if ($body !== null) {

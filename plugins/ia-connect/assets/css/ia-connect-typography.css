@@ -1,0 +1,40 @@
+/* Connect typography refresh – scoped */
+.ia-connect {
+  --ia-font-ui: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+  --ia-font-body: var(--ia-font-ui);
+  font-family: var(--ia-font-ui);
+}
+
+.ia-connect .ia-username,
+.ia-connect .ia-title {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.ia-connect .ia-meta,
+.ia-connect .ia-time {
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.ia-connect .ia-post-body,
+.ia-connect .ia-comment-body {
+  font-family: var(--ia-font-body);
+  line-height: 1.55;
+}
+
+.ia-connect button,
+.ia-connect .ia-pill {
+  font-family: var(--ia-font-ui);
+  letter-spacing: 0.02em;
+}
+.ia-fullscreen, .ia-fullscreen *{
+  font-family: var(--ia-font-ui) !important;
+}
+
+/* Full-screen post modal typography (match profile / Connect UI font) */
+.iac-modal,
+.iac-modal *{
+  font-family: var(--ia-font-ui, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji") !important;
+}
+

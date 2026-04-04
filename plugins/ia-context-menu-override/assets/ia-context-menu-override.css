@@ -1,0 +1,126 @@
+/* IndieAgora Context Menu Override */
+:root{
+  --ia-cm-bg: rgba(20,22,26,0.96);
+  --ia-cm-border: rgba(255,255,255,0.08);
+  --ia-cm-text: rgba(255,255,255,0.92);
+  --ia-cm-muted: rgba(255,255,255,0.55);
+  --ia-cm-hover: rgba(255,255,255,0.08);
+  --ia-cm-radius: 14px;
+  --ia-cm-shadow: 0 14px 40px rgba(0,0,0,0.45);
+  --ia-cm-font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+.ia-cm-root{
+  position: fixed;
+  z-index: 2147483000;
+  min-width: 240px;
+  max-width: 320px;
+  background: var(--ia-cm-bg);
+  border: 1px solid var(--ia-cm-border);
+  border-radius: var(--ia-cm-radius);
+  box-shadow: var(--ia-cm-shadow);
+  padding: 8px;
+  font-family: var(--ia-cm-font);
+  font-size: 14px;
+  line-height: 1.25;
+  user-select: none;
+  display: none;
+  backdrop-filter: blur(10px);
+}
+
+.ia-cm-item{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ia-cm-text);
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ia-cm-item:hover{ background: var(--ia-cm-hover); }
+
+.ia-cm-item[aria-disabled="true"]{
+  opacity: 0.45;
+  cursor: default;
+}
+.ia-cm-item[aria-disabled="true"]:hover{ background: transparent; }
+
+.ia-cm-sep{
+  height: 1px;
+  background: var(--ia-cm-border);
+  margin: 6px 8px;
+}
+
+.ia-cm-hint{
+  padding: 6px 12px 4px;
+  font-size: 12px;
+  color: var(--ia-cm-muted);
+}
+
+/* Mobile selection action bar (Quote + Copy + Select all)
+   We do NOT attempt to replace the native Android/iOS selection toolbar.
+   This bar appears after selection stabilises and stays out of the way. */
+.ia-cm-mobilebar{
+  position: fixed;
+  z-index: 2147483001;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--ia-cm-border);
+  background: var(--ia-cm-bg);
+  border-radius: 18px;
+  box-shadow: var(--ia-cm-shadow);
+  backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  max-width: calc(100vw - 24px);
+}
+
+
+.ia-cm-mobilebar-btn{
+  border: 0;
+  background: rgba(255,255,255,0.08);
+  color: var(--ia-cm-text);
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-family: var(--ia-cm-font);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.ia-cm-mobilebar-btn svg{
+  width: 18px;
+  height: 18px;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.ia-cm-mobilebar-btn:active{
+  transform: scale(0.98);
+}
+
+@media (prefers-color-scheme: light){
+  :root{
+    --ia-cm-bg: rgba(245,246,248,0.98);
+    --ia-cm-border: rgba(0,0,0,0.10);
+    --ia-cm-text: rgba(0,0,0,0.88);
+    --ia-cm-muted: rgba(0,0,0,0.55);
+    --ia-cm-hover: rgba(0,0,0,0.06);
+    --ia-cm-shadow: 0 14px 40px rgba(0,0,0,0.18);
+  }
+}

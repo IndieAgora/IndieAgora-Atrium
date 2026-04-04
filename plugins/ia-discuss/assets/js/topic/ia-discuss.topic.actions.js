@@ -150,6 +150,7 @@
     }, 0);
   }
 
+
   function bindTopicActions(mount, topicId) {
     if (!mount) return;
 
@@ -168,12 +169,13 @@
       const quoteBtn = e.target.closest("[data-iad-quote]");
       const replyBtn = e.target.closest("[data-iad-reply]");
       const copyBtn  = e.target.closest("[data-iad-copylink]");
+      const shareBtn = e.target.closest("[data-iad-share]");
       const editBtn  = e.target.closest("[data-iad-edit]");
       const delBtn   = e.target.closest("[data-iad-del]");
       const kickBtn  = e.target.closest("[data-iad-kick]");
       const unbanBtn = e.target.closest("[data-iad-unban]");
 
-      if (!postReplyPill && !quoteBtn && !replyBtn && !copyBtn && !editBtn && !delBtn && !kickBtn && !unbanBtn) return;
+      if (!postReplyPill && !quoteBtn && !replyBtn && !copyBtn && !shareBtn && !editBtn && !delBtn && !kickBtn && !unbanBtn) return;
 
       e.preventDefault();
       e.stopPropagation();
@@ -193,6 +195,17 @@
       if (copyBtn) {
         const pid = parseInt(copyBtn.getAttribute("data-post-id") || "0", 10) || 0;
         copyToClipboard(makePostUrl(curTopicId, pid));
+        return;
+      }
+
+      // Share to Connect (reuse feed share modal)
+      if (shareBtn) {
+        const pid = parseInt(shareBtn.getAttribute("data-post-id") || "0", 10) || 0;
+        try {
+          if (window.IA_DISCUSS_SHARE && typeof window.IA_DISCUSS_SHARE.openShareModal === 'function') {
+            window.IA_DISCUSS_SHARE.openShareModal(curTopicId, pid);
+          }
+        } catch (e2) {}
         return;
       }
 
@@ -348,4 +361,5 @@
   }
 
   window.IA_DISCUSS_TOPIC_ACTIONS = { bindTopicActions };
+
 })();

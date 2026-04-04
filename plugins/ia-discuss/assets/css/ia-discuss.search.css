@@ -12,6 +12,42 @@
   z-index: 9999;
 }
 
+/* Portal dropdown is injected into <body>; apply light theme via attribute */
+.iad-suggest--portal[data-iad-theme="light"]{
+  background: rgba(255,255,255,0.98);
+  border-color: rgba(0,0,0,0.12);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+}
+
+.iad-suggest--portal[data-iad-theme="light"] .iad-sug-row{
+  color: rgba(0,0,0,0.86);
+}
+
+.iad-suggest--portal[data-iad-theme="light"] .iad-sug-row:hover{
+  background: rgba(0,0,0,0.04);
+}
+
+.iad-suggest--portal[data-iad-theme="light"] .iad-sug-row.is-cta{
+  border-bottom-color: rgba(0,0,0,0.08);
+}
+
+.iad-suggest--portal[data-iad-theme="light"] .iad-sg-title{
+  color: rgba(0,0,0,0.55);
+  opacity: 1;
+}
+
+.iad-suggest--portal[data-iad-theme="light"] .iad-sug-sub,
+.iad-suggest--portal[data-iad-theme="light"] .iad-sug-sn{
+  color: rgba(0,0,0,0.55);
+  opacity: 1;
+}
+
+.iad-suggest--portal[data-iad-theme="light"] .iad-sug-ico,
+.iad-suggest--portal[data-iad-theme="light"] .iad-av{
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.10);
+}
+
 .iad-sug-row{
   width:100%;
   display:flex;

@@ -92,6 +92,42 @@
   display: block;
 }
 
+/* -----------------------------
+   Feed view: make images preview-sized on desktop
+   - shrink width + cap height so attachments don't dominate
+----------------------------- */
+@media (min-width: 761px){
+  /* Constrain attachment container in feed so images render as previews (not banners) */
+  .iad-feed-list .iad-attwrap{
+    max-width: 420px !important;
+    margin: 12px auto !important;
+  }
+
+  /* Attachment media in feed cards */
+  .iad-feed-list .iad-att-media{
+    max-width: 420px !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+  }
+  .iad-feed-list .iad-att-img{
+    width: 100% !important;
+    height: auto;
+    max-height: 320px !important;
+    object-fit: contain !important;
+  }
+
+  /* Any images that arrive through excerpt HTML */
+  .iad-feed-list .iad-card-excerpt img{
+    display: block;
+    max-width: 420px !important;
+    height: auto;
+    max-height: 280px !important;
+    object-fit: contain !important;
+    margin: 8px auto !important;
+    border-radius: 12px;
+  }
+}
+
 /* Avoid excerpt HTML injecting margins that push layout weirdly */
 .iad-card-excerpt{
   max-width: 100%;
@@ -105,6 +141,10 @@
   font-size: var(--iad-fs-12);
   color: var(--iad-muted);
   line-height: var(--iad-lh-ui);
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  flex-wrap:wrap;
 }
 .iad-sub{ color: rgba(255,255,255,0.85); }
 
@@ -254,11 +294,20 @@
   max-width: 42vw;   /* stays compact on desktop, adapts on small screens */
 }
 
+.iad-vthumb.is-compact.is-vertical{
+  width: 140px;
+  max-width: 34vw;
+}
+
 .iad-vthumb-inner{
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
   background: rgba(0,0,0,0.25);
+}
+
+.iad-vthumb-inner.is-vertical{
+  aspect-ratio: 9 / 16;
 }
 
 .iad-vthumb-img{
@@ -554,11 +603,22 @@ html.iad-modal-open body{
   justify-content:center;
 }
 
+.iad-video-frame.is-vertical{
+  width: min(300px, 100%);
+  margin: 0 auto;
+}
+
 .iad-video-iframe,
 .iad-video-el{
   width: 100%;
   height: 100%;
   border: 0;
+}
+
+.iad-video-frame.is-vertical .iad-video-iframe,
+.iad-video-frame.is-vertical .iad-video-el{
+  aspect-ratio: 9 / 16;
+  height: auto;
 }
 
 /* ---------------------------------------
@@ -596,4 +656,81 @@ html.iad-modal-open body{
 /* Keep actions row tidy */
 .iad-card-actions{
   gap: 8px;
+}
+
+
+/* Link card anchor text – ensure readability on dark cards */
+.ia-link-card a,
+.ia-link-card a:visited {
+  color: #ffffff;
+}
+
+.ia-link-card a:hover {
+  color: #f0f0f0;
+  text-decoration: underline;
+}
+
+
+/* HARD override: Discuss link-card anchor color */
+.ia-discuss .ia-link-card a,
+.ia-discuss .ia-link-card a:visited,
+.ia-discuss .ia-link-card a:active {
+  color: #ffffff !important;
+}
+
+.ia-discuss .ia-link-card a:hover {
+  color: #f0f0f0 !important;
+  text-decoration: underline;
+}
+
+
+/* Feed sort controls */
+.iad-feed-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:10px;}
+.iad-feed-controls-label{font-size:13px;color:var(--iad-muted);}
+.iad-select{
+  appearance:none;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  border:1px solid var(--iad-border);
+  background:rgba(255,255,255,0.06);
+  color:var(--iad-text);
+  padding:8px 34px 8px 12px;
+  border-radius:999px;
+  cursor:pointer;
+  font-size:13px;
+  line-height:1.1;
+  transition:background 0.15s ease,border-color 0.15s ease,box-shadow 0.15s ease;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.75) 50%),
+    linear-gradient(135deg, rgba(255,255,255,0.75) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 55%,
+    calc(100% - 11px) 55%;
+  background-size:5px 5px,5px 5px;
+  background-repeat:no-repeat;
+}
+.iad-select:hover{
+  background:rgba(255,255,255,0.10);
+  border-color:rgba(255,255,255,0.18);
+}
+.iad-select:focus{
+  outline:none;
+  border-color:rgba(255,106,0,0.75);
+  box-shadow:0 0 0 2px rgba(255,106,0,0.25);
+}
+/* hide legacy arrow where applicable */
+.iad-select::-ms-expand{display:none;}
+.iad-root[data-iad-theme="light"] .iad-select{
+  background:rgba(255,255,255,0.85);
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(0,0,0,0.55) 50%),
+    linear-gradient(135deg, rgba(0,0,0,0.55) 50%, transparent 50%);
+  border-color:rgba(0,0,0,0.12);
+}
+.iad-root[data-iad-theme="light"] .iad-select{background:rgba(255,255,255,0.85);}
+
+
+.iad-feed-list .iad-att-iframe.is-vertical,
+.iad-video-frame.is-vertical{
+  width: min(240px, 100%);
 }

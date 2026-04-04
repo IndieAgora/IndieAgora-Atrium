@@ -1,3 +1,38 @@
+
+  function iaRelModal(opts){
+    opts = opts || {};
+    try{ const ex=document.querySelector('.iad-relmodal'); if(ex) ex.remove(); }catch(_){}
+    const wrap=document.createElement('div');
+    wrap.className='iad-relmodal';
+    wrap.innerHTML =
+      '<div class="iad-relmodal-backdrop" data-iad-relmodal-close></div>' +
+      '<div class="iad-relmodal-card" role="dialog" aria-modal="true">' +
+        '<div class="iad-relmodal-title">'+(opts.title||'')+'</div>' +
+        '<div class="iad-relmodal-body">'+(opts.body||'')+'</div>' +
+        '<div class="iad-relmodal-actions"></div>' +
+      '</div>';
+    const acts=wrap.querySelector('.iad-relmodal-actions');
+    (opts.actions||[{label:'Close'}]).forEach(a=>{
+      const b=document.createElement('button');
+      b.type='button';
+      b.className='iad-relmodal-btn'+(a.primary?' is-primary':'');
+      b.textContent=a.label||'OK';
+      b.addEventListener('click', async (ev)=>{
+        ev.preventDefault(); ev.stopPropagation();
+        if (a.onClick){ try{ await a.onClick(); }catch(_){ } }
+        if (a.stay) return;
+        try{ wrap.remove(); }catch(_){}
+      });
+      acts.appendChild(b);
+    });
+    wrap.addEventListener('click',(ev)=>{
+      const c=ev.target && ev.target.closest ? ev.target.closest('[data-iad-relmodal-close]') : null;
+      if(c){ try{ wrap.remove(); }catch(_){ } }
+    }, true);
+    document.body.appendChild(wrap);
+    return wrap;
+  }
+
 (function () {
   "use strict";
 
@@ -71,18 +106,23 @@
         last_post_time: data.last_post_time,
         posts: Array.isArray(data.posts) ? data.posts : [],
         has_more: !!data.has_more,
-        posts_total: (data.posts_total != null) ? data.posts_total : 0
+        posts_total: (data.posts_total != null) ? data.posts_total : 0,
+        notify_enabled: (data.notify_enabled != null) ? data.notify_enabled : 0,
+        viewer: data.viewer || {}
       };
 
       if (!append) {
-        // snapshot meta for any later re-renders (e.g. goto last reply without server totals)
+        // snapshot meta for any later re-renders (e.g. goto last reply)
+        // IMPORTANT: keep viewer + notify state so header controls (email toggle etc.) don't vanish on re-render.
         meta = {
           topic_id: payload.topic_id,
           topic_title: payload.topic_title,
           forum_id: payload.forum_id,
           forum_name: payload.forum_name,
           topic_time: payload.topic_time,
-          last_post_time: payload.last_post_time
+          last_post_time: payload.last_post_time,
+          notify_enabled: (payload.notify_enabled != null) ? payload.notify_enabled : 0,
+          viewer: payload.viewer || {}
         };
 
         cached = payload.posts || [];
@@ -98,10 +138,33 @@
         payload.can_load_more = (cached.length > shownCount) || payload.has_more;
 
         mount.innerHTML = R.renderTopicHTML(payload);
+        try {
+          window.dispatchEvent(new CustomEvent('iad:topic_loaded', {
+            detail: {
+              topic_id: payload.topic_id || topicId,
+              topic_title: payload.topic_title || 'Topic',
+              forum_id: payload.forum_id || 0,
+              forum_name: payload.forum_name || ''
+            }
+          }));
+        } catch (eTitle) {}
         R.bindBack(mount);
 
         // bind quote/reply actions (modal)
         if (A.bindTopicActions) A.bindTopicActions(mount, topicId);
+
+        // topic-level email toggle
+        try {
+          const chk = mount.querySelector('[data-iad-topic-notify]');
+          if (chk) {
+            chk.addEventListener('change', () => {
+              window.IA_DISCUSS_API.post('ia_discuss_topic_notify_set', {
+                topic_id: topicId,
+                enabled: chk.checked ? 1 : 0
+              }).then(() => {}).catch(() => {});
+            });
+          }
+        } catch (e) {}
 
         try {
           if (window.IA_DISCUSS_STATE && typeof window.IA_DISCUSS_STATE.markRead === "function") {
@@ -301,32 +364,605 @@
 
 
       function bindBackTop() {
-        const body = qs(".iad-modal-body", mount);
         const btn  = qs("[data-iad-back-top]", mount);
-        if (!body || !btn) return;
+        if (!btn) return;
 
-        let last = body.scrollTop || 0;
+        function resolveScroller() {
+          function isGoodScroller(el) {
+            if (!el) return false;
+            try {
+              const sh = el.scrollHeight || 0;
+              const ch = el.clientHeight || 0;
+              if (sh <= ch + 4) return false;
+              if (el === document.scrollingElement || el === document.documentElement || el === document.body) return true;
+              const cs = window.getComputedStyle ? window.getComputedStyle(el) : null;
+              const oy = cs ? String(cs.overflowY || "") : "";
+              if (oy === "auto" || oy === "scroll" || oy === "overlay") return true;
+              const before = el.scrollTop || 0;
+              el.scrollTop = before + 1;
+              const moved = (el.scrollTop || 0) !== before;
+              el.scrollTop = before;
+              return moved;
+            } catch (e) {
+              return false;
+            }
+          }
+
+          const panelBody = mount.closest ? mount.closest(".ia-atrium-panel-body, .ia-atrium-panel__body, .ia-panel-body, .ia-panel-scroll, .ia-panel") : null;
+          const cands = [
+            qs(".iad-modal-sheet", mount),
+            qs(".iad-modal-body", mount),
+            qs(".iad-topic-modal", mount),
+            panelBody,
+            mount,
+            document.scrollingElement,
+            document.documentElement,
+            document.body
+          ].filter(Boolean);
+
+          for (const el of cands) {
+            if (isGoodScroller(el)) return el;
+          }
+          return document.scrollingElement || document.documentElement || document.body;
+        }
+
+        let scroller = resolveScroller();
+        let last = (scroller && scroller.scrollTop) ? scroller.scrollTop : 0;
         let shown = false;
+
+        function getTop() {
+          try {
+            if (scroller === document.scrollingElement || scroller === document.documentElement || scroller === document.body) {
+              return (document.scrollingElement && document.scrollingElement.scrollTop) ? document.scrollingElement.scrollTop : (window.pageYOffset || 0);
+            }
+            return scroller.scrollTop || 0;
+          } catch (e) {
+            return 0;
+          }
+        }
+
+        function scrollToTop() {
+          try {
+            if (scroller === document.scrollingElement || scroller === document.documentElement || scroller === document.body) {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            } else {
+              scroller.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          } catch (e) {
+            try {
+              if (scroller === document.scrollingElement || scroller === document.documentElement || scroller === document.body) window.scrollTo(0, 0);
+              else scroller.scrollTop = 0;
+            } catch (e2) {}
+          }
+        }
 
         function setVisible(v) {
           if (v && !shown) { btn.removeAttribute("hidden"); shown = true; }
           else if (!v && shown) { btn.setAttribute("hidden", ""); shown = false; }
         }
 
-        body.addEventListener("scroll", () => {
-          const cur = body.scrollTop || 0;
+        function onScroll() {
+          // Re-resolve if the scroll container changes after a route re-render.
+          const curScroller = resolveScroller();
+          if (curScroller && curScroller !== scroller) {
+            scroller = curScroller;
+            last = getTop();
+          }
+
+          const cur = getTop();
           const goingUp = (cur < last - 12);
           last = cur;
           if (cur < 220) { setVisible(false); return; }
           if (goingUp) setVisible(true);
-        }, { passive: true });
+        }
+
+        // Bind to both the resolved scroller (if it's an element) and window (if document scroll).
+        if (scroller && scroller !== document.scrollingElement && scroller !== document.documentElement && scroller !== document.body) {
+          scroller.addEventListener("scroll", onScroll, { passive: true });
+        } else {
+          window.addEventListener("scroll", onScroll, { passive: true });
+        }
 
         btn.onclick = () => {
-          try { body.scrollTo({ top: 0, behavior: "smooth" }); }
-          catch (e) { body.scrollTop = 0; }
+          scrollToTop();
           setVisible(false);
         };
       }
+
+
+      function bindTopicTopbarAutoHide() {
+        try {
+          if (mount && typeof mount.__iadTopicTopbarTeardown === 'function') {
+            try { mount.__iadTopicTopbarTeardown(); } catch (e) {}
+            mount.__iadTopicTopbarTeardown = null;
+          }
+        } catch (e) {}
+
+        function resolveScroller() {
+          function isGoodScroller(el) {
+            if (!el) return false;
+            try {
+              const sh = el.scrollHeight || 0;
+              const ch = el.clientHeight || 0;
+              if (sh <= ch + 4) return false;
+              if (el === document.scrollingElement || el === document.documentElement || el === document.body) return true;
+              const cs = window.getComputedStyle ? window.getComputedStyle(el) : null;
+              const oy = cs ? String(cs.overflowY || '') : '';
+              if (oy === 'auto' || oy === 'scroll' || oy === 'overlay') return true;
+              const before = el.scrollTop || 0;
+              el.scrollTop = before + 1;
+              const moved = (el.scrollTop || 0) !== before;
+              el.scrollTop = before;
+              return moved;
+            } catch (e) {
+              return false;
+            }
+          }
+
+          const panelBody = mount && mount.closest
+            ? mount.closest('.ia-atrium-panel-body, .ia-atrium-panel__body, .ia-panel-body, .ia-panel-scroll, .ia-panel')
+            : null;
+
+          const cands = [
+            qs('.iad-modal-body', mount),
+            qs('.iad-modal-sheet', mount),
+            qs('.iad-topic-modal', mount),
+            panelBody,
+            mount,
+            document.scrollingElement,
+            document.documentElement,
+            document.body
+          ].filter(Boolean);
+
+          for (const el of cands) {
+            if (isGoodScroller(el)) return el;
+          }
+          return document.scrollingElement || document.documentElement || document.body;
+        }
+
+        function resolveAtriumTopbar() {
+          const shell = document.querySelector('#ia-atrium-shell');
+          if (!shell) return null;
+
+          const brand = shell.querySelector('.ia-atrium-brand');
+          const cands = [
+            brand && brand.closest('.ia-atrium-topbar, .ia-atrium-header, .ia-topbar, .ia-header, header'),
+            shell.querySelector('.ia-atrium-topbar, .ia-atrium-header, .ia-topbar, .ia-header, header'),
+            brand ? brand.parentElement : null,
+            shell.firstElementChild || null
+          ].filter(Boolean);
+
+          for (const el of cands) {
+            if (!el || el === mount || (mount && mount.contains && mount.contains(el))) continue;
+            return el;
+          }
+          return null;
+        }
+
+        const scroller = resolveScroller();
+        const topbar = resolveAtriumTopbar();
+        if (!scroller || !topbar) return;
+
+        const prev = {
+          transform: topbar.style.transform || '',
+          transition: topbar.style.transition || '',
+          willChange: topbar.style.willChange || '',
+          opacity: topbar.style.opacity || ''
+        };
+
+        topbar.style.transition = topbar.style.transition || 'transform 180ms ease, opacity 180ms ease';
+        topbar.style.willChange = 'transform, opacity';
+
+        let hidden = false;
+        let last = 0;
+
+        function getTop() {
+          try {
+            if (scroller === document.scrollingElement || scroller === document.documentElement || scroller === document.body) {
+              return (document.scrollingElement && document.scrollingElement.scrollTop) ? document.scrollingElement.scrollTop : (window.pageYOffset || 0);
+            }
+            return scroller.scrollTop || 0;
+          } catch (e) {
+            return 0;
+          }
+        }
+
+        function setHidden(next) {
+          if (next === hidden) return;
+          hidden = !!next;
+          const modal = qs('.iad-topic-modal', mount);
+          if (hidden) {
+            topbar.style.transform = 'translateY(calc(-100% - 8px))';
+            topbar.style.opacity = '0.01';
+            try { if (modal) modal.classList.add('is-topbar-hidden'); } catch (e) {}
+          } else {
+            topbar.style.transform = prev.transform || 'translateY(0)';
+            topbar.style.opacity = prev.opacity || '1';
+            try { if (modal) modal.classList.remove('is-topbar-hidden'); } catch (e) {}
+          }
+        }
+
+        function onScroll() {
+          const modal = qs('.iad-topic-modal', mount);
+          if (!modal || !document.body.contains(modal)) {
+            cleanup();
+            return;
+          }
+
+          const cur = getTop();
+          if (cur < 48) {
+            last = cur;
+            setHidden(false);
+            return;
+          }
+
+          if (cur > last + 10) setHidden(true);
+          else if (cur < last - 10) setHidden(false);
+          last = cur;
+        }
+
+        function onTopicClose() {
+          cleanup();
+        }
+
+        function onTabChanged(ev) {
+          const tab = ev && ev.detail ? String(ev.detail.tab || '') : '';
+          if (tab !== 'discuss') cleanup();
+        }
+
+        function cleanup() {
+          try {
+            if (scroller && scroller !== document.scrollingElement && scroller !== document.documentElement && scroller !== document.body) {
+              scroller.removeEventListener('scroll', onScroll, { passive: true });
+            } else {
+              window.removeEventListener('scroll', onScroll, { passive: true });
+            }
+          } catch (e) {}
+          window.removeEventListener('iad:topic_close', onTopicClose);
+          window.removeEventListener('ia_atrium:tabChanged', onTabChanged);
+          topbar.style.transform = prev.transform;
+          topbar.style.transition = prev.transition;
+          topbar.style.willChange = prev.willChange;
+          topbar.style.opacity = prev.opacity;
+          try {
+            const modal = qs('.iad-topic-modal', mount);
+            if (modal) modal.classList.remove('is-topbar-hidden');
+          } catch (e) {}
+          try { if (mount) mount.__iadTopicTopbarTeardown = null; } catch (e) {}
+        }
+
+        if (scroller && scroller !== document.scrollingElement && scroller !== document.documentElement && scroller !== document.body) {
+          scroller.addEventListener('scroll', onScroll, { passive: true });
+        } else {
+          window.addEventListener('scroll', onScroll, { passive: true });
+        }
+        window.addEventListener('iad:topic_close', onTopicClose);
+        window.addEventListener('ia_atrium:tabChanged', onTabChanged);
+
+        last = getTop();
+        onScroll();
+        try { if (mount) mount.__iadTopicTopbarTeardown = cleanup; } catch (e) {}
+      }
+
+      function bindTopicNav() {
+        const prevBtn = qs('[data-iad-topic-prev]', mount);
+        const nextBtn = qs('[data-iad-topic-next]', mount);
+        const topBtn  = qs('[data-iad-topic-top]', mount);
+        if (!prevBtn && !nextBtn && !topBtn) return;
+
+        function resolveScroller() {
+          // Robust scroller resolver:
+          // - Topic view can scroll in different containers depending on whether it's in the modal,
+          //   the page, or inside an Atrium panel.
+          // - Don't default to the first candidate (it might exist but not be the active scroller).
+          function isGoodScroller(el) {
+            if (!el) return false;
+            try {
+              const sh = el.scrollHeight || 0;
+              const ch = el.clientHeight || 0;
+              if (sh <= ch + 4) return false;
+              if (el === document.scrollingElement || el === document.documentElement || el === document.body) return true;
+              const cs = window.getComputedStyle ? window.getComputedStyle(el) : null;
+              const oy = cs ? String(cs.overflowY || '') : '';
+              // Some layouts rely on a parent scroller even when overflowY is "visible".
+              // Treat visible as a soft-signal; we'll still accept it if it can actually scroll.
+              if (oy === 'auto' || oy === 'scroll' || oy === 'overlay') return true;
+              // If scrollTop moves and content is taller, it's effectively a scroller.
+              const before = el.scrollTop || 0;
+              el.scrollTop = before + 1;
+              const moved = (el.scrollTop || 0) !== before;
+              el.scrollTop = before;
+              return moved;
+            } catch (e) {
+              return false;
+            }
+          }
+
+          // 1) Prefer the closest real scroller to the nav button.
+          const start = topBtn || mount;
+          if (start && start.parentElement) {
+            let cur = start.parentElement;
+            for (let i = 0; i < 18 && cur; i++) {
+              if (isGoodScroller(cur)) return cur;
+              cur = cur.parentElement;
+            }
+          }
+
+          // 2) Common known containers.
+          const panelBody = mount && mount.closest
+            ? mount.closest('.ia-atrium-panel-body, .ia-atrium-panel__body, .ia-panel-body, .ia-panel-scroll, .ia-panel')
+            : null;
+
+          const cands = [
+            qs('.iad-modal-body', mount),
+            qs('.iad-modal-sheet', mount),
+            qs('.iad-topic-modal', mount),
+            panelBody,
+            mount,
+            document.scrollingElement,
+            document.documentElement,
+            document.body
+          ].filter(Boolean);
+
+          for (const el of cands) {
+            if (isGoodScroller(el)) return el;
+          }
+
+          // 3) Last resort: document.
+          return document.scrollingElement || document.documentElement || document.body;
+        }
+
+        function navFromState() {
+          try {
+            const s = (window.IA_DISCUSS_STATE && typeof window.IA_DISCUSS_STATE.get === 'function') ? window.IA_DISCUSS_STATE.get() : {};
+            return (s && s.topic_nav) ? s.topic_nav : null;
+          } catch (e) { return null; }
+        }
+
+        function computeIdsAndIndex(nav) {
+          const ids = (nav && Array.isArray(nav.ids)) ? nav.ids.map((n) => parseInt(n, 10) || 0).filter((n) => n > 0) : [];
+          const cur = parseInt(topicId || '0', 10) || 0;
+          const idx = ids.length ? ids.indexOf(cur) : -1;
+          return { ids, cur, idx };
+        }
+
+        function tabForView(v) {
+          v = String(v || '');
+          if (v === 'noreplies') return 'no_replies';
+          // unread is a client-side filter over new_posts
+          return 'new_posts';
+        }
+
+        function syncButtons() {
+          const nav = navFromState();
+          const { ids, idx } = computeIdsAndIndex(nav);
+          const prevId = (idx > 0) ? ids[idx - 1] : 0;
+          const nextId = (idx >= 0 && idx < ids.length - 1) ? ids[idx + 1] : 0;
+          if (prevBtn) prevBtn.disabled = !prevId && !(nav && nav.view === 'random' && idx > 0);
+          if (nextBtn) nextBtn.disabled = !nextId && !(nav && (nav.view === 'random' || nav.view === 'agora' || nav.view === 'new' || nav.view === 'unread' || nav.view === 'noreplies'));
+        }
+
+        syncButtons();
+
+        // Back to top (topic view)
+        if (topBtn) {
+          const sc = resolveScroller();
+          const syncTop = () => {
+            const cur = sc ? (sc.scrollTop || 0) : 0;
+            topBtn.disabled = (cur < 8);
+          };
+          try { (sc || window).addEventListener('scroll', syncTop, { passive: true }); } catch (e) {}
+          syncTop();
+
+          topBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const scc = resolveScroller();
+            if (!scc) return;
+            try { scc.scrollTop = 0; } catch (_) {}
+            try {
+              if (typeof scc.scrollTo === 'function') {
+                try { scc.scrollTo({ top: 0, left: 0, behavior: 'smooth' }); }
+                catch (e1) { scc.scrollTo(0, 0); }
+              }
+            } catch (_) {}
+            try { requestAnimationFrame(() => { try { scc.scrollTop = 0; } catch (_) {} }); } catch (_) {}
+            syncTop();
+          };
+        }
+
+        async function ensureNextTopic(nav) {
+          nav = nav || navFromState();
+          if (!nav) return 0;
+
+          const { ids, idx } = computeIdsAndIndex(nav);
+          if (idx >= 0 && idx < ids.length - 1) return ids[idx + 1];
+
+          // At end of list: extend based on context.
+          // 1) Random: fetch another random topic, append, open.
+          if (nav.view === 'random') {
+            let tid = 0;
+            try {
+              const baseView = String(nav.base_view || 'new');
+              const forumId = parseInt(nav.forum_id || '0', 10) || 0;
+              const res = await window.IA_DISCUSS_API.post('ia_discuss_random_topic', {
+                tab: tabForView(baseView),
+                forum_id: forumId || 0,
+                q: ''
+              });
+              if (res && res.success && res.data && res.data.topic_id) tid = parseInt(res.data.topic_id, 10) || 0;
+            } catch (e) {}
+            if (!tid) return 0;
+
+            try {
+              const nextIds = ids.slice(0);
+              if (!nextIds.includes(tid)) nextIds.push(tid);
+              if (window.IA_DISCUSS_STATE && typeof window.IA_DISCUSS_STATE.set === 'function') {
+                window.IA_DISCUSS_STATE.set({ topic_nav: Object.assign({}, nav, { ids: nextIds, ts: Date.now() }) });
+              }
+            } catch (e2) {}
+            return tid;
+          }
+
+          // 2) Agora: advance to next agora and open its first topic.
+          if (nav.view === 'agora') {
+            let nextForum = 0;
+            let nextForumName = '';
+            try {
+              const s = (window.IA_DISCUSS_STATE && typeof window.IA_DISCUSS_STATE.get === 'function') ? window.IA_DISCUSS_STATE.get() : {};
+              const ag = s && s.agora_list ? s.agora_list : null;
+              const list = ag && Array.isArray(ag.ids) ? ag.ids.map((n) => parseInt(n, 10) || 0).filter((n) => n > 0) : [];
+              const names = ag && ag.names ? ag.names : {};
+              const curForum = parseInt(nav.forum_id || '0', 10) || 0;
+              const at = list.indexOf(curForum);
+              if (list.length) {
+                nextForum = list[(at >= 0 ? (at + 1) : 0) % list.length] || 0;
+                nextForumName = names[String(nextForum)] || '';
+              }
+            } catch (eAg) {}
+            if (!nextForum) return 0;
+
+            // Load first page of that forum's topics to seed nav.ids.
+            try {
+              const res = await window.IA_DISCUSS_API.post('ia_discuss_feed', {
+                tab: 'new_posts',
+                offset: 0,
+                forum_id: nextForum
+              });
+              if (res && res.success && res.data && Array.isArray(res.data.items) && res.data.items.length) {
+                const newIds = res.data.items.map((it) => parseInt(it.topic_id || 0, 10) || 0).filter((n) => n > 0);
+                const first = newIds[0] || 0;
+                if (first) {
+                  if (window.IA_DISCUSS_STATE && typeof window.IA_DISCUSS_STATE.set === 'function') {
+                    window.IA_DISCUSS_STATE.set({
+                      topic_nav: {
+                        view: 'agora',
+                        forum_id: nextForum,
+                        forum_name: String(nextForumName || ''),
+                        ids: newIds,
+                        server_offset: (typeof res.data.next_offset === 'number') ? res.data.next_offset : newIds.length,
+                        has_more: !!res.data.has_more,
+                        ts: Date.now()
+                      }
+                    });
+                  }
+                  // Also push the agora name into the URL cache so the Agora header can show it on back.
+                  try {
+                    if (nextForumName && window.history && window.history.replaceState) {
+                      const u = new URL(window.location.href);
+                      u.searchParams.set('iad_forum_name', String(nextForumName));
+                      window.history.replaceState(window.history.state || {}, '', u.toString());
+                    }
+                  } catch (eUrl) {}
+                  return first;
+                }
+              }
+            } catch (eFeed) {}
+            return 0;
+          }
+
+          // 3) Feed lists (new/unread/no replies): fetch the next page and append.
+          const view = String(nav.view || 'new');
+          const tab = tabForView(view);
+          const forumId = parseInt(nav.forum_id || '0', 10) || 0;
+
+          const offset = parseInt(nav.server_offset || '0', 10) || 0;
+          const hasMore = !!nav.has_more;
+
+          // If we don't know if there is more, still try once if offset is > 0.
+          if (!hasMore && offset <= 0) return 0;
+
+          try {
+            const res = await window.IA_DISCUSS_API.post('ia_discuss_feed', {
+              tab: tab,
+              offset: offset || 0,
+              forum_id: forumId || 0
+            });
+            if (res && res.success && res.data && Array.isArray(res.data.items) && res.data.items.length) {
+              const added = res.data.items.map((it) => parseInt(it.topic_id || 0, 10) || 0).filter((n) => n > 0);
+              const merged = ids.slice(0);
+              added.forEach((id) => { if (id && !merged.includes(id)) merged.push(id); });
+
+              const nextOffset = (typeof res.data.next_offset === 'number') ? res.data.next_offset : (offset + added.length);
+              const nextHasMore = !!res.data.has_more || (added.length >= 20);
+
+              if (window.IA_DISCUSS_STATE && typeof window.IA_DISCUSS_STATE.set === 'function') {
+                window.IA_DISCUSS_STATE.set({
+                  topic_nav: Object.assign({}, nav, {
+                    ids: merged,
+                    server_offset: nextOffset,
+                    has_more: nextHasMore,
+                    ts: Date.now()
+                  })
+                });
+              }
+
+              const { idx: idx2 } = computeIdsAndIndex({ ids: merged });
+              if (idx2 >= 0 && idx2 < merged.length - 1) return merged[idx2 + 1];
+              // Fallback: open first newly added
+              return added[0] || 0;
+            } else {
+              // Mark no more
+              if (window.IA_DISCUSS_STATE && typeof window.IA_DISCUSS_STATE.set === 'function') {
+                window.IA_DISCUSS_STATE.set({ topic_nav: Object.assign({}, nav, { has_more: false, ts: Date.now() }) });
+              }
+            }
+          } catch (ePg) {}
+
+          return 0;
+        }
+
+        function prevTopicId(nav) {
+          nav = nav || navFromState();
+          const { ids, idx } = computeIdsAndIndex(nav);
+          if (idx > 0) return ids[idx - 1];
+          return 0;
+        }
+
+        if (prevBtn) {
+          prevBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const nav = navFromState();
+            const pid = prevTopicId(nav);
+            if (pid) {
+              window.dispatchEvent(new CustomEvent('iad:open_topic_page', { detail: { topic_id: pid } }));
+              return;
+            }
+            // In random mode, if state is missing, fall back to browser back.
+            try { window.history.back(); } catch (e2) {}
+          };
+        }
+
+        if (nextBtn) {
+          nextBtn.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const nav = navFromState();
+            const { ids, idx } = computeIdsAndIndex(nav);
+            const nextId = (idx >= 0 && idx < ids.length - 1) ? ids[idx + 1] : 0;
+
+            let nid = nextId;
+            if (!nid) {
+              // Extend list based on context (random/agora/feed).
+              nid = await ensureNextTopic(nav);
+            }
+
+            if (!nid) return;
+            window.dispatchEvent(new CustomEvent('iad:open_topic_page', { detail: { topic_id: nid } }));
+          };
+        }
+
+        // If topic_nav changes while topic is open (e.g. list extension), resync buttons.
+        try {
+          window.addEventListener('storage', (e) => {
+            if (e && e.key && String(e.key).indexOf('ia_discuss_state_v1') !== -1) syncButtons();
+          });
+        } catch (e) {}
+      }
+
+      // Load more replies (reveal from cache first, then fetch next server page)
 
       // Load more replies (reveal from cache first, then fetch next server page)
       const more = qs("[data-iad-more]", mount);
@@ -436,14 +1072,41 @@
           has_more: false,
           posts_total: postsTotal || 0,
           shown_count: shownCount,
-          can_load_more: false
+          can_load_more: false,
+          notify_enabled: (meta.notify_enabled != null) ? meta.notify_enabled : 0,
+          viewer: meta.viewer || {}
         };
 
         mount.innerHTML = R.renderTopicHTML(p2);
+        try {
+          window.dispatchEvent(new CustomEvent('iad:topic_loaded', {
+            detail: {
+              topic_id: p2.topic_id || topicId,
+              topic_title: p2.topic_title || 'Topic',
+              forum_id: p2.forum_id || 0,
+              forum_name: p2.forum_name || ''
+            }
+          }));
+        } catch (eTitle2) {}
         R.bindBack(mount);
         if (A.bindTopicActions) A.bindTopicActions(mount, topicId);
+
+        // Re-bind topic-level email toggle after full re-render (goto-last).
+        try {
+          const chk = mount.querySelector('[data-iad-topic-notify]');
+          if (chk) {
+            chk.addEventListener('change', () => {
+              window.IA_DISCUSS_API.post('ia_discuss_topic_notify_set', {
+                topic_id: topicId,
+                enabled: chk.checked ? 1 : 0
+              }).then(() => {}).catch(() => {});
+            });
+          }
+        } catch (e) {}
+
         bindAttachmentsModal();
         bindBackTop();
+        bindTopicNav();
 
         // Jump to the last rendered reply and highlight it.
         setTimeout(() => {
@@ -512,6 +1175,8 @@
       
       bindAttachmentsModal();
       bindBackTop();
+      bindTopicNav();
+      bindTopicTopbarAutoHide();
     }
 
     fetchTopic(topicId, 0)
@@ -522,5 +1187,93 @@
       });
   }
 
-  window.IA_DISCUSS_UI_TOPIC = { renderInto };
+  
+  // -------------------------------------------------
+  // Cross-platform follow/block buttons (next to usernames)
+  // -------------------------------------------------
+  (function bindRelButtons(){
+    if (document.documentElement.getAttribute('data-iad-relbound') === '1') return;
+    document.documentElement.setAttribute('data-iad-relbound','1');
+
+    async function relStatus(target){
+      try{
+        return await window.IA_DISCUSS_API.post('ia_user_rel_status', { target_phpbb: target });
+      }catch(e){ return null; }
+    }
+
+    function setBtnState(btn, on){
+      if (!btn) return;
+      if (on) btn.classList.add('is-on'); else btn.classList.remove('is-on');
+    }
+
+    document.addEventListener('click', async (e)=>{
+      const f = e.target && e.target.closest ? e.target.closest('[data-iad-follow-user]') : null;
+      const b = e.target && e.target.closest ? e.target.closest('[data-iad-block-user]') : null;
+      if (!f && !b) return;
+      if (!window.IA_DISCUSS_API) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const target = parseInt((f||b).getAttribute('data-user-id')||'0',10)||0;
+      if (!target) return;
+
+      if (f){
+        const res = await window.IA_DISCUSS_API.post('ia_user_follow_toggle', { target_phpbb: target });
+        if (res && !res.ok && (res.status === 403 || (res.data && (res.data.message==='Blocked' || res.data.message==='blocked')))){
+          iaRelModal({ title:'You are blocked', body:'You can\'t follow or interact with this user right now because a block is active.' });
+          return;
+        }
+        setBtnState(f, !!(res && res.ok && res.data && res.data.following));
+        return;
+      }
+      if (b){
+        const isOn = b.classList.contains('is-on');
+        iaRelModal({
+          title: (isOn ? 'Unblock user?' : 'Block user?'),
+          body: (isOn ? 'Are you sure you want to unblock this user?' : 'Are you sure you want to block this user? You won\'t be able to see or interact with each other until unblocked.'),
+          actions: [
+            {label:'Cancel'},
+            {label:(isOn ? 'Unblock' : 'Block'), primary:true, onClick: async ()=>{
+              const res = await window.IA_DISCUSS_API.post('ia_user_block_toggle', { target_phpbb: target });
+              setBtnState(b, !!(res && res.ok && res.data && res.data.blocked_by_me));
+              const st = await window.IA_DISCUSS_API.post('ia_user_rel_status', { target_phpbb: target });
+              if (st && st.ok && st.data && st.data.blocked_any){
+                if (st.data.blocked_by_me){
+                  iaRelModal({ title:'User blocked', body:'This user is blocked. You can unblock them to interact again.', actions:[{label:'Close'},{label:'Unblock', primary:true, onClick: async ()=>{ await window.IA_DISCUSS_API.post('ia_user_block_toggle', { target_phpbb: target }); setBtnState(b,false); }}] });
+                } else {
+                  iaRelModal({ title:'You are blocked', body:'You can\'t interact with this user right now. Replies are disabled while a block is active.' });
+                }
+              }
+            }}
+          ]
+        });
+        return;
+      }
+    }, true);
+
+    // Lazy init of states when posts are rendered
+    document.addEventListener('ia_discuss_topic_rendered', async (e)=>{
+      const mount = e && e.detail ? e.detail.mount : null;
+      const root = mount || document;
+      const btns = root.querySelectorAll ? root.querySelectorAll('[data-iad-follow-user], [data-iad-block-user]') : [];
+      if (!btns || !btns.length) return;
+      const seen = {};
+      for (const btn of btns){
+        const id = parseInt(btn.getAttribute('data-user-id')||'0',10)||0;
+        if (!id || seen[id]) continue;
+        seen[id]=1;
+        const st = await relStatus(id);
+        if (!st || !st.ok) continue;
+        if (st.data && st.data.blocked_any && !st.data.blocked_by_me && !window.__iadBlockedModalShown){
+          window.__iadBlockedModalShown = true;
+          iaRelModal({ title:'You are blocked', body:'You can\'t interact with this user right now. Replies and messaging are disabled while a block is active.' });
+        }
+        root.querySelectorAll(`[data-iad-follow-user][data-user-id="${id}"]`).forEach((x)=>setBtnState(x, !!st.data.following));
+        root.querySelectorAll(`[data-iad-block-user][data-user-id="${id}"]`).forEach((x)=>setBtnState(x, !!st.data.blocked_by_me));
+      }
+    });
+  })();
+
+
+window.IA_DISCUSS_UI_TOPIC = { renderInto };
 })();

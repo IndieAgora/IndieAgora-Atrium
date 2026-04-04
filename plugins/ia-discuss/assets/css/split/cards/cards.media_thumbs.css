@@ -73,11 +73,20 @@
   max-width: 42vw;   /* stays compact on desktop, adapts on small screens */
 }
 
+.iad-vthumb.is-compact.is-vertical{
+  width: 140px;
+  max-width: 34vw;
+}
+
 .iad-vthumb-inner{
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
   background: rgba(0,0,0,0.25);
+}
+
+.iad-vthumb-inner.is-vertical{
+  aspect-ratio: 9 / 16;
 }
 
 .iad-vthumb-img{

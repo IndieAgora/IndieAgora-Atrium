@@ -1,55 +1,231 @@
 .iad-shell{
   background: transparent;
   width: 100%;
+  position: relative;
 }
 
-.iad-top{
-  position: sticky;
+.iad-view{
+  position: relative;
+  z-index: 1;
+}
+
+.iad-sidebar-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.48);
+  z-index: 1000;
+}
+.iad-sidebar-backdrop[hidden]{
+  display: none !important;
+}
+
+.iad-sidebar{
+  position: fixed;
   top: 0;
-  z-index: 10;
-  padding: 10px 10px 6px;
-  backdrop-filter: blur(8px);
-  background: linear-gradient(to bottom, rgba(11,13,16,0.92), rgba(11,13,16,0.65));
-  border-bottom: 1px solid var(--iad-border);
+  left: 0;
+  bottom: 0;
+  width: min(360px, calc(100vw - 28px));
+  padding: 14px 12px calc(18px + var(--ia-atrium-nav-height, 64px));
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: linear-gradient(180deg, rgba(11,13,16,0.98), rgba(11,13,16,0.94));
+  border-right: 1px solid var(--iad-border);
+  box-shadow: 18px 0 40px rgba(0,0,0,0.32);
+  transform: translateX(-100%);
+  transition: transform .22s ease;
+  z-index: 1001;
 }
 
-.iad-tabs{
-  display:flex;
-  gap: 10px;
+.ia-discuss-root.is-sidebar-open .iad-sidebar{
+  transform: translateX(0);
 }
 
-.iad-tab{
-  appearance:none;
+.iad-sidebar-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.iad-sidebar-title{
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--iad-text);
+}
+
+.iad-sidebar-close{
+  appearance: none;
   border: 1px solid var(--iad-border);
   background: rgba(255,255,255,0.05);
-  color: var(--iad-muted);
-  padding: 10px 14px;
-  border-radius: 999px;
-  cursor:pointer;
-  font-size: 14px;
-}
-.iad-tab.is-active{
   color: var(--iad-text);
-  border-color: rgba(255,69,0,0.35);
-  background: rgba(255,69,0,0.10);
+  border-radius: 999px;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
 }
 
-.iad-body{ padding: 12px 10px 20px; }
+.iad-sidebar-search{
+  margin: 0 0 14px;
+}
 
-/* Mobile tidy-up: reduce "squashed" feel + allow pills/tabs to wrap */
+.iad-sidebar-group{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+
+.iad-sidebar-divider{
+  height: 1px;
+  margin: 2px 0 14px;
+  background: rgba(255,255,255,0.10);
+}
+
+.iad-sidebar-subtitle{
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.68);
+  padding: 0 2px;
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sidebar-divider{
+  background: rgba(0,0,0,0.10);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sidebar-subtitle{
+  color: rgba(0,0,0,0.60);
+}
+
+.iad-sidebar .iad-tab,
+.iad-sidebar .iad-btn{
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.iad-sidebar .iad-tab{
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.iad-sidebar .iad-btn{
+  border-radius: 14px;
+}
+
+.iad-discuss-topbar-toggle{
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.92);
+  border-radius: 999px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0 10px 0 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.iad-discuss-topbar-toggle-ico{
+  font-size: 20px;
+  line-height: 1;
+}
+
+.iad-discuss-topbar-toggle:hover{
+  background: rgba(255,255,255,0.10);
+}
+
+.iad-discuss-topbar-toggle[hidden]{
+  display: none !important;
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sidebar{
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,248,248,0.96));
+  border-right-color: rgba(0,0,0,0.10);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sidebar-close,
+.ia-discuss-root[data-iad-theme="light"] .iad-discuss-topbar-toggle{
+  background: rgba(0,0,0,0.04);
+  color: rgba(0,0,0,0.82);
+  border-color: rgba(0,0,0,0.10);
+}
+
 @media (max-width: 640px){
-  .iad-top{ padding: 8px 8px 6px; }
-  /* Wider cards on small screens */
-  .iad-body{ padding: 10px 4px 18px; }
-  .iad-tabs{ flex-wrap: wrap; gap: 8px; }
-  .iad-tab{ padding: 9px 12px; }
+  .iad-sidebar{
+    width: min(340px, calc(100vw - 20px));
+    padding-top: 12px;
+  }
+
+  .iad-discuss-topbar-toggle{
+    width: 42px;
+    height: 42px;
+    margin-right: 8px;
+  }
 }
 
-/* Light theme surfaces */
-.ia-discuss-root[data-iad-theme="light"] .iad-shell{
-  background: linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0.00));
+
+.iad-sidebar .iad-tab,
+.iad-sidebar .iad-btn{
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.92);
+  border: 1px solid rgba(255,255,255,0.10);
 }
-.ia-discuss-root[data-iad-theme="light"] .iad-top{
-  background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.75));
-  border-bottom-color: rgba(0,0,0,0.08);
+
+.iad-sidebar .iad-tab:hover,
+.iad-sidebar .iad-btn:hover{
+  background: rgba(255,255,255,0.09);
+}
+
+.iad-sidebar .iad-tab.is-active{
+  background: rgba(255,255,255,0.09);
+  color: rgba(255,255,255,0.96);
+  border-color: rgba(255,255,255,0.14);
+}
+
+.iad-sidebar .iad-tab-theme{
+  background: #f3f3f3;
+  color: #111;
+  border-color: rgba(0,0,0,0.14);
+}
+
+.iad-sidebar .iad-tab-theme:hover{
+  background: #ffffff;
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sidebar .iad-tab,
+.ia-discuss-root[data-iad-theme="light"] .iad-sidebar .iad-btn{
+  background: rgba(0,0,0,0.04);
+  color: rgba(0,0,0,0.88);
+  border-color: rgba(0,0,0,0.10);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sidebar .iad-tab:hover,
+.ia-discuss-root[data-iad-theme="light"] .iad-sidebar .iad-btn:hover{
+  background: rgba(0,0,0,0.07);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sidebar .iad-tab.is-active{
+  background: rgba(0,0,0,0.08);
+  color: rgba(0,0,0,0.94);
+  border-color: rgba(0,0,0,0.14);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sidebar .iad-tab-theme{
+  background: rgba(11,13,16,0.94);
+  color: rgba(255,255,255,0.96);
+  border-color: rgba(0,0,0,0.18);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-sidebar .iad-tab-theme:hover{
+  background: rgba(11,13,16,0.98);
 }

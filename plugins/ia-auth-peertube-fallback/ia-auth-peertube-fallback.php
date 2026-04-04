@@ -2,7 +2,7 @@
 /**
  * Plugin Name: IA Auth PeerTube Fallback
  * Description: Adds transparent PeerTube credential fallback to IA Auth login (phpBB first, then PeerTube; auto-create/link phpBB + WP shadow).
- * Version: 0.1.0
+ * Version: 0.1.1
  * Author: IndieAgora
  */
 
@@ -72,6 +72,21 @@ final class IA_Auth_PeerTube_Fallback {
     }
 
     public static function ajax_login() : void {
+        // Structural cleanup April 2026: ia_auth_login is now a compatibility surface only.
+        // Delegate to the canonical ia_user_login ladder when the clean fallback exists.
+        if (class_exists('IA_User_PeerTube_Fallback_Clean') && method_exists('IA_User_PeerTube_Fallback_Clean', 'ajax_login')) {
+            ia_pt_trace_log('ia-auth-fallback.ajax_login.delegate', [
+                'target' => 'ia_user_login',
+                'identifier' => (string)($_POST['identifier'] ?? ''),
+                'ajax_action' => (string)($_REQUEST['action'] ?? ''),
+            ]);
+            IA_User_PeerTube_Fallback_Clean::ajax_login();
+            return;
+        }
+        ia_pt_trace_log('ia-auth-fallback.ajax_login.enter', [
+            'identifier' => (string)($_POST['identifier'] ?? ''),
+            'uri' => (string)($_SERVER['REQUEST_URI'] ?? ''),
+        ]);
         self::guard_ajax_nonce();
 
         if (!class_exists('IA_Auth')) {
@@ -95,6 +110,7 @@ final class IA_Auth_PeerTube_Fallback {
 
         if (empty($auth['ok'])) {
             // 2) If phpBB fails, transparently try PeerTube password grant
+            ia_pt_trace_log('ia-auth-fallback.password_grant.attempt', ['identifier' => $id, 'ajax_action' => (string)($_REQUEST['action'] ?? '')]);
             $pt = $ia->peertube->password_grant($id, $pw, $engine['peertube_api']);
             if (empty($pt['ok']) || empty($pt['token']['access_token'])) {
                 // Preserve IA Auth semantics: invalid creds
@@ -129,6 +145,13 @@ final class IA_Auth_PeerTube_Fallback {
 
             if ($pt_username === '') {
                 wp_send_json_error(['message' => 'PeerTube user record missing username.'], 401);
+            }
+
+            if (function_exists('ia_goodbye_identifier_is_tombstoned')) {
+                if (($pt_username !== '' && ia_goodbye_identifier_is_tombstoned($pt_username))
+                    || ($pt_email !== '' && ia_goodbye_identifier_is_tombstoned($pt_email))) {
+                    wp_send_json_error(['message' => 'This account was deleted. Please register again with different credentials.'], 403);
+                }
             }
 
             // 3) Ensure phpBB user exists (create if missing)

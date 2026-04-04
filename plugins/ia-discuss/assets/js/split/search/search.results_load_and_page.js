@@ -1,10 +1,5 @@
-"use strict";
-      }
-    });
-  }
-
   function loadResults(mount, q, type, offset) {
-    var box = qs("[data-iad-search-results]", mount);
+    const box = qs("[data-iad-search-results]", mount);
     if (!box) return;
 
     box.innerHTML = `<div class="iad-loading">Loading…</div>`;
@@ -15,9 +10,9 @@
         return;
       }
 
-      var d = res.data || {};
-      var items = Array.isArray(d.items) ? d.items : [];
-      var hasMore = !!d.has_more;
+      const d = res.data || {};
+      const items = Array.isArray(d.items) ? d.items : [];
+      const hasMore = !!d.has_more;
 
       box.innerHTML = `
         <div class="iad-sr-list">
@@ -26,23 +21,23 @@
         </div>
       `;
 
-      var more = qs("[data-iad-sr-more]", box);
+      const more = qs("[data-iad-sr-more]", box);
       if (more) {
         more.addEventListener("click", () => {
           more.disabled = true;
           API.post("ia_discuss_search", { q, type, offset: (offset || 0) + 25, limit: 25 }).then((res2) => {
             if (!res2 || !res2.success) { more.disabled = false; return; }
-            var d2 = res2.data || {};
-            var items2 = Array.isArray(d2.items) ? d2.items : [];
-            var hasMore2 = !!d2.has_more;
+            const d2 = res2.data || {};
+            const items2 = Array.isArray(d2.items) ? d2.items : [];
+            const hasMore2 = !!d2.has_more;
 
-            var list = qs(".iad-sr-list", box);
+            const list = qs(".iad-sr-list", box);
             if (!list) return;
 
             // current rows count for alternating
-            var existing = list.querySelectorAll(".iad-sr-row").length;
+            const existing = list.querySelectorAll(".iad-sr-row").length;
 
-            var tmp = document.createElement("div");
+            const tmp = document.createElement("div");
             tmp.innerHTML = items2.map((it, i) => renderResultRow(type, it, existing + i)).join("");
             list.insertBefore(tmp, more);
 
@@ -63,16 +58,16 @@
     q = String(q || "").trim();
     mount.innerHTML = resultsShellHTML(q);
 
-    var back = qs("[data-iad-search-back]", mount);
+    const back = qs("[data-iad-search-back]", mount);
     if (back) back.addEventListener("click", () => {
       window.dispatchEvent(new CustomEvent("iad:search_back"));
     });
 
-    var activeType = "topics";
+    let activeType = "topics";
 
     mount.querySelectorAll(".iad-stab").forEach((b) => {
       b.addEventListener("click", () => {
-        var t = b.getAttribute("data-type") || "topics";
+        const t = b.getAttribute("data-type") || "topics";
         activeType = t;
         setActiveType(mount, activeType);
         loadResults(mount, q, activeType, 0);
@@ -81,9 +76,3 @@
 
     loadResults(mount, q, activeType, 0);
   }
-
-  window.IA_DISCUSS_UI_SEARCH = {
-    bindSearchBox,
-    renderSearchPageInto
-  };
-;

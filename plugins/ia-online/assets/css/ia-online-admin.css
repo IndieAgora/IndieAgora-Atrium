@@ -1,0 +1,197 @@
+.ia-online-admin {
+  max-width: 1280px;
+}
+.ia-online-summary {
+  display: flex;
+  gap: 16px;
+  margin: 16px 0 24px;
+  flex-wrap: wrap;
+}
+.ia-online-card {
+  background: #fff;
+  border: 1px solid #dcdcde;
+  border-radius: 8px;
+  padding: 16px 18px;
+  min-width: 140px;
+  flex: 1 1 180px;
+  max-width: 240px;
+  box-sizing: border-box;
+}
+.ia-online-card strong {
+  display: block;
+  font-size: 24px;
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+.ia-online-card span {
+  color: #50575e;
+}
+.ia-online-admin h2 {
+  margin-top: 28px;
+}
+.ia-online-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 24px;
+}
+.ia-online-admin table.widefat {
+  min-width: 880px;
+}
+.ia-online-admin table th,
+.ia-online-admin table td {
+  vertical-align: top;
+}
+.ia-online-admin table td:nth-child(6),
+.ia-online-admin table td:nth-child(8) {
+  white-space: nowrap;
+}
+.ia-online-admin table td:nth-child(7) {
+  min-width: 280px;
+  max-width: 420px;
+}
+.ia-online-admin code {
+  display: inline-block;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.ia-online-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.ia-online-chart-card {
+  background: #fff;
+  border: 1px solid #dcdcde;
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+.ia-online-chart-card h3 {
+  margin: 0 0 12px;
+}
+.ia-online-chart {
+  display: block;
+  width: 100%;
+  height: 180px;
+}
+.ia-online-chart-axis {
+  stroke: #c3c4c7;
+  stroke-width: 1;
+}
+.ia-online-chart-line {
+  fill: none;
+  stroke: #2271b1;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ia-online-chart-meta {
+  display: flex;
+  justify-content: space-between;
+  color: #50575e;
+  font-size: 12px;
+  margin-top: 8px;
+}
+@media (max-width: 782px) {
+  .ia-online-summary {
+    gap: 12px;
+  }
+  .ia-online-card {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}
+
+.ia-online-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 18px 0 22px;
+}
+.ia-online-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #c3c4c7;
+  border-radius: 999px;
+  background: #fff;
+  color: #1d2327;
+  text-decoration: none;
+  font-weight: 600;
+  box-sizing: border-box;
+}
+.ia-online-tab:hover,
+.ia-online-tab:focus {
+  color: #1d2327;
+  border-color: #2271b1;
+}
+.ia-online-tab.is-active {
+  background: #2271b1;
+  border-color: #2271b1;
+  color: #fff;
+}
+.ia-online-overview-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: -4px 0 24px;
+}
+@media (max-width: 782px) {
+  .ia-online-tab {
+    flex: 1 1 calc(50% - 10px);
+  }
+}
+
+.ia-online-chart-range {
+  margin: -6px 0 10px;
+  color: #50575e;
+  font-size: 12px;
+}
+.ia-online-chart-point {
+  fill: #2271b1;
+}
+.ia-online-chart-axis-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #50575e;
+  font-size: 11px;
+  margin-top: 6px;
+}
+.ia-online-filters {
+  background: #fff;
+  border: 1px solid #dcdcde;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 8px 0 18px;
+}
+.ia-online-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+.ia-online-filter-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+}
+.ia-online-filter-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ia-online-filters input,
+.ia-online-filters select {
+  min-height: 36px;
+}
+@media (max-width: 782px) {
+  .ia-online-filter-row label {
+    min-width: 100%;
+  }
+}

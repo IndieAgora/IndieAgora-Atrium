@@ -1,0 +1,691 @@
+<?php
+/**
+ * Plugin Name: IA Server Diagnostics
+ * Description: Logs slow WordPress requests and correlates them with server snapshots.
+ * Version: 0.1.1
+ * Author: OpenAI
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+if (!defined('IA_SD_VERSION')) {
+    define('IA_SD_VERSION', '0.1.1');
+}
+
+final class IA_Server_Diagnostics {
+    const OPTION_KEY = 'ia_sd_settings';
+    const TABLE_REQUESTS = 'ia_sd_requests';
+    const TABLE_QUERIES  = 'ia_sd_queries';
+    const TABLE_SAMPLES  = 'ia_sd_samples';
+
+    private static $instance = null;
+    private $request_start = 0.0;
+    private $request_meta = [];
+    private $settings = [];
+
+    public static function instance() {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    private function __construct() {
+        $this->request_start = microtime(true);
+        $this->settings = $this->get_settings();
+
+        register_activation_hook(__FILE__, [$this, 'activate']);
+        register_deactivation_hook(__FILE__, [$this, 'deactivate']);
+
+        add_action('admin_menu', [$this, 'admin_menu']);
+        add_action('admin_init', [$this, 'register_settings']);
+        add_action('admin_post_ia_sd_import_sample', [$this, 'handle_import_sample']);
+        add_action('admin_init', [$this, 'maybe_auto_import_samples'], 20);
+        add_action('ia_sd_auto_import_event', [$this, 'maybe_auto_import_samples']);
+        add_action('shutdown', [$this, 'log_request'], PHP_INT_MAX);
+        add_action('init', [$this, 'capture_request_context'], 1);
+        add_action('current_screen', [$this, 'capture_admin_screen']);
+        add_action('wp', [$this, 'capture_template_context'], 1);
+        add_action('rest_api_init', [$this, 'capture_rest_boot'], 1);
+
+        if (!wp_next_scheduled('ia_sd_cleanup_event')) {
+            wp_schedule_event(time() + 300, 'hourly', 'ia_sd_cleanup_event');
+        }
+        if (!wp_next_scheduled('ia_sd_auto_import_event')) {
+            wp_schedule_event(time() + 120, 'hourly', 'ia_sd_auto_import_event');
+        }
+        add_action('ia_sd_cleanup_event', [$this, 'cleanup_old_data']);
+    }
+
+    public function activate() {
+        global $wpdb;
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+        $charset = $wpdb->get_charset_collate();
+        $requests = $wpdb->prefix . self::TABLE_REQUESTS;
+        $queries  = $wpdb->prefix . self::TABLE_QUERIES;
+        $samples  = $wpdb->prefix . self::TABLE_SAMPLES;
+
+        dbDelta("CREATE TABLE {$requests} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            created_at DATETIME NOT NULL,
+            request_type VARCHAR(32) NOT NULL,
+            method VARCHAR(12) NOT NULL,
+            uri LONGTEXT NOT NULL,
+            route_key VARCHAR(191) DEFAULT '',
+            plugin_hint VARCHAR(191) DEFAULT '',
+            user_id BIGINT UNSIGNED DEFAULT 0,
+            runtime_ms INT UNSIGNED NOT NULL,
+            db_query_count INT UNSIGNED DEFAULT 0,
+            db_time_ms INT UNSIGNED DEFAULT 0,
+            peak_memory_mb DECIMAL(10,2) DEFAULT 0,
+            http_calls INT UNSIGNED DEFAULT 0,
+            http_time_ms INT UNSIGNED DEFAULT 0,
+            cron_hook VARCHAR(191) DEFAULT '',
+            is_slow TINYINT(1) NOT NULL DEFAULT 0,
+            notes LONGTEXT NULL,
+            PRIMARY KEY (id),
+            KEY created_at (created_at),
+            KEY request_type (request_type),
+            KEY runtime_ms (runtime_ms),
+            KEY route_key (route_key),
+            KEY plugin_hint (plugin_hint)
+        ) {$charset};");
+
+        dbDelta("CREATE TABLE {$queries} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            request_id BIGINT UNSIGNED NOT NULL,
+            query_time_ms INT UNSIGNED NOT NULL,
+            query_sql LONGTEXT NULL,
+            query_caller LONGTEXT NULL,
+            PRIMARY KEY (id),
+            KEY request_id (request_id),
+            KEY query_time_ms (query_time_ms)
+        ) {$charset};");
+
+        dbDelta("CREATE TABLE {$samples} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            sampled_at DATETIME NOT NULL,
+            load_1 DECIMAL(8,2) DEFAULT 0,
+            load_5 DECIMAL(8,2) DEFAULT 0,
+            load_15 DECIMAL(8,2) DEFAULT 0,
+            cpu_summary LONGTEXT NULL,
+            mem_summary LONGTEXT NULL,
+            top_cpu LONGTEXT NULL,
+            top_mem LONGTEXT NULL,
+            php_processes LONGTEXT NULL,
+            mysql_summary LONGTEXT NULL,
+            notes LONGTEXT NULL,
+            PRIMARY KEY (id),
+            KEY sampled_at (sampled_at)
+        ) {$charset};");
+
+        if (!get_option(self::OPTION_KEY)) {
+            add_option(self::OPTION_KEY, [
+                'slow_ms' => 1500,
+                'severe_ms' => 4000,
+                'critical_ms' => 8000,
+                'query_capture' => 0,
+                'query_limit' => 10,
+                'query_threshold_ms' => 100,
+                'retention_days' => 14,
+                'auto_import_enabled' => 1,
+                'auto_import_path' => '/var/www/vhosts/indieagora.com/opt/ia-server-diagnostics',
+                'auto_import_batch' => 50,
+            ]);
+        }
+    }
+
+    public function deactivate() {
+        wp_clear_scheduled_hook('ia_sd_cleanup_event');
+        wp_clear_scheduled_hook('ia_sd_auto_import_event');
+    }
+
+    private function get_settings() {
+        $defaults = [
+            'slow_ms' => 1500,
+            'severe_ms' => 4000,
+            'critical_ms' => 8000,
+            'query_capture' => 0,
+            'query_limit' => 10,
+            'query_threshold_ms' => 100,
+            'retention_days' => 14,
+            'auto_import_enabled' => 1,
+            'auto_import_path' => '/var/www/vhosts/indieagora.com/opt/ia-server-diagnostics',
+            'auto_import_batch' => 50,
+        ];
+        $saved = get_option(self::OPTION_KEY, []);
+        return wp_parse_args(is_array($saved) ? $saved : [], $defaults);
+    }
+
+    public function register_settings() {
+        register_setting('ia_sd_settings_group', self::OPTION_KEY, [$this, 'sanitize_settings']);
+    }
+
+    public function sanitize_settings($input) {
+        return [
+            'slow_ms' => max(250, intval($input['slow_ms'] ?? 1500)),
+            'severe_ms' => max(500, intval($input['severe_ms'] ?? 4000)),
+            'critical_ms' => max(1000, intval($input['critical_ms'] ?? 8000)),
+            'query_capture' => empty($input['query_capture']) ? 0 : 1,
+            'query_limit' => max(1, min(50, intval($input['query_limit'] ?? 10))),
+            'query_threshold_ms' => max(10, intval($input['query_threshold_ms'] ?? 100)),
+            'retention_days' => max(1, min(180, intval($input['retention_days'] ?? 14))),
+            'auto_import_enabled' => empty($input['auto_import_enabled']) ? 0 : 1,
+            'auto_import_path' => sanitize_text_field($input['auto_import_path'] ?? '/var/www/vhosts/indieagora.com/opt/ia-server-diagnostics'),
+            'auto_import_batch' => max(1, min(500, intval($input['auto_import_batch'] ?? 50))),
+        ];
+    }
+
+    public function capture_request_context() {
+        $this->request_meta['method'] = isset($_SERVER['REQUEST_METHOD']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_METHOD'])) : 'CLI';
+        $this->request_meta['uri'] = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
+        $this->request_meta['request_type'] = $this->detect_request_type();
+        $this->request_meta['user_id'] = get_current_user_id();
+        $this->request_meta['route_key'] = '';
+        $this->request_meta['plugin_hint'] = '';
+        $this->request_meta['cron_hook'] = '';
+        $this->request_meta['http_calls'] = [];
+    }
+
+    public function capture_rest_boot() {
+        if (defined('REST_REQUEST') && REST_REQUEST && !empty($_SERVER['REQUEST_URI'])) {
+            $this->request_meta['route_key'] = 'rest:' . sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI']));
+        }
+    }
+
+    public function capture_admin_screen($screen) {
+        if (is_object($screen) && !empty($screen->id)) {
+            $this->request_meta['route_key'] = 'admin:' . sanitize_text_field($screen->id);
+        }
+    }
+
+    public function capture_template_context() {
+        if (!is_admin() && !wp_doing_ajax() && !(defined('REST_REQUEST') && REST_REQUEST)) {
+            $obj = get_queried_object();
+            if (is_singular() && $obj && !empty($obj->post_type)) {
+                $this->request_meta['route_key'] = 'single:' . sanitize_text_field($obj->post_type);
+            } elseif (is_home() || is_front_page()) {
+                $this->request_meta['route_key'] = 'front';
+            } elseif (is_archive()) {
+                $this->request_meta['route_key'] = 'archive';
+            } elseif (is_search()) {
+                $this->request_meta['route_key'] = 'search';
+            }
+        }
+    }
+
+    private function detect_request_type() {
+        if (defined('DOING_CRON') && DOING_CRON) {
+            return 'cron';
+        }
+        if (wp_doing_ajax()) {
+            if (isset($_REQUEST['action'])) {
+                $this->request_meta['route_key'] = 'ajax:' . sanitize_text_field(wp_unslash($_REQUEST['action']));
+            }
+            return 'ajax';
+        }
+        if (defined('REST_REQUEST') && REST_REQUEST) {
+            return 'rest';
+        }
+        if (is_admin()) {
+            return 'admin';
+        }
+        return 'front';
+    }
+
+    private function maybe_guess_plugin_hint() {
+        $uri = $this->request_meta['uri'] ?? '';
+        $route = $this->request_meta['route_key'] ?? '';
+        $active = (array) get_option('active_plugins', []);
+
+        foreach ($active as $plugin_file) {
+            $slug = dirname($plugin_file);
+            if ($slug && $slug !== '.' && (stripos($uri, $slug) !== false || stripos($route, $slug) !== false)) {
+                return $slug;
+            }
+        }
+
+        $hints = ['peertube', 'atrium', 'indieagora', 'connect', 'discuss', 'stream'];
+        foreach ($hints as $hint) {
+            if (stripos($uri, $hint) !== false || stripos($route, $hint) !== false) {
+                return $hint;
+            }
+        }
+
+        return '';
+    }
+
+    public function log_request() {
+        if (defined('WP_INSTALLING') && WP_INSTALLING) {
+            return;
+        }
+
+        global $wpdb;
+
+        $runtime_ms = (int) round((microtime(true) - $this->request_start) * 1000);
+        $slow_ms = (int) $this->settings['slow_ms'];
+        $is_slow = $runtime_ms >= $slow_ms;
+
+        if (!$is_slow) {
+            return;
+        }
+
+        $db_query_count = 0;
+        $db_time_ms = 0;
+        $captured_queries = [];
+
+        if (!empty($this->settings['query_capture']) && defined('SAVEQUERIES') && SAVEQUERIES && !empty($wpdb->queries) && is_array($wpdb->queries)) {
+            foreach ($wpdb->queries as $entry) {
+                $sql = $entry[0] ?? '';
+                $time_s = isset($entry[1]) ? (float) $entry[1] : 0;
+                $caller = $entry[2] ?? '';
+                $time_ms = (int) round($time_s * 1000);
+                $db_query_count++;
+                $db_time_ms += $time_ms;
+
+                if ($time_ms >= (int) $this->settings['query_threshold_ms']) {
+                    $captured_queries[] = [
+                        'sql' => is_string($sql) ? $sql : wp_json_encode($sql),
+                        'caller' => is_string($caller) ? $caller : wp_json_encode($caller),
+                        'time_ms' => $time_ms,
+                    ];
+                }
+            }
+
+            usort($captured_queries, function($a, $b) {
+                return $b['time_ms'] <=> $a['time_ms'];
+            });
+
+            $captured_queries = array_slice($captured_queries, 0, (int) $this->settings['query_limit']);
+        }
+
+        $http_calls = [];
+        $http_time_ms = 0;
+        $plugin_hint = $this->maybe_guess_plugin_hint();
+        $peak_memory_mb = round(memory_get_peak_usage(true) / 1048576, 2);
+
+        $notes = [
+            'included_files_count' => count(get_included_files()),
+            'active_plugins' => array_values((array) get_option('active_plugins', [])),
+            'did_wp_cron' => defined('DOING_CRON') && DOING_CRON ? 1 : 0,
+        ];
+
+        $requests_table = $wpdb->prefix . self::TABLE_REQUESTS;
+        $wpdb->insert($requests_table, [
+            'created_at' => current_time('mysql'),
+            'request_type' => $this->request_meta['request_type'] ?? 'unknown',
+            'method' => $this->request_meta['method'] ?? 'GET',
+            'uri' => $this->request_meta['uri'] ?? '',
+            'route_key' => $this->request_meta['route_key'] ?? '',
+            'plugin_hint' => $plugin_hint,
+            'user_id' => (int) ($this->request_meta['user_id'] ?? 0),
+            'runtime_ms' => $runtime_ms,
+            'db_query_count' => $db_query_count,
+            'db_time_ms' => $db_time_ms,
+            'peak_memory_mb' => $peak_memory_mb,
+            'http_calls' => count($http_calls),
+            'http_time_ms' => $http_time_ms,
+            'cron_hook' => $this->request_meta['cron_hook'] ?? '',
+            'is_slow' => 1,
+            'notes' => wp_json_encode($notes),
+        ]);
+
+        $request_id = (int) $wpdb->insert_id;
+        if ($request_id && !empty($captured_queries)) {
+            $queries_table = $wpdb->prefix . self::TABLE_QUERIES;
+            foreach ($captured_queries as $query) {
+                $wpdb->insert($queries_table, [
+                    'request_id' => $request_id,
+                    'query_time_ms' => (int) $query['time_ms'],
+                    'query_sql' => $query['sql'],
+                    'query_caller' => $query['caller'],
+                ]);
+            }
+        }
+    }
+
+    public function cleanup_old_data() {
+        global $wpdb;
+        $days = (int) $this->settings['retention_days'];
+        $cutoff = gmdate('Y-m-d H:i:s', time() - ($days * DAY_IN_SECONDS));
+        $requests = $wpdb->prefix . self::TABLE_REQUESTS;
+        $queries = $wpdb->prefix . self::TABLE_QUERIES;
+        $samples = $wpdb->prefix . self::TABLE_SAMPLES;
+
+        $old_ids = $wpdb->get_col($wpdb->prepare("SELECT id FROM {$requests} WHERE created_at < %s LIMIT 1000", $cutoff));
+        if (!empty($old_ids)) {
+            $in = implode(',', array_map('intval', $old_ids));
+            $wpdb->query("DELETE FROM {$queries} WHERE request_id IN ({$in})");
+            $wpdb->query("DELETE FROM {$requests} WHERE id IN ({$in})");
+        }
+
+        $wpdb->query($wpdb->prepare("DELETE FROM {$samples} WHERE sampled_at < %s", $cutoff));
+    }
+
+    public function admin_menu() {
+        add_menu_page(
+            'IA Diagnostics',
+            'IA Diagnostics',
+            'manage_options',
+            'ia-server-diagnostics',
+            [$this, 'render_overview_page'],
+            'dashicons-dashboard',
+            81
+        );
+
+        add_submenu_page(
+            'ia-server-diagnostics',
+            'Overview',
+            'Overview',
+            'manage_options',
+            'ia-server-diagnostics',
+            [$this, 'render_overview_page']
+        );
+
+        add_submenu_page(
+            'ia-server-diagnostics',
+            'Slow Requests',
+            'Slow Requests',
+            'manage_options',
+            'ia-sd-slow-requests',
+            [$this, 'render_requests_page']
+        );
+
+        add_submenu_page(
+            'ia-server-diagnostics',
+            'Server Samples',
+            'Server Samples',
+            'manage_options',
+            'ia-sd-server-samples',
+            [$this, 'render_samples_page']
+        );
+
+        add_submenu_page(
+            'ia-server-diagnostics',
+            'Settings',
+            'Settings',
+            'manage_options',
+            'ia-sd-settings',
+            [$this, 'render_settings_page']
+        );
+    }
+
+    public function render_overview_page() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        global $wpdb;
+        $requests = $wpdb->prefix . self::TABLE_REQUESTS;
+        $samples = $wpdb->prefix . self::TABLE_SAMPLES;
+
+        $last_24h_count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$requests} WHERE created_at >= (NOW() - INTERVAL 1 DAY)");
+        $avg_runtime = (int) $wpdb->get_var("SELECT COALESCE(AVG(runtime_ms),0) FROM {$requests} WHERE created_at >= (NOW() - INTERVAL 1 DAY)");
+        $top_routes = $wpdb->get_results("SELECT route_key, COUNT(*) AS c, MAX(runtime_ms) AS worst FROM {$requests} GROUP BY route_key ORDER BY c DESC, worst DESC LIMIT 10", ARRAY_A);
+        $recent_samples = $wpdb->get_results("SELECT * FROM {$samples} ORDER BY sampled_at DESC LIMIT 10", ARRAY_A);
+
+        echo '<div class="wrap"><h1>IA Diagnostics Overview</h1>';
+        echo '<p><strong>Slow requests in last 24h:</strong> ' . esc_html($last_24h_count) . '</p>';
+        echo '<p><strong>Average slow-request runtime:</strong> ' . esc_html($avg_runtime) . ' ms</p>';
+
+        echo '<h2>Top routes</h2><table class="widefat striped"><thead><tr><th>Route</th><th>Count</th><th>Worst ms</th></tr></thead><tbody>';
+        if ($top_routes) {
+            foreach ($top_routes as $row) {
+                echo '<tr><td>' . esc_html($row['route_key']) . '</td><td>' . esc_html($row['c']) . '</td><td>' . esc_html($row['worst']) . '</td></tr>';
+            }
+        } else {
+            echo '<tr><td colspan="3">No data yet.</td></tr>';
+        }
+        echo '</tbody></table>';
+
+        echo '<h2>Recent server samples</h2><table class="widefat striped"><thead><tr><th>Time</th><th>Load 1</th><th>Load 5</th><th>Load 15</th><th>Notes</th></tr></thead><tbody>';
+        if ($recent_samples) {
+            foreach ($recent_samples as $sample) {
+                echo '<tr>';
+                echo '<td>' . esc_html($sample['sampled_at']) . '</td>';
+                echo '<td>' . esc_html($sample['load_1']) . '</td>';
+                echo '<td>' . esc_html($sample['load_5']) . '</td>';
+                echo '<td>' . esc_html($sample['load_15']) . '</td>';
+                echo '<td><code>' . esc_html(wp_trim_words((string) $sample['notes'], 25, '…')) . '</code></td>';
+                echo '</tr>';
+            }
+        } else {
+            echo '<tr><td colspan="5">No server samples imported yet.</td></tr>';
+        }
+        echo '</tbody></table>';
+
+        echo '<h2>Import server sample JSON</h2>';
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
+        wp_nonce_field('ia_sd_import_sample');
+        echo '<input type="hidden" name="action" value="ia_sd_import_sample" />';
+        echo '<textarea name="sample_json" rows="12" style="width:100%;font-family:monospace;"></textarea>';
+        submit_button('Import Sample');
+        echo '</form>';
+        echo '</div>';
+    }
+
+    public function render_requests_page() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        global $wpdb;
+        $requests = $wpdb->prefix . self::TABLE_REQUESTS;
+        $queries = $wpdb->prefix . self::TABLE_QUERIES;
+        $rows = $wpdb->get_results("SELECT * FROM {$requests} ORDER BY created_at DESC LIMIT 100", ARRAY_A);
+
+        echo '<div class="wrap"><h1>Slow Requests</h1>';
+        echo '<table class="widefat striped"><thead><tr><th>Time</th><th>Type</th><th>Route</th><th>Plugin Hint</th><th>Runtime</th><th>DB</th><th>Memory</th></tr></thead><tbody>';
+        if ($rows) {
+            foreach ($rows as $row) {
+                echo '<tr>';
+                echo '<td>' . esc_html($row['created_at']) . '</td>';
+                echo '<td>' . esc_html($row['request_type']) . '</td>';
+                echo '<td><code>' . esc_html($row['route_key'] ?: $row['uri']) . '</code></td>';
+                echo '<td>' . esc_html($row['plugin_hint']) . '</td>';
+                echo '<td>' . esc_html($row['runtime_ms']) . ' ms</td>';
+                echo '<td>' . esc_html($row['db_query_count']) . ' / ' . esc_html($row['db_time_ms']) . ' ms</td>';
+                echo '<td>' . esc_html($row['peak_memory_mb']) . ' MB</td>';
+                echo '</tr>';
+
+                $request_id = (int) $row['id'];
+                $qrows = $wpdb->get_results($wpdb->prepare("SELECT query_time_ms, query_sql FROM {$queries} WHERE request_id = %d ORDER BY query_time_ms DESC LIMIT 5", $request_id), ARRAY_A);
+
+                echo '<tr><td colspan="7">';
+                echo '<strong>URI:</strong> <code>' . esc_html($row['uri']) . '</code><br />';
+                if (!empty($row['notes'])) {
+                    echo '<details><summary>Notes</summary><pre style="white-space:pre-wrap;">' . esc_html($row['notes']) . '</pre></details>';
+                }
+                if ($qrows) {
+                    echo '<details><summary>Top Queries</summary><ol>';
+                    foreach ($qrows as $q) {
+                        echo '<li><strong>' . esc_html($q['query_time_ms']) . ' ms</strong><br /><code style="white-space:pre-wrap;display:block;">' . esc_html($q['query_sql']) . '</code></li>';
+                    }
+                    echo '</ol></details>';
+                }
+                echo '</td></tr>';
+            }
+        } else {
+            echo '<tr><td colspan="7">No slow requests recorded yet.</td></tr>';
+        }
+        echo '</tbody></table></div>';
+    }
+
+    public function render_samples_page() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        global $wpdb;
+        $samples = $wpdb->prefix . self::TABLE_SAMPLES;
+        $rows = $wpdb->get_results("SELECT * FROM {$samples} ORDER BY sampled_at DESC LIMIT 100", ARRAY_A);
+
+        echo '<div class="wrap"><h1>Server Samples</h1>';
+        echo '<table class="widefat striped"><thead><tr><th>Time</th><th>Load</th><th>CPU</th><th>Memory</th><th>MySQL</th></tr></thead><tbody>';
+        if ($rows) {
+            foreach ($rows as $row) {
+                echo '<tr>';
+                echo '<td>' . esc_html($row['sampled_at']) . '</td>';
+                echo '<td>' . esc_html($row['load_1']) . ' / ' . esc_html($row['load_5']) . ' / ' . esc_html($row['load_15']) . '</td>';
+                echo '<td><code>' . esc_html(wp_trim_words((string) $row['cpu_summary'], 20, '…')) . '</code></td>';
+                echo '<td><code>' . esc_html(wp_trim_words((string) $row['mem_summary'], 20, '…')) . '</code></td>';
+                echo '<td><code>' . esc_html(wp_trim_words((string) $row['mysql_summary'], 20, '…')) . '</code></td>';
+                echo '</tr>';
+                echo '<tr><td colspan="5">';
+                echo '<details><summary>Details</summary>';
+                echo '<h4>Top CPU</h4><pre style="white-space:pre-wrap;">' . esc_html($row['top_cpu']) . '</pre>';
+                echo '<h4>Top Memory</h4><pre style="white-space:pre-wrap;">' . esc_html($row['top_mem']) . '</pre>';
+                echo '<h4>PHP Processes</h4><pre style="white-space:pre-wrap;">' . esc_html($row['php_processes']) . '</pre>';
+                echo '<h4>Notes</h4><pre style="white-space:pre-wrap;">' . esc_html($row['notes']) . '</pre>';
+                echo '</details>';
+                echo '</td></tr>';
+            }
+        } else {
+            echo '<tr><td colspan="5">No samples imported yet.</td></tr>';
+        }
+        echo '</tbody></table></div>';
+    }
+
+
+    private function normalize_sampled_at($value) {
+        if (!is_string($value) || $value === '') {
+            return current_time('mysql');
+        }
+        $value = trim($value);
+        $ts = strtotime($value);
+        if ($ts === false) {
+            return current_time('mysql');
+        }
+        return gmdate('Y-m-d H:i:s', $ts);
+    }
+
+    private function sample_exists($sampled_at, $load_1, $load_5, $load_15) {
+        global $wpdb;
+        $samples = $wpdb->prefix . self::TABLE_SAMPLES;
+        $sql = $wpdb->prepare(
+            "SELECT id FROM {$samples} WHERE sampled_at = %s AND load_1 = %f AND load_5 = %f AND load_15 = %f LIMIT 1",
+            $sampled_at,
+            (float) $load_1,
+            (float) $load_5,
+            (float) $load_15
+        );
+        return (bool) $wpdb->get_var($sql);
+    }
+
+    private function import_sample_array($data) {
+        if (!is_array($data)) {
+            return false;
+        }
+
+        global $wpdb;
+        $samples = $wpdb->prefix . self::TABLE_SAMPLES;
+        $loads = isset($data['loadavg']) && is_array($data['loadavg']) ? $data['loadavg'] : [0, 0, 0];
+        $sampled_at = $this->normalize_sampled_at($data['sampled_at'] ?? '');
+
+        if ($this->sample_exists($sampled_at, $loads[0] ?? 0, $loads[1] ?? 0, $loads[2] ?? 0)) {
+            return 'duplicate';
+        }
+
+        $wpdb->insert($samples, [
+            'sampled_at' => $sampled_at,
+            'load_1' => (float) ($loads[0] ?? 0),
+            'load_5' => (float) ($loads[1] ?? 0),
+            'load_15' => (float) ($loads[2] ?? 0),
+            'cpu_summary' => sanitize_textarea_field($data['cpu_summary'] ?? ''),
+            'mem_summary' => sanitize_textarea_field($data['mem_summary'] ?? ''),
+            'top_cpu' => sanitize_textarea_field($data['top_cpu'] ?? ''),
+            'top_mem' => sanitize_textarea_field($data['top_mem'] ?? ''),
+            'php_processes' => sanitize_textarea_field($data['php_processes'] ?? ''),
+            'mysql_summary' => sanitize_textarea_field($data['mysql_summary'] ?? ''),
+            'notes' => sanitize_textarea_field($data['notes'] ?? ''),
+        ]);
+
+        return $wpdb->insert_id ? true : false;
+    }
+
+    public function maybe_auto_import_samples() {
+        if (empty($this->settings['auto_import_enabled'])) {
+            return;
+        }
+
+        $dir = isset($this->settings['auto_import_path']) ? trim((string) $this->settings['auto_import_path']) : '';
+        if ($dir === '' || !is_dir($dir) || !is_readable($dir)) {
+            return;
+        }
+
+        $batch = max(1, (int) ($this->settings['auto_import_batch'] ?? 50));
+        $files = glob(trailingslashit($dir) . 'sample-*.json');
+        if (empty($files) || !is_array($files)) {
+            return;
+        }
+
+        sort($files, SORT_STRING);
+        $files = array_slice($files, 0, $batch);
+
+        foreach ($files as $file) {
+            if (!is_string($file) || !is_readable($file)) {
+                continue;
+            }
+
+            $raw = @file_get_contents($file);
+            if ($raw === false || trim($raw) === '') {
+                continue;
+            }
+
+            $data = json_decode($raw, true);
+            $result = $this->import_sample_array($data);
+            if ($result === true || $result === 'duplicate') {
+                @unlink($file);
+            }
+        }
+    }
+
+    public function render_settings_page() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        $settings = $this->get_settings();
+        echo '<div class="wrap"><h1>IA Diagnostics Settings</h1>';
+        echo '<form method="post" action="options.php">';
+        settings_fields('ia_sd_settings_group');
+        echo '<table class="form-table">';
+        echo '<tr><th scope="row">Slow threshold (ms)</th><td><input type="number" name="' . esc_attr(self::OPTION_KEY) . '[slow_ms]" value="' . esc_attr($settings['slow_ms']) . '" /></td></tr>';
+        echo '<tr><th scope="row">Severe threshold (ms)</th><td><input type="number" name="' . esc_attr(self::OPTION_KEY) . '[severe_ms]" value="' . esc_attr($settings['severe_ms']) . '" /></td></tr>';
+        echo '<tr><th scope="row">Critical threshold (ms)</th><td><input type="number" name="' . esc_attr(self::OPTION_KEY) . '[critical_ms]" value="' . esc_attr($settings['critical_ms']) . '" /></td></tr>';
+        echo '<tr><th scope="row">Capture query detail</th><td><label><input type="checkbox" name="' . esc_attr(self::OPTION_KEY) . '[query_capture]" value="1" ' . checked(1, (int) $settings['query_capture'], false) . ' /> Requires SAVEQUERIES enabled</label></td></tr>';
+        echo '<tr><th scope="row">Query limit</th><td><input type="number" name="' . esc_attr(self::OPTION_KEY) . '[query_limit]" value="' . esc_attr($settings['query_limit']) . '" /></td></tr>';
+        echo '<tr><th scope="row">Query threshold (ms)</th><td><input type="number" name="' . esc_attr(self::OPTION_KEY) . '[query_threshold_ms]" value="' . esc_attr($settings['query_threshold_ms']) . '" /></td></tr>';
+        echo '<tr><th scope="row">Retention days</th><td><input type="number" name="' . esc_attr(self::OPTION_KEY) . '[retention_days]" value="' . esc_attr($settings['retention_days']) . '" /></td></tr>';
+        echo '<tr><th scope="row">Auto import enabled</th><td><label><input type="checkbox" name="' . esc_attr(self::OPTION_KEY) . '[auto_import_enabled]" value="1" ' . checked(1, (int) $settings['auto_import_enabled'], false) . ' /> Import sampler JSON files automatically</label></td></tr>';
+        echo '<tr><th scope="row">Sampler directory</th><td><input type="text" class="regular-text" name="' . esc_attr(self::OPTION_KEY) . '[auto_import_path]" value="' . esc_attr($settings['auto_import_path']) . '" /></td></tr>';
+        echo '<tr><th scope="row">Auto import batch</th><td><input type="number" name="' . esc_attr(self::OPTION_KEY) . '[auto_import_batch]" value="' . esc_attr($settings['auto_import_batch']) . '" /></td></tr>';
+        echo '</table>';
+        submit_button();
+        echo '</form>';
+        echo '<p><strong>Note:</strong> to capture per-query timing you must enable <code>SAVEQUERIES</code> in wp-config.php. Do not leave it on forever unless needed.</p>';
+        echo '</div>';
+    }
+
+    public function handle_import_sample() {
+        if (!current_user_can('manage_options')) {
+            wp_die('Forbidden');
+        }
+
+        check_admin_referer('ia_sd_import_sample');
+
+        $raw = isset($_POST['sample_json']) ? wp_unslash($_POST['sample_json']) : '';
+        $data = json_decode($raw, true);
+        if (is_array($data)) {
+            $this->import_sample_array($data);
+        }
+
+        wp_safe_redirect(admin_url('admin.php?page=ia-sd-server-samples'));
+        exit;
+    }
+}
+
+IA_Server_Diagnostics::instance();

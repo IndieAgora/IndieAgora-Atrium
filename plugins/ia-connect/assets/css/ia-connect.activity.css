@@ -1,0 +1,21 @@
+
+/* Activity tabs (read-only lists) */
+.iac-activity { padding: 14px; }
+.iac-activity-top { display:flex; flex-direction:column; gap:10px; margin-bottom:12px; }
+.iac-activity-subtabs { display:flex; flex-wrap:nowrap; gap:8px; overflow-x:auto; -webkit-overflow-scrolling: touch; padding-bottom:6px; }
+.iac-activity-subtabs::-webkit-scrollbar { height:6px; }
+.iac-activity-subtabs::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius:999px; }
+.iac-subtab { border:1px solid var(--ia-line2, rgba(255,255,255,0.12)); background:transparent; color:inherit; padding:6px 10px; border-radius:999px; cursor:pointer; }
+.iac-subtab.is-active { background: rgba(255,255,255,0.08); }
+.iac-activity-search .iac-activity-hint { font-size:12px; opacity:0.75; margin-top:6px; }
+.iac-activity-list { display:flex; flex-direction:column; gap:10px; }
+.iac-activity-item { display:flex; gap:12px; align-items:flex-start; border:1px solid var(--ia-line2, rgba(255,255,255,0.12)); border-radius:16px; padding:12px; text-decoration:none; color:inherit; overflow:hidden; background: rgba(255,255,255,0.02); box-shadow: 0 10px 30px rgba(0,0,0,0.25); transition: transform 120ms ease, background 120ms ease, border-color 120ms ease; }
+.iac-activity-thumb { width:160px; max-width:42%; flex:0 0 auto; border-radius:14px; overflow:hidden; background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); aspect-ratio: 16 / 9; }
+.iac-activity-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.iac-activity-body { min-width:0; flex:1 1 auto; }
+.iac-activity-item-title { font-weight:600; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.iac-activity-item-excerpt { margin-top:6px; font-size:13px; line-height:1.35; opacity:0.9; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.iac-activity-item:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.18); transform: translateY(-1px); }
+.iac-activity-more { margin-top:12px; }
+.iac-activity-empty, .iac-activity-error { padding:12px; opacity:0.85; }
+.iac-privacy-status { margin-left:10px; font-size:13px; opacity:0.85; }

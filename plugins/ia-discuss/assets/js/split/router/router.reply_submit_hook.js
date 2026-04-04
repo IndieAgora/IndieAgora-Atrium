@@ -1,7 +1,7 @@
 "use strict";
           }).then((res) => {
             if (!res || !res.success) {
-              ui.setError((res && res.data && res.data.message) ? res.data.message : "Reply failed");
+              composerError(ui, (res && res.data && res.data.message) ? res.data.message : "Reply failed");
               return;
             }
 

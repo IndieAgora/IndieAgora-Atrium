@@ -68,16 +68,55 @@ final class IA_Discuss_Module_Search implements IA_Discuss_Module_Interface {
       $rows = $db->get_results($db->prepare($sql, $like), ARRAY_A);
       if (is_array($rows)) {
         foreach ($rows as $r) {
+          $uid = (int)($r['user_id'] ?? 0);
           $users[] = [
-            'user_id' => (int)($r['user_id'] ?? 0),
-            'username'=> (string)($r['username'] ?? ''),
-            'avatar_url' => '', // Connect can supply later
+            'user_id'    => $uid,
+            'username'   => (string)($r['username'] ?? ''),
+            'display'    => ia_discuss_display_name_from_phpbb($uid, (string)($r['username'] ?? '')),
+
+            'display'    => ia_discuss_display_name_from_phpbb($uid, (string)($r['username'] ?? '')),
+
+            // Prefer Connect avatar (via helper) while still working if Connect is absent.
+            'avatar_url' => ia_discuss_avatar_url_from_phpbb($uid, 34),
           ];
         }
       }
     } catch (\Throwable $e) {}
 
-    // AGORAS (forums)
+    
+    // Also search WP display_name/user_login to support display-name discovery.
+    try {
+      $wq = new WP_User_Query([
+        'search'         => '*' . $q . '*',
+        'search_columns' => ['display_name', 'user_login', 'user_nicename'],
+        'number'         => 6,
+        'fields'         => ['ID', 'user_login', 'display_name'],
+      ]);
+      $seen = [];
+      foreach ($users as $u) {
+        $seen['phpbb:' . (int)($u['user_id'] ?? 0)] = 1;
+        $seen['user:' . (string)($u['username'] ?? '')] = 1;
+      }
+      foreach ($wq->get_results() as $wu) {
+        $wp_id = (int)($wu->ID ?? 0);
+        if ($wp_id <= 0) continue;
+        $phpbb_id = ia_discuss_phpbb_user_id_from_wp($wp_id);
+        if ($phpbb_id <= 0) continue;
+        $k = 'phpbb:' . $phpbb_id;
+        if (isset($seen[$k])) continue;
+        $seen[$k] = 1;
+        $uname = (string)($wu->user_login ?? '');
+        $disp  = (string)($wu->display_name ?: $uname);
+        $users[] = [
+          'user_id'    => $phpbb_id,
+          'username'   => $uname,
+          'display'    => $disp,
+          'avatar_url' => ia_discuss_avatar_url_from_phpbb($phpbb_id, 34),
+        ];
+      }
+    } catch (\Throwable $e) {}
+
+// AGORAS (forums)
     $agoras = [];
     try {
       $sql = "SELECT forum_id, forum_name
@@ -194,10 +233,15 @@ final class IA_Discuss_Module_Search implements IA_Discuss_Module_Interface {
         $rows = $db->get_results($db->prepare($sql, $like, $limit + 1, $offset), ARRAY_A);
         if (is_array($rows) && count($rows) > $limit) { $has_more = 1; $rows = array_slice($rows, 0, $limit); }
         foreach (($rows ?: []) as $r) {
+          $uid = (int)($r['user_id'] ?? 0);
           $items[] = [
-            'user_id' => (int)($r['user_id'] ?? 0),
-            'username'=> (string)($r['username'] ?? ''),
-            'avatar_url' => '',
+            'user_id'    => $uid,
+            'username'   => (string)($r['username'] ?? ''),
+            'display'    => ia_discuss_display_name_from_phpbb($uid, (string)($r['username'] ?? '')),
+
+            'display'    => ia_discuss_display_name_from_phpbb($uid, (string)($r['username'] ?? '')),
+
+            'avatar_url' => ia_discuss_avatar_url_from_phpbb($uid, 34),
           ];
         }
       }

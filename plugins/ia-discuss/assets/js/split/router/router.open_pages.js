@@ -1,92 +1,69 @@
-"use strict";
-          `;
-
-          mountEl.querySelectorAll("[data-forum-id]").forEach((b) => {
-            b.addEventListener("click", () => {
-              var id = parseInt(b.getAttribute("data-forum-id") || "0", 10);
-              var nm = b.getAttribute("data-forum-name") || "";
-              render("agora", id, nm);
-            });
-          });
-        });
-
-        return;
-      }
-
-      if (view === "agora") {
-        inAgora = true;
-
-        lastListView = "agora";
-        lastForumId = forumId || 0;
-        lastForumName = forumName || "";
-
-        window.IA_DISCUSS_UI_SHELL.setActiveTab("agoras");
-        setParam("iad_topic", "");
-
-        window.IA_DISCUSS_UI_AGORA.renderAgora(root, lastForumId, lastForumName);
-        return;
-      }
-
-      inAgora = false;
-
-      lastListView = view;
-      lastForumId = 0;
-      lastForumName = "";
-
-      window.IA_DISCUSS_UI_SHELL.setActiveTab(view);
-      setParam("iad_topic", "");
-
-      window.IA_DISCUSS_UI_FEED.renderFeedInto(mountEl, view, 0);
-    }
-
     function openTopicPage(topicId, opts) {
       topicId = parseInt(topicId || "0", 10) || 0;
       if (!topicId) return;
 
       opts = opts || {};
-      setParam("iad_topic", String(topicId));
+      const noHist = !!opts.no_history;
+
+      // Save the feed scroll position immediately before switching the view.
+      if (!noHist) {
+        saveFeedScroll();
+        setParams({
+          iad_view: null,
+          iad_forum: null,
+          iad_forum_name: null,
+            iad_topic: String(topicId),
+          iad_post: opts.scroll_post_id ? String(parseInt(opts.scroll_post_id, 10) || 0) : null,
+          iad_q: null
+        });
+      }
 
       window.IA_DISCUSS_UI_TOPIC.renderInto(root, topicId, opts);
     }
 
-    function openSearchPage(q) {
-      var mountEl = qs("[data-iad-view]", root);
+    function openSearchPage(q, opts) {
+      const mountEl = qs("[data-iad-view]", root);
       if (!mountEl) return;
+
+      opts = opts || {};
+      const noHist = !!opts.no_history;
 
       // remember where we came from
       inSearch = true;
       lastSearchQ = String(q || "").trim();
       searchPrev = { view: lastListView, forum_id: lastForumId, forum_name: lastForumName };
 
-      // clear topic param (search is its own view)
-      setParam("iad_topic", "");
+      // update URL (search is its own view)
+      if (!noHist) {
+        setParams({
+          iad_view: "search",
+          iad_q: lastSearchQ,
+          iad_forum: null,
+          iad_forum_name: null,
+            iad_topic: null,
+          iad_post: null
+        });
+      }
 
-      window.IA_DISCUSS_UI_SEARCH.renderSearchPageInto(mountEl, lastSearchQ);
+
+      try {
+        window.IA_DISCUSS_UI_SEARCH.renderSearchPageInto(mountEl, lastSearchQ);
+      } catch (e) {}
+
     }
 
     root.querySelectorAll(".iad-tab").forEach((b) => {
       b.addEventListener("click", () => {
-        var v = b.getAttribute("data-view");
+        const v = b.getAttribute("data-view");
         if (!v) return;
         render(v, 0, "");
       });
     });
 
-    window.addEventListener("iad:open_topic_page", (e) => {
-      var d = (e && e.detail) ? e.detail : {};
-      var tid = d.topic_id ? d.topic_id : 0;
-      if (!tid) return;
+    function viewToTab(v) {
+      if (v === 'noreplies') return 'no_replies';
+      if (v === 'replies' || v === 'unread') return 'latest_replies';
+      return 'new_posts';
+    }
 
-      // ✅ allow post scroll
-      var scrollPostId = d.scroll_post_id ? parseInt(d.scroll_post_id, 10) : 0;
-      var highlight = d.highlight_new ? 1 : 0;
-
-      openTopicPage(tid, {
-        scroll_post_id: scrollPostId || 0,
-        highlight_new: highlight ? 1 : 0
-      });
-    });
-
-    window.addEventListener("iad:open_agora", (e) => {
-      var fid = e.detail && e.detail.forum_id ? parseInt(e.detail.forum_id, 10) : 0;
-;
+    // Random topic (from current list context)

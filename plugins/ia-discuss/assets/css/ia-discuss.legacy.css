@@ -1,0 +1,989 @@
+/*
+ * IA Discuss — Legacy style theme
+ *
+ * phpBB prosilver-inspired light theme for users who prefer a classic forum look.
+ * Enabled by: .ia-discuss-root.iad-theme-classic
+ */
+
+.ia-discuss-root.iad-theme-classic{
+  color-scheme: light;
+  --iad-bg: #f5f7fa;
+  --iad-panel: #ffffff;
+  --iad-card: #ecf1f3;
+  --iad-card2: #e1ebf2;
+  --iad-border: #c5d3df;
+  --iad-text: #28313f;
+  --iad-muted: #536482;
+  --iad-accent: #105289;
+  --iad-accent2: #12a3eb;
+  --iad-link: #105289;
+  --iad-link-hover: #d31141;
+  --iad-input-border: #bfc8d2;
+  --iad-input-placeholder: #6c7b8a;
+  --iad-btn-top: #ffffff;
+  --iad-btn-bottom: #e8eef4;
+  --iad-btn-hover-bottom: #dfe8f1;
+  --iad-btn-border: #bfc8d2;
+  --iad-btn-text: #28313f;
+  --iad-active-top: #dff0ff;
+  --iad-active-bottom: #bfdcf3;
+  --iad-active-border: #7aa8d0;
+  --iad-active-text: #0d4473;
+  --iad-pill-primary-bg: #d0e4f6;
+  --iad-pill-primary-text: #0d4473;
+  --iad-pill-primary-border: #7aa8d0;
+  --iad-sidebar-top: #fdfefe;
+  --iad-sidebar-bottom: #ecf3f7;
+  --iad-modal-top-a: #fdfefe;
+  --iad-modal-top-b: #e7eef5;
+  --iad-suggest-hover: #d0e4f6;
+  --iad-code-bg: #f8fbfd;
+  --iad-code-top: #e7eef5;
+  --iad-card-excerpt-text: #3f4d5d;
+  --iad-signature-text: #4f5d73;
+  --iad-signature-divider: rgba(83,100,130,0.28);
+  --iad-head-top: #cadceb;
+  --iad-head-bottom: #9fc2df;
+  --iad-head-border: #7aa8d0;
+  --iad-head-text: #173a56;
+  --iad-topbar-top: #105289;
+  --iad-topbar-bottom: #0b3f68;
+  --iad-topbar-border: #07253d;
+  --iad-topbar-text: #ffffff;
+  --iad-radius: 7px;
+  --iad-radius2: 8px;
+  --iad-font-sans: Verdana, Helvetica, Arial, sans-serif;
+  background: var(--iad-bg);
+  color: var(--iad-text);
+}
+
+
+.ia-discuss-root[data-iad-theme="legacy"].iad-theme-classic{
+  --iad-link: #105289;
+  --iad-link-hover: #d31141;
+  --iad-card: #ecf1f3;
+  --iad-card2: #e1ebf2;
+  --iad-border: #c5d3df;
+  --iad-input-border: #bfc8d2;
+  --iad-input-placeholder: #6c7b8a;
+  --iad-btn-top: #ffffff;
+  --iad-btn-bottom: #e8eef4;
+  --iad-btn-hover-bottom: #dfe8f1;
+  --iad-btn-border: #bfc8d2;
+  --iad-btn-text: #28313f;
+  --iad-active-top: #dff0ff;
+  --iad-active-bottom: #bfdcf3;
+  --iad-active-border: #7aa8d0;
+  --iad-active-text: #0d4473;
+  --iad-pill-primary-bg: #d0e4f6;
+  --iad-pill-primary-text: #0d4473;
+  --iad-pill-primary-border: #7aa8d0;
+  --iad-sidebar-top: #fdfefe;
+  --iad-sidebar-bottom: #ecf3f7;
+  --iad-modal-top-a: #fdfefe;
+  --iad-modal-top-b: #e7eef5;
+  --iad-suggest-hover: #d0e4f6;
+  --iad-code-bg: #f8fbfd;
+  --iad-code-top: #e7eef5;
+  --iad-card-excerpt-text: #3f4d5d;
+  --iad-signature-text: #4f5d73;
+  --iad-signature-divider: rgba(83,100,130,0.28);
+  --iad-head-top: #c8dbea;
+  --iad-head-bottom: #9fc2df;
+  --iad-head-border: #7aa8d0;
+  --iad-head-text: #173a56;
+  --iad-topbar-top: #4e84b3;
+  --iad-topbar-bottom: #105289;
+  --iad-topbar-border: #0b3f68;
+  --iad-topbar-text: #ffffff;
+}
+
+.ia-discuss-root[data-iad-theme="black"].iad-theme-classic{
+  --iad-link: #555555;
+  --iad-link-hover: #111111;
+  --iad-accent: #202121;
+  --iad-accent2: #555555;
+  --iad-card: #f0f0f0;
+  --iad-card2: #e2e2e2;
+  --iad-border: #b8b8b8;
+  --iad-muted: #4a4a4a;
+  --iad-active-top: #f0f0f0;
+  --iad-active-bottom: #d9d9d9;
+  --iad-active-border: #9d9d9d;
+  --iad-active-text: #1b1b1b;
+  --iad-pill-primary-bg: #e4e4e4;
+  --iad-pill-primary-text: #1b1b1b;
+  --iad-pill-primary-border: #9d9d9d;
+  --iad-sidebar-top: #efefef;
+  --iad-sidebar-bottom: #d9d9d9;
+  --iad-modal-top-a: #efefef;
+  --iad-modal-top-b: #dbdbdb;
+  --iad-suggest-hover: #d7d7d7;
+  --iad-code-bg: #fafafa;
+  --iad-code-top: #e5e5e5;
+  --iad-card-excerpt-text: #3f3f3f;
+  --iad-signature-text: #484848;
+  --iad-signature-divider: rgba(0,0,0,0.18);
+  --iad-head-top: #4d4d4d;
+  --iad-head-bottom: #202121;
+  --iad-head-border: #000000;
+  --iad-head-text: #ffffff;
+  --iad-topbar-top: #2d2d2d;
+  --iad-topbar-bottom: #111111;
+  --iad-topbar-border: #000000;
+  --iad-topbar-text: #ffffff;
+}
+
+.ia-discuss-root[data-iad-theme="calm"].iad-theme-classic{
+  --iad-link: #48715b;
+  --iad-link-hover: #2e4b3b;
+  --iad-accent: #385947;
+  --iad-accent2: #48715b;
+  --iad-card: #edf5f0;
+  --iad-card2: #dceadf;
+  --iad-border: #a8c0b1;
+  --iad-muted: #486153;
+  --iad-active-top: #e7f2eb;
+  --iad-active-bottom: #c9dfd2;
+  --iad-active-border: #7ba28d;
+  --iad-active-text: #284235;
+  --iad-pill-primary-bg: #d8eadf;
+  --iad-pill-primary-text: #284235;
+  --iad-pill-primary-border: #7ba28d;
+  --iad-sidebar-top: #f6fbf7;
+  --iad-sidebar-bottom: #dceadf;
+  --iad-modal-top-a: #f2f8f4;
+  --iad-modal-top-b: #dbe9de;
+  --iad-suggest-hover: #d8eadf;
+  --iad-code-bg: #f8fcf9;
+  --iad-code-top: #e1eee4;
+  --iad-card-excerpt-text: #405549;
+  --iad-signature-text: #456050;
+  --iad-signature-divider: rgba(56,89,71,0.22);
+  --iad-head-top: #5f8a72;
+  --iad-head-bottom: #385947;
+  --iad-head-border: #263c30;
+  --iad-head-text: #ffffff;
+  --iad-topbar-top: #4b755e;
+  --iad-topbar-bottom: #304d3d;
+  --iad-topbar-border: #263c30;
+  --iad-topbar-text: #ffffff;
+}
+
+.ia-discuss-root[data-iad-theme="dawn"].iad-theme-classic{
+  --iad-link: #d56c2c;
+  --iad-link-hover: #9a4e20;
+  --iad-accent: #d56c2c;
+  --iad-accent2: #f2a555;
+  --iad-card: #fff5ec;
+  --iad-card2: #ffe7d1;
+  --iad-border: #efc19f;
+  --iad-muted: #87593b;
+  --iad-active-top: #fff0e4;
+  --iad-active-bottom: #ffd7ba;
+  --iad-active-border: #e2a06d;
+  --iad-active-text: #8d4417;
+  --iad-pill-primary-bg: #ffe1c7;
+  --iad-pill-primary-text: #8d4417;
+  --iad-pill-primary-border: #e2a06d;
+  --iad-sidebar-top: #fff9f4;
+  --iad-sidebar-bottom: #ffe3cb;
+  --iad-modal-top-a: #fff6ef;
+  --iad-modal-top-b: #ffe0c3;
+  --iad-suggest-hover: #ffe1c7;
+  --iad-code-bg: #fffaf6;
+  --iad-code-top: #ffebda;
+  --iad-card-excerpt-text: #6f503b;
+  --iad-signature-text: #7f5a3e;
+  --iad-signature-divider: rgba(213,108,44,0.24);
+  --iad-head-top: #f0a66a;
+  --iad-head-bottom: #d56c2c;
+  --iad-head-border: #9a4e20;
+  --iad-head-text: #ffffff;
+  --iad-topbar-top: #ec8b49;
+  --iad-topbar-bottom: #b15723;
+  --iad-topbar-border: #9a4e20;
+  --iad-topbar-text: #ffffff;
+}
+
+.ia-discuss-root[data-iad-theme="earth"].iad-theme-classic{
+  --iad-link: #6d5545;
+  --iad-link-hover: #4a3b2f;
+  --iad-accent: #4a3b2f;
+  --iad-accent2: #6d5545;
+  --iad-card: #f4ede7;
+  --iad-card2: #e7d8cd;
+  --iad-border: #c5ae9d;
+  --iad-muted: #665448;
+  --iad-active-top: #f3ebe5;
+  --iad-active-bottom: #dfcfc4;
+  --iad-active-border: #ad907d;
+  --iad-active-text: #4a3b2f;
+  --iad-pill-primary-bg: #e7d8cd;
+  --iad-pill-primary-text: #4a3b2f;
+  --iad-pill-primary-border: #ad907d;
+  --iad-sidebar-top: #faf6f2;
+  --iad-sidebar-bottom: #e4d5ca;
+  --iad-modal-top-a: #f7f1ec;
+  --iad-modal-top-b: #dfcfc4;
+  --iad-suggest-hover: #e7d8cd;
+  --iad-code-bg: #faf6f2;
+  --iad-code-top: #ebdfd6;
+  --iad-card-excerpt-text: #5d5048;
+  --iad-signature-text: #65554a;
+  --iad-signature-divider: rgba(74,59,47,0.22);
+  --iad-head-top: #876a57;
+  --iad-head-bottom: #4a3b2f;
+  --iad-head-border: #31261e;
+  --iad-head-text: #ffffff;
+  --iad-topbar-top: #715949;
+  --iad-topbar-bottom: #43342a;
+  --iad-topbar-border: #31261e;
+  --iad-topbar-text: #ffffff;
+}
+
+.ia-discuss-root[data-iad-theme="flame"].iad-theme-classic{
+  --iad-link: #a20000;
+  --iad-link-hover: #750000;
+  --iad-accent: #750000;
+  --iad-accent2: #a20000;
+  --iad-card: #fff0f0;
+  --iad-card2: #f7d9d9;
+  --iad-border: #d8aaaa;
+  --iad-muted: #7a4a4a;
+  --iad-active-top: #ffe7e7;
+  --iad-active-bottom: #f5c2c2;
+  --iad-active-border: #c57d7d;
+  --iad-active-text: #6b0000;
+  --iad-pill-primary-bg: #f6d0d0;
+  --iad-pill-primary-text: #6b0000;
+  --iad-pill-primary-border: #c57d7d;
+  --iad-sidebar-top: #fff7f7;
+  --iad-sidebar-bottom: #f0cccc;
+  --iad-modal-top-a: #fff3f3;
+  --iad-modal-top-b: #f0c7c7;
+  --iad-suggest-hover: #f6d0d0;
+  --iad-code-bg: #fff9f9;
+  --iad-code-top: #f4dddd;
+  --iad-card-excerpt-text: #6a4949;
+  --iad-signature-text: #734d4d;
+  --iad-signature-divider: rgba(117,0,0,0.22);
+  --iad-head-top: #b14a4a;
+  --iad-head-bottom: #750000;
+  --iad-head-border: #550000;
+  --iad-head-text: #ffffff;
+  --iad-topbar-top: #962121;
+  --iad-topbar-bottom: #630000;
+  --iad-topbar-border: #550000;
+  --iad-topbar-text: #ffffff;
+}
+
+.ia-discuss-root[data-iad-theme="leaf"].iad-theme-classic{
+  --iad-link: #5aaf33;
+  --iad-link-hover: #386e21;
+  --iad-accent: #386e21;
+  --iad-accent2: #5aaf33;
+  --iad-card: #f2faee;
+  --iad-card2: #e0eed8;
+  --iad-border: #b6d1aa;
+  --iad-muted: #4b6644;
+  --iad-active-top: #eef8e8;
+  --iad-active-bottom: #d4e9c8;
+  --iad-active-border: #97bd83;
+  --iad-active-text: #2e5a1c;
+  --iad-pill-primary-bg: #dff0d6;
+  --iad-pill-primary-text: #2e5a1c;
+  --iad-pill-primary-border: #97bd83;
+  --iad-sidebar-top: #f8fcf6;
+  --iad-sidebar-bottom: #dfefd6;
+  --iad-modal-top-a: #f5fbf2;
+  --iad-modal-top-b: #dbeed0;
+  --iad-suggest-hover: #dff0d6;
+  --iad-code-bg: #fbfdf9;
+  --iad-code-top: #e7f2df;
+  --iad-card-excerpt-text: #49613f;
+  --iad-signature-text: #4c6442;
+  --iad-signature-divider: rgba(56,110,33,0.22);
+  --iad-head-top: #77be58;
+  --iad-head-bottom: #386e21;
+  --iad-head-border: #234615;
+  --iad-head-text: #ffffff;
+  --iad-topbar-top: #5d993e;
+  --iad-topbar-bottom: #2f5d1c;
+  --iad-topbar-border: #234615;
+  --iad-topbar-text: #ffffff;
+}
+
+.ia-discuss-root[data-iad-theme="night"].iad-theme-classic{
+  --iad-link: #023a61;
+  --iad-link-hover: #011929;
+  --iad-accent: #022338;
+  --iad-accent2: #023a61;
+  --iad-card: #edf3f8;
+  --iad-card2: #d8e4ef;
+  --iad-border: #aac0d3;
+  --iad-muted: #425666;
+  --iad-active-top: #e4eef7;
+  --iad-active-bottom: #bfd1e4;
+  --iad-active-border: #7999b6;
+  --iad-active-text: #011f33;
+  --iad-pill-primary-bg: #d3e1ee;
+  --iad-pill-primary-text: #011f33;
+  --iad-pill-primary-border: #7999b6;
+  --iad-sidebar-top: #f5f9fc;
+  --iad-sidebar-bottom: #d6e3ed;
+  --iad-modal-top-a: #edf4f9;
+  --iad-modal-top-b: #d1dfeb;
+  --iad-suggest-hover: #d3e1ee;
+  --iad-code-bg: #f8fbfd;
+  --iad-code-top: #e2ebf2;
+  --iad-card-excerpt-text: #425260;
+  --iad-signature-text: #485866;
+  --iad-signature-divider: rgba(2,35,56,0.22);
+  --iad-head-top: #335e7d;
+  --iad-head-bottom: #022338;
+  --iad-head-border: #011929;
+  --iad-head-text: #ffffff;
+  --iad-topbar-top: #20425a;
+  --iad-topbar-bottom: #011d2f;
+  --iad-topbar-border: #011929;
+  --iad-topbar-text: #ffffff;
+}
+
+.ia-discuss-root[data-iad-theme="sun"].iad-theme-classic{
+  --iad-link: #555555;
+  --iad-link-hover: #111111;
+  --iad-accent: #ffdd4d;
+  --iad-accent2: #ffea9c;
+  --iad-card: #fff9e1;
+  --iad-card2: #ffefb5;
+  --iad-border: #e5ca6e;
+  --iad-text: #3d3207;
+  --iad-muted: #6f5a12;
+  --iad-btn-text: #3d3207;
+  --iad-active-top: #fff6cf;
+  --iad-active-bottom: #ffe58a;
+  --iad-active-border: #ffaf1a;
+  --iad-active-text: #4c3900;
+  --iad-pill-primary-bg: #fff1b0;
+  --iad-pill-primary-text: #4c3900;
+  --iad-pill-primary-border: #ffaf1a;
+  --iad-sidebar-top: #fffdf1;
+  --iad-sidebar-bottom: #ffefb7;
+  --iad-modal-top-a: #fffbe7;
+  --iad-modal-top-b: #ffe698;
+  --iad-suggest-hover: #fff1b0;
+  --iad-code-bg: #fffdf3;
+  --iad-code-top: #fff1b8;
+  --iad-card-excerpt-text: #5c4b10;
+  --iad-signature-text: #665516;
+  --iad-signature-divider: rgba(255,175,26,0.26);
+  --iad-head-top: #fff0a6;
+  --iad-head-bottom: #ffdd4d;
+  --iad-head-border: #ffaf1a;
+  --iad-head-text: #2a2200;
+  --iad-topbar-top: #ffe77e;
+  --iad-topbar-bottom: #ffc935;
+  --iad-topbar-border: #ffaf1a;
+  --iad-topbar-text: #2a2200;
+}
+
+.ia-discuss-root[data-iad-theme="twilight"].iad-theme-classic{
+  --iad-link: #426276;
+  --iad-link-hover: #273a46;
+  --iad-accent: #273a46;
+  --iad-accent2: #426276;
+  --iad-card: #eef3f6;
+  --iad-card2: #dae4ea;
+  --iad-border: #b1c1cb;
+  --iad-muted: #536572;
+  --iad-active-top: #e7edf1;
+  --iad-active-bottom: #c8d5df;
+  --iad-active-border: #879eae;
+  --iad-active-text: #243743;
+  --iad-pill-primary-bg: #d7e2e9;
+  --iad-pill-primary-text: #243743;
+  --iad-pill-primary-border: #879eae;
+  --iad-sidebar-top: #f7fafb;
+  --iad-sidebar-bottom: #d7e1e8;
+  --iad-modal-top-a: #f0f4f6;
+  --iad-modal-top-b: #d2dde5;
+  --iad-suggest-hover: #d7e2e9;
+  --iad-code-bg: #f9fbfc;
+  --iad-code-top: #e4eaee;
+  --iad-card-excerpt-text: #505f69;
+  --iad-signature-text: #576771;
+  --iad-signature-divider: rgba(39,58,70,0.22);
+  --iad-head-top: #5e7d91;
+  --iad-head-bottom: #273a46;
+  --iad-head-border: #1d2b34;
+  --iad-head-text: #ffffff;
+  --iad-topbar-top: #496578;
+  --iad-topbar-bottom: #233540;
+  --iad-topbar-border: #1d2b34;
+  --iad-topbar-text: #ffffff;
+}
+
+.ia-discuss-root[data-iad-theme="water"].iad-theme-classic{
+  --iad-link: #2d9595;
+  --iad-link-hover: #1e6365;
+  --iad-accent: #1e6365;
+  --iad-accent2: #2d9595;
+  --iad-card: #eef9f9;
+  --iad-card2: #d8efef;
+  --iad-border: #acd1d1;
+  --iad-muted: #4b7070;
+  --iad-active-top: #e4f5f5;
+  --iad-active-bottom: #c3e6e6;
+  --iad-active-border: #7eb8b8;
+  --iad-active-text: #1b5b5b;
+  --iad-pill-primary-bg: #d3eeee;
+  --iad-pill-primary-text: #1b5b5b;
+  --iad-pill-primary-border: #7eb8b8;
+  --iad-sidebar-top: #f7fcfc;
+  --iad-sidebar-bottom: #d7eeee;
+  --iad-modal-top-a: #f0fbfb;
+  --iad-modal-top-b: #d2eded;
+  --iad-suggest-hover: #d3eeee;
+  --iad-code-bg: #f9fdfd;
+  --iad-code-top: #e3f1f1;
+  --iad-card-excerpt-text: #4c6767;
+  --iad-signature-text: #4f6a6a;
+  --iad-signature-divider: rgba(30,99,101,0.22);
+  --iad-head-top: #5ca7a7;
+  --iad-head-bottom: #1e6365;
+  --iad-head-border: #133f41;
+  --iad-head-text: #ffffff;
+  --iad-topbar-top: #418c8c;
+  --iad-topbar-bottom: #174f51;
+  --iad-topbar-border: #133f41;
+  --iad-topbar-text: #ffffff;
+}
+
+.ia-discuss-root.iad-theme-classic,
+.ia-discuss-root.iad-theme-classic .iad-shell{
+  font-family: var(--iad-font-sans);
+  letter-spacing: 0;
+}
+
+.ia-discuss-root.iad-theme-classic h1,
+.ia-discuss-root.iad-theme-classic h2,
+.ia-discuss-root.iad-theme-classic h3,
+.ia-discuss-root.iad-theme-classic h4,
+.ia-discuss-root.iad-theme-classic .iad-sidebar-title,
+.ia-discuss-root.iad-theme-classic .iad-modal-title{
+  font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+}
+
+.ia-discuss-root.iad-theme-classic a,
+.ia-discuss-root.iad-theme-classic a:visited,
+.ia-discuss-root.iad-theme-classic .iad-user-link{
+  color: var(--iad-link);
+}
+
+.ia-discuss-root.iad-theme-classic a:hover,
+.ia-discuss-root.iad-theme-classic .iad-user-link:hover{
+  color: var(--iad-link-hover);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-input,
+.ia-discuss-root.iad-theme-classic .iad-textarea{
+  background: #ffffff;
+  color: var(--iad-btn-text);
+  border-color: var(--iad-btn-border);
+  border-radius: 7px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-input::placeholder,
+.ia-discuss-root.iad-theme-classic .iad-textarea::placeholder{
+  color: var(--iad-input-placeholder);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-tab,
+.ia-discuss-root.iad-theme-classic .iad-btn,
+.ia-discuss-root.iad-theme-classic .iad-link,
+.ia-discuss-root.iad-theme-classic .iad-iconbtn,
+.ia-discuss-root.iad-theme-classic .iad-collapse,
+.ia-discuss-root.iad-theme-classic .iad-stab,
+.ia-discuss-root.iad-theme-classic .iad-x{
+  background: linear-gradient(to bottom, var(--iad-btn-top) 0%, var(--iad-btn-bottom) 100%);
+  color: var(--iad-btn-text);
+  border-color: var(--iad-btn-border);
+  border-radius: 7px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-tab:hover,
+.ia-discuss-root.iad-theme-classic .iad-btn:hover,
+.ia-discuss-root.iad-theme-classic .iad-link:hover,
+.ia-discuss-root.iad-theme-classic .iad-iconbtn:hover,
+.ia-discuss-root.iad-theme-classic .iad-collapse:hover,
+.ia-discuss-root.iad-theme-classic .iad-stab:hover,
+.ia-discuss-root.iad-theme-classic .iad-x:hover{
+  background: linear-gradient(to bottom, var(--iad-btn-top) 0%, var(--iad-btn-hover-bottom) 100%);
+  text-decoration: none;
+}
+
+.ia-discuss-root.iad-theme-classic .iad-tab.is-active,
+.ia-discuss-root.iad-theme-classic .iad-stab.is-active{
+  background: linear-gradient(to bottom, var(--iad-active-top) 0%, var(--iad-active-bottom) 100%);
+  border-color: var(--iad-pill-primary-border);
+  color: var(--iad-pill-primary-text);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-card,
+.ia-discuss-root.iad-theme-classic .iad-post,
+.ia-discuss-root.iad-theme-classic .iad-sr-row,
+.ia-discuss-root.iad-theme-classic .iad-topic-head,
+.ia-discuss-root.iad-theme-classic .iad-linkcard{
+  background: var(--iad-card);
+  color: var(--iad-btn-text);
+  border: 1px solid var(--iad-border);
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.ia-discuss-root.iad-theme-classic .iad-card.is-unread{
+  border-color: var(--iad-head-border);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.45);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-card.is-read{
+  border-color: var(--iad-border);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-card::before{
+  display: none;
+}
+
+.ia-discuss-root.iad-theme-classic .iad-post.is-op{
+  background: var(--iad-card);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-post.is-reply,
+.ia-discuss-root.iad-theme-classic .iad-post.is-reply.is-alt,
+.ia-discuss-root.iad-theme-classic .iad-post.is-alt{
+  background: var(--iad-card2);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-post-body,
+.ia-discuss-root.iad-theme-classic .iad-search-title,
+.ia-discuss-root.iad-theme-classic .iad-sr-title,
+.ia-discuss-root.iad-theme-classic .iad-topic-count{
+  color: var(--iad-btn-text);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-post-meta,
+.ia-discuss-root.iad-theme-classic .iad-sub,
+.ia-discuss-root.iad-theme-classic .iad-muted,
+.ia-discuss-root.iad-theme-classic .iad-sr-sub,
+.ia-discuss-root.iad-theme-classic .iad-sr-sn,
+.ia-discuss-root.iad-theme-classic .iad-sg-title,
+.ia-discuss-root.iad-theme-classic .iad-theme-copy,
+.ia-discuss-root.iad-theme-classic .iad-theme-choice-desc{
+  color: var(--iad-muted);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-pill{
+  background: #ffffff;
+  color: var(--iad-btn-text);
+  border-color: var(--iad-btn-border);
+  border-radius: 999px;
+}
+
+.ia-discuss-root.iad-theme-classic .iad-pill-primary{
+  background: var(--iad-suggest-hover);
+  color: var(--iad-pill-primary-text);
+  border-color: var(--iad-pill-primary-border);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-modal-sheet{
+  background: #ffffff;
+  border-color: var(--iad-btn-border);
+  box-shadow: 0 16px 42px rgba(24,40,60,0.22);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-modal-top{
+  background: linear-gradient(to bottom, var(--iad-modal-top-a) 0%, var(--iad-modal-top-b) 100%);
+  border-bottom-color: var(--iad-border);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sidebar{
+  background: linear-gradient(to bottom, var(--iad-sidebar-top) 0%, var(--iad-sidebar-bottom) 100%);
+  border-right-color: var(--iad-border);
+  box-shadow: 18px 0 40px rgba(24,40,60,0.18);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sidebar-head{
+  margin: -14px -14px 12px;
+  padding: 14px;
+  background: linear-gradient(to bottom, var(--iad-head-top) 0%, var(--iad-head-bottom) 100%);
+  border-bottom: 1px solid var(--iad-head-border);
+  color: var(--iad-head-text);
+  border-top-left-radius: 16px;
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sidebar-title{
+  color: var(--iad-head-text);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sidebar-divider{
+  background: var(--iad-border);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sidebar-subtitle{
+  color: var(--iad-muted);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sidebar .iad-tab,
+.ia-discuss-root.iad-theme-classic .iad-sidebar .iad-btn{
+  background: linear-gradient(to bottom, var(--iad-btn-top) 0%, var(--iad-btn-bottom) 100%);
+  color: var(--iad-btn-text);
+  border-color: var(--iad-btn-border);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sidebar .iad-tab.is-active{
+  background: linear-gradient(to bottom, var(--iad-active-top) 0%, var(--iad-active-bottom) 100%);
+  border-color: var(--iad-pill-primary-border);
+  color: var(--iad-pill-primary-text);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sidebar .iad-tab-theme{
+  background: linear-gradient(to bottom, var(--iad-active-top) 0%, var(--iad-active-bottom) 100%);
+  color: var(--iad-active-text);
+  border-color: var(--iad-pill-primary-border);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sidebar-close,
+.ia-discuss-root.iad-theme-classic .iad-discuss-topbar-toggle{
+  background: linear-gradient(to bottom, var(--iad-btn-top) 0%, var(--iad-btn-bottom) 100%);
+  color: var(--iad-btn-text);
+  border-color: var(--iad-btn-border);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-agorabb-headbar,
+.ia-discuss-root.iad-theme-classic .iad-agorabb-index-table__head,
+.ia-discuss-root.iad-theme-classic .iad-agorabb-table__head,
+.ia-discuss-root.iad-theme-classic .iad-topic-head,
+.ia-discuss-root.iad-theme-classic .iad-ap-head,
+.ia-discuss-root.iad-theme-classic .iad-modal-head{
+  background: linear-gradient(to bottom, var(--iad-head-top) 0%, var(--iad-head-bottom) 100%);
+  color: var(--iad-head-text);
+  border-color: var(--iad-head-border);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-agorabb-headbar a,
+.ia-discuss-root.iad-theme-classic .iad-agorabb-index-table__head a,
+.ia-discuss-root.iad-theme-classic .iad-agorabb-table__head a,
+.ia-discuss-root.iad-theme-classic .iad-topic-head a,
+.ia-discuss-root.iad-theme-classic .iad-ap-head a,
+.ia-discuss-root.iad-theme-classic .iad-modal-head a{
+  color: var(--iad-head-text);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-discuss-topbar-toggle{
+  background: linear-gradient(to bottom, var(--iad-topbar-top) 0%, var(--iad-topbar-bottom) 100%);
+  color: var(--iad-topbar-text);
+  border-color: var(--iad-topbar-border);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-suggest,
+.iad-suggest--portal.iad-theme-classic{
+  background: #ffffff;
+  border-color: var(--iad-btn-border);
+  box-shadow: 0 20px 50px rgba(24,40,60,0.22);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sug-row,
+.iad-suggest--portal.iad-theme-classic .iad-sug-row{
+  color: var(--iad-btn-text);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sug-row:hover,
+.iad-suggest--portal.iad-theme-classic .iad-sug-row:hover{
+  background: var(--iad-suggest-hover);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sug-row.is-cta,
+.iad-suggest--portal.iad-theme-classic .iad-sug-row.is-cta{
+  border-bottom-color: #c5d3df;
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sug-sub,
+.ia-discuss-root.iad-theme-classic .iad-sug-sn,
+.iad-suggest--portal.iad-theme-classic .iad-sug-sub,
+.iad-suggest--portal.iad-theme-classic .iad-sug-sn,
+.iad-suggest--portal.iad-theme-classic .iad-sg-title{
+  color: var(--iad-muted);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-sug-ico,
+.ia-discuss-root.iad-theme-classic .iad-av,
+.iad-suggest--portal.iad-theme-classic .iad-sug-ico,
+.iad-suggest--portal.iad-theme-classic .iad-av{
+  background: var(--iad-card2);
+  border-color: var(--iad-border);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-post-body .iad-code-block{
+  background: var(--iad-code-bg);
+  color: var(--iad-btn-text);
+  border-color: var(--iad-btn-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-post-body .iad-code-block::before{
+  background: var(--iad-code-top);
+  border-bottom-color: #c5d3df;
+}
+
+.ia-discuss-root.iad-theme-classic .iad-post-body .iad-code-block::after{
+  color: rgba(83,100,130,0.55);
+}
+
+
+
+.iad-theme-picks{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.iad-theme-pick{
+  text-align: left;
+}
+
+.iad-theme-pick.is-active{
+  background: linear-gradient(to bottom, var(--iad-active-top) 0%, var(--iad-active-bottom) 100%);
+  border-color: var(--iad-active-border);
+  color: var(--iad-active-text);
+}
+
+/* Theme modal */
+.iad-theme-sheet{
+  width: min(560px, calc(100% - 18px));
+}
+
+.iad-theme-copy{
+  margin-bottom: 12px;
+  color: var(--iad-muted);
+}
+
+.iad-theme-list{
+  display: grid;
+  gap: 12px;
+}
+
+.iad-theme-choice{
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--iad-border);
+  background: rgba(255,255,255,0.04);
+  color: var(--iad-text);
+  cursor: pointer;
+}
+
+.iad-theme-choice:hover{
+  background: rgba(255,255,255,0.08);
+}
+
+.iad-theme-choice.is-active{
+  border-color: rgba(71,179,255,0.45);
+  box-shadow: 0 0 0 1px rgba(71,179,255,0.18);
+}
+
+.iad-theme-choice-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.iad-theme-choice-title{
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.iad-theme-choice-check{
+  opacity: 0;
+}
+
+.iad-theme-choice.is-active .iad-theme-choice-check{
+  opacity: 1;
+}
+
+.iad-theme-choice-desc{
+  display: block;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--iad-muted);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-theme-choice{
+  background: rgba(0,0,0,0.03);
+  color: rgba(0,0,0,0.88);
+  border-color: rgba(0,0,0,0.10);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-theme-choice:hover{
+  background: rgba(0,0,0,0.05);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-theme-choice.is-active{
+  border-color: rgba(17,80,152,0.34);
+  box-shadow: 0 0 0 1px rgba(17,80,152,0.14);
+}
+
+
+.iad-theme-modal[data-iad-theme="light"] .iad-modal-sheet{
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.12);
+}
+
+.iad-theme-modal[data-iad-theme="light"] .iad-modal-top{
+  background: rgba(248,248,250,0.92);
+  border-bottom-color: rgba(0,0,0,0.08);
+}
+
+.iad-theme-modal[data-iad-theme="light"] .iad-modal-title{
+  color: rgba(0,0,0,0.92);
+}
+
+.iad-theme-modal[data-iad-theme="light"] .iad-x{
+  background: rgba(0,0,0,0.03);
+  color: rgba(0,0,0,0.82);
+  border-color: rgba(0,0,0,0.12);
+}
+
+.iad-theme-modal[data-iad-theme="light"] .iad-theme-copy,
+.iad-theme-modal[data-iad-theme="light"] .iad-theme-choice-desc{
+  color: rgba(0,0,0,0.60);
+}
+
+.iad-theme-modal[data-iad-theme="light"] .iad-theme-choice{
+  background: rgba(0,0,0,0.03);
+  color: rgba(0,0,0,0.88);
+  border-color: rgba(0,0,0,0.10);
+}
+
+.iad-theme-modal[data-iad-theme="light"] .iad-theme-choice:hover{
+  background: rgba(0,0,0,0.05);
+}
+
+.iad-theme-modal[data-iad-theme="light"] .iad-theme-choice.is-active{
+  border-color: rgba(17,80,152,0.34);
+  box-shadow: 0 0 0 1px rgba(17,80,152,0.14);
+}
+
+.iad-theme-modal.iad-theme-classic .iad-modal-sheet{
+  background: #ffffff;
+  border-color: var(--iad-btn-border);
+  box-shadow: 0 16px 42px rgba(24,40,60,0.22);
+}
+
+.iad-theme-modal.iad-theme-classic .iad-modal-top{
+  background: linear-gradient(to bottom, var(--iad-modal-top-a) 0%, var(--iad-modal-top-b) 100%);
+  border-bottom-color: #c5d3df;
+}
+
+.iad-theme-modal.iad-theme-classic .iad-modal-title{
+  color: var(--iad-btn-text);
+  font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+}
+
+.iad-theme-modal.iad-theme-classic .iad-x{
+  background: linear-gradient(to bottom, var(--iad-btn-top) 0%, var(--iad-btn-bottom) 100%);
+  color: var(--iad-btn-text);
+  border-color: var(--iad-btn-border);
+}
+
+.iad-theme-modal.iad-theme-classic .iad-theme-copy,
+.iad-theme-modal.iad-theme-classic .iad-theme-choice-desc{
+  color: var(--iad-muted);
+}
+
+.iad-theme-modal.iad-theme-classic .iad-theme-choice{
+  background: linear-gradient(to bottom, #ffffff 0%, #eef3f7 100%);
+  color: var(--iad-btn-text);
+  border-color: var(--iad-btn-border);
+  border-radius: 7px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+.iad-theme-modal.iad-theme-classic .iad-theme-choice:hover{
+  background: linear-gradient(to bottom, var(--iad-btn-top) 0%, var(--iad-btn-hover-bottom) 100%);
+}
+
+.iad-theme-modal.iad-theme-classic .iad-theme-choice.is-active{
+  border-color: var(--iad-pill-primary-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(122,168,208,0.18);
+}
+
+.iad-theme-modal.iad-theme-classic .iad-theme-choice-title{
+  font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+}
+
+/* 0.3.81 readability patch
+   - Feed excerpts were still inheriting dark-theme white text from cards.css.
+   - Topic signatures also needed a legacy-specific contrast override. */
+.ia-discuss-root.iad-theme-classic .iad-card-excerpt,
+.ia-discuss-root.iad-theme-classic .iad-card-excerpt p,
+.ia-discuss-root.iad-theme-classic .iad-card-excerpt li,
+.ia-discuss-root.iad-theme-classic .iad-card-excerpt div,
+.ia-discuss-root.iad-theme-classic .iad-card-excerpt span{
+  color: var(--iad-card-excerpt-text);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-card-excerpt a,
+.ia-discuss-root.iad-theme-classic .iad-card-excerpt a:visited{
+  color: var(--iad-link);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-post-sig-divider{
+  background: var(--iad-signature-divider);
+}
+
+.ia-discuss-root.iad-theme-classic .iad-post-sig-body,
+.ia-discuss-root.iad-theme-classic .iad-post-sig-body p,
+.ia-discuss-root.iad-theme-classic .iad-post-sig-body div,
+.ia-discuss-root.iad-theme-classic .iad-post-sig-body span{
+  color: var(--iad-signature-text);
+}
+
+
+
+.ia-discuss-root.iad-theme-classic .iad-feed-controls .iad-select,
+.ia-discuss-root.iad-theme-classic .iad-feed-controls-label,
+.ia-discuss-root.iad-theme-classic .iad-feed-mode-btn,
+.ia-discuss-root.iad-theme-classic .iad-feed-jump-toggle,
+.ia-discuss-root.iad-theme-classic .iad-pagebtn,
+.ia-discuss-root.iad-theme-classic .iad-feed-jump-go,
+.ia-discuss-root.iad-theme-classic .iad-more{
+  background: linear-gradient(to bottom, var(--iad-btn-top) 0%, var(--iad-btn-bottom) 100%) !important;
+  color: var(--iad-btn-text) !important;
+  border-color: var(--iad-btn-border) !important;
+}
+
+.ia-discuss-root.iad-theme-classic .iad-feed-controls .iad-select option{
+  background: #ffffff;
+  color: #222b35;
+}
+
+.ia-discuss-root.iad-theme-classic .iad-pagebtn.is-active,
+.ia-discuss-root.iad-theme-classic .iad-feed-mode-btn.is-active{
+  background: linear-gradient(to bottom, var(--iad-active-top) 0%, var(--iad-active-bottom) 100%) !important;
+  color: var(--iad-active-text) !important;
+  border-color: var(--iad-pill-primary-border) !important;
+}
+
+.ia-discuss-root.iad-theme-classic .iad-feed-controls-label,
+.ia-discuss-root.iad-theme-classic .iad-feed-summary,
+.ia-discuss-root.iad-theme-classic .iad-pagegap{
+  color: var(--iad-muted) !important;
+}

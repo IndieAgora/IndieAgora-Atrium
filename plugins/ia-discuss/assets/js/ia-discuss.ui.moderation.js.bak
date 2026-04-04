@@ -1,0 +1,634 @@
+(function () {
+  "use strict";
+  const CORE = window.IA_DISCUSS_CORE || {};
+  const qs = CORE.qs || function(sel, root){ try{return (root||document).querySelector(sel);}catch(e){return null;} };
+  const qsa = CORE.qsa || function(sel, root){ try{return Array.from((root||document).querySelectorAll(sel));}catch(e){return [];} };
+  const esc = CORE.esc || function(s){ return String(s||''); };
+  const API = window.IA_DISCUSS_API;
+
+  let cache = { loaded: false, global_admin: 0, items: [] };
+
+  function ensureModerationModal() {
+    let m = document.querySelector('[data-iad-mod-modal]');
+    if (m) return m;
+    m = document.createElement('div');
+    m.className = 'iad-modal iad-modal--full';
+    m.setAttribute('data-iad-mod-modal', '1');
+    m.hidden = true;
+    m.innerHTML = `
+      <div class="iad-modal-backdrop" data-iad-mod-close></div>
+      <div class="iad-modal-sheet iad-modal-sheet--full" role="dialog" aria-modal="true">
+        <div class="iad-modal-top">
+          <button type="button" class="iad-x" data-iad-mod-close aria-label="Close">✕</button>
+          <div class="iad-modal-title" data-iad-mod-title>Agora settings</div>
+        </div>
+        <div class="iad-modal-body" data-iad-mod-body></div>
+      </div>
+    `;
+    document.body.appendChild(m);
+
+    m.addEventListener('click', (e) => {
+      const t = e.target;
+      if (t && t.closest && t.closest('[data-iad-mod-close]')) {
+        hideModal();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (!m.hidden && e.key === 'Escape') hideModal();
+    });
+    return m;
+  }
+
+  function showModal(title, html) {
+    const m = ensureModerationModal();
+    const ttl = qs('[data-iad-mod-title]', m);
+    const body = qs('[data-iad-mod-body]', m);
+    if (ttl) ttl.textContent = title || 'Agora settings';
+    if (body) body.innerHTML = html || '';
+    m.hidden = false;
+    document.documentElement.classList.add('iad-modal-open');
+  }
+
+  function hideModal() {
+    const m = ensureModerationModal();
+    m.hidden = true;
+    document.documentElement.classList.remove('iad-modal-open');
+  }
+
+  async function loadMyModeration(root) {
+    // Back-compat: some callers didn't pass root. Resolve it here so we can set
+    // data-iad-can-moderate reliably.
+    if (!root) {
+      try { root = qs('[data-ia-discuss-root]'); } catch (e) {}
+    }
+    if (!API || !window.IA_DISCUSS || String(window.IA_DISCUSS.loggedIn || '0') !== '1') {
+      return { loaded: true, global_admin: 0, items: [], count: 0 };
+    }
+    if (cache.loaded) {
+      if (typeof cache.count === 'undefined') cache.count = (cache.items && cache.items.length) ? cache.items.length : 0;
+      return cache;
+    }
+
+    const res = await API.post('ia_discuss_my_moderation', {});
+    if (!res || !res.success) {
+      cache = { loaded: true, global_admin: 0, items: [], count: 0 };
+      return cache;
+    }
+    const d = res.data || {};
+    cache = {
+      loaded: true,
+      global_admin: parseInt(String(d.global_admin || '0'), 10) || 0,
+      items: Array.isArray(d.items) ? d.items : []
+    };
+
+    // Router expects count in some builds.
+    cache.count = (cache.items && cache.items.length) ? cache.items.length : 0;
+
+    try {
+      if (root) root.setAttribute('data-iad-can-moderate', (cache.items.length || cache.global_admin) ? '1' : '0');
+      if (window.IA_DISCUSS_UI_SHELL && typeof window.IA_DISCUSS_UI_SHELL.setActiveTab === 'function') {
+        // refresh tab row visibility without changing view
+        const v = (new URL(window.location.href)).searchParams.get('iad_view') || 'new';
+        window.IA_DISCUSS_UI_SHELL.setActiveTab(v);
+      }
+    } catch (e) {}
+
+    return cache;
+  }
+
+  function rowHTML(it) {
+    const id = parseInt(String(it.forum_id || '0'), 10) || 0;
+    const name = String(it.forum_name || '');
+    const desc = String(it.forum_desc_html || '');
+    const cover = String(it.cover_url || '');
+    return `
+      <div class="iad-mod-row" data-iad-mod-row data-forum-id="${id}">
+        <button type="button" class="iad-mod-row__open">
+          <div class="iad-mod-row__thumb" ${cover ? `style="background-image:url(${esc(cover)})"` : ''}></div>
+          <div class="iad-mod-row__main">
+            <div class="iad-mod-row__name">${esc(name)}</div>
+            ${desc ? `<div class="iad-mod-row__desc">${desc}</div>` : ``}
+          </div>
+        </button>
+        <div class="iad-mod-row__actions">
+          <button type="button" class="iad-btn" data-iad-mod-edit="${id}">Settings</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderModerationView(root) {
+    const mount = qs('[data-iad-view]', root);
+    if (!mount) return;
+
+    const items = cache.items || [];
+
+    mount.innerHTML = `
+      <div class="iad-moderation">
+        <div class="iad-moderation-head">
+          <div class="iad-h1">Moderation</div>
+          <div class="iad-muted">Agoras you can manage.</div>
+        </div>
+        <div class="iad-mod-list">
+          ${items.length ? items.map(rowHTML).join('') : `<div class="iad-empty">No agoras to moderate.</div>`}
+        </div>
+      </div>
+    `;
+  }
+
+  function settingsFormHTML(d) {
+    const fid = parseInt(String(d.forum_id || '0'), 10) || 0;
+    const nm = String(d.forum_name || '');
+    const desc = String(d.forum_desc || '');
+    const rules = String(d.forum_rules || '');
+    const cover = String(d.cover_url || '');
+    const kicked = Array.isArray(d.kicked) ? d.kicked : [];
+
+    const kickedHTML = kicked.length ? kicked.map((u) => {
+      const uid = parseInt(String(u.user_id || '0'), 10) || 0;
+      const un = esc(String(u.username || ('user#' + uid)));
+      return `
+        <div class="iad-kick-row">
+          <div class="iad-kick-name">${un}</div>
+          <button type="button" class="iad-btn" data-iad-unban data-user-id="${uid}" data-forum-id="${fid}">Re-add</button>
+        </div>
+      `;
+    }).join('') : `<div class="iad-empty">No kicked users.</div>`;
+
+    return `
+      <form class="iad-mod-form" data-iad-mod-form data-forum-id="${fid}">
+        <div class="iad-form-row">
+          <label class="iad-label">Agora name</label>
+          <div class="iad-field-with-save">
+            <input class="iad-input" name="forum_name" value="${esc(nm)}" maxlength="120" />
+            <button type="button" class="iad-btn iad-btn-primary" data-iad-save-field="forum_name" data-forum-id="${fid}">Save</button>
+            <span class="iad-save-status" data-iad-save-status="forum_name"></span>
+          </div>
+          <div class="iad-help">Updates the name as displayed across the site.</div>
+        </div>
+
+        <div class="iad-form-row">
+          <label class="iad-label">Description</label>
+          <div class="iad-field-with-save iad-field-with-save--top">
+            <textarea class="iad-textarea" name="forum_desc" rows="5" maxlength="8000">${esc(desc)}</textarea>
+            <div class="iad-field-with-save__side">
+              <button type="button" class="iad-btn iad-btn-primary" data-iad-save-field="forum_desc" data-forum-id="${fid}">Save</button>
+              <span class="iad-save-status" data-iad-save-status="forum_desc"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="iad-form-row">
+          <label class="iad-label">Rules (BBCode allowed)</label>
+          <div class="iad-field-with-save iad-field-with-save--top">
+            <textarea class="iad-textarea" name="forum_rules" rows="7" maxlength="12000">${esc(rules)}</textarea>
+            <div class="iad-field-with-save__side">
+              <button type="button" class="iad-btn iad-btn-primary" data-iad-save-field="forum_rules" data-forum-id="${fid}">Save</button>
+              <span class="iad-save-status" data-iad-save-status="forum_rules"></span>
+            </div>
+          </div>
+          <div class="iad-help">Creates/updates the Rules pill on the Agora page.</div>
+        </div>
+
+        <div class="iad-form-row">
+          <label class="iad-label">Cover photo</label>
+          <div class="iad-cover-row">
+            <div class="iad-cover-thumb" ${cover ? `style="background-image:url(${esc(cover)})"` : ''}></div>
+            <div class="iad-cover-inputs">
+              <input type="file" accept="image/*" data-iad-cover-file data-forum-id="${fid}" />
+              <span class="iad-save-status" data-iad-save-status="cover"></span>
+            </div>
+          </div>
+          <div class="iad-cover-url">
+            <input class="iad-input" type="url" inputmode="url" placeholder="https://… (optional)" value="${esc(cover)}" data-iad-cover-url data-forum-id="${fid}" />
+            <button type="button" class="iad-btn" data-iad-cover-url-set data-forum-id="${fid}">Set URL</button>
+            <button type="button" class="iad-btn" data-iad-cover-url-clear data-forum-id="${fid}">Clear</button>
+            <span class="iad-save-status" data-iad-save-status="cover_url"></span>
+          </div>
+          <div class="iad-help">Upload an image, or set a direct URL. This cover is shown in the Agora banner.</div>
+        </div>
+
+        <div class="iad-form-row">
+          <label class="iad-label">Kicked users</label>
+          <div class="iad-kicks">${kickedHTML}</div>
+        </div>
+
+        <div class="iad-form-row">
+          <label class="iad-label">Danger zone</label>
+          <div class="iad-field-with-save">
+            <button type="button" class="iad-btn iad-btn-danger" data-iad-delete-agora data-forum-id="${fid}">Delete Agora</button>
+            <span class="iad-save-status" data-iad-save-status="delete"></span>
+          </div>
+          <div class="iad-help">Deletes the Agora and its topics/posts.</div>
+        </div>
+      </form>
+    `;
+  }
+(function () {
+  "use strict";
+  const CORE = window.IA_DISCUSS_CORE || {};
+  const qs = CORE.qs || function(sel, root){ try{return (root||document).querySelector(sel);}catch(e){return null;} };
+  const qsa = CORE.qsa || function(sel, root){ try{return Array.from((root||document).querySelectorAll(sel));}catch(e){return [];} };
+  const esc = CORE.esc || function(s){ return String(s||''); };
+  const API = window.IA_DISCUSS_API;
+
+  let cache = { loaded: false, global_admin: 0, items: [] };
+
+  function ensureModerationModal() {
+    let m = document.querySelector('[data-iad-mod-modal]');
+    if (m) return m;
+    m = document.createElement('div');
+    m.className = 'iad-modal iad-modal--full';
+    m.setAttribute('data-iad-mod-modal', '1');
+    m.hidden = true;
+    m.innerHTML = `
+      <div class="iad-modal-backdrop" data-iad-mod-close></div>
+      <div class="iad-modal-sheet iad-modal-sheet--full" role="dialog" aria-modal="true">
+        <div class="iad-modal-top">
+          <button type="button" class="iad-x" data-iad-mod-close aria-label="Close">✕</button>
+          <div class="iad-modal-title" data-iad-mod-title>Agora settings</div>
+        </div>
+        <div class="iad-modal-body" data-iad-mod-body></div>
+      </div>
+    `;
+    document.body.appendChild(m);
+
+    m.addEventListener('click', (e) => {
+      const t = e.target;
+      if (t && t.closest && t.closest('[data-iad-mod-close]')) {
+        hideModal();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (!m.hidden && e.key === 'Escape') hideModal();
+    });
+    return m;
+  }
+
+  function showModal(title, html) {
+    const m = ensureModerationModal();
+    const ttl = qs('[data-iad-mod-title]', m);
+    const body = qs('[data-iad-mod-body]', m);
+    if (ttl) ttl.textContent = title || 'Agora settings';
+    if (body) body.innerHTML = html || '';
+    m.hidden = false;
+    document.documentElement.classList.add('iad-modal-open');
+  }
+
+  function hideModal() {
+    const m = ensureModerationModal();
+    m.hidden = true;
+    document.documentElement.classList.remove('iad-modal-open');
+  }
+
+  async function loadMyModeration(root) {
+    // Back-compat: some callers didn't pass root. Resolve it here so we can set
+    // data-iad-can-moderate reliably.
+    if (!root) {
+      try { root = qs('[data-ia-discuss-root]'); } catch (e) {}
+    }
+    if (!API || !window.IA_DISCUSS || String(window.IA_DISCUSS.loggedIn || '0') !== '1') {
+      return { loaded: true, global_admin: 0, items: [], count: 0 };
+    }
+    if (cache.loaded) {
+      if (typeof cache.count === 'undefined') cache.count = (cache.items && cache.items.length) ? cache.items.length : 0;
+      return cache;
+    }
+
+    const res = await API.post('ia_discuss_my_moderation', {});
+    if (!res || !res.success) {
+      cache = { loaded: true, global_admin: 0, items: [], count: 0 };
+      return cache;
+    }
+    const d = res.data || {};
+    cache = {
+      loaded: true,
+      global_admin: parseInt(String(d.global_admin || '0'), 10) || 0,
+      items: Array.isArray(d.items) ? d.items : []
+    };
+
+    // Router expects count in some builds.
+    cache.count = (cache.items && cache.items.length) ? cache.items.length : 0;
+
+    try {
+      if (root) root.setAttribute('data-iad-can-moderate', (cache.items.length || cache.global_admin) ? '1' : '0');
+      if (window.IA_DISCUSS_UI_SHELL && typeof window.IA_DISCUSS_UI_SHELL.setActiveTab === 'function') {
+        // refresh tab row visibility without changing view
+        const v = (new URL(window.location.href)).searchParams.get('iad_view') || 'new';
+        window.IA_DISCUSS_UI_SHELL.setActiveTab(v);
+      }
+    } catch (e) {}
+
+    return cache;
+  }
+
+  function rowHTML(it) {
+    const id = parseInt(String(it.forum_id || '0'), 10) || 0;
+    const name = String(it.forum_name || '');
+    const desc = String(it.forum_desc_html || '');
+    const cover = String(it.cover_url || '');
+    return `
+      <div class="iad-mod-row" data-iad-mod-row data-forum-id="${id}">
+        <button type="button" class="iad-mod-row__open">
+          <div class="iad-mod-row__thumb" ${cover ? `style="background-image:url(${esc(cover)})"` : ''}></div>
+          <div class="iad-mod-row__main">
+            <div class="iad-mod-row__name">${esc(name)}</div>
+            ${desc ? `<div class="iad-mod-row__desc">${desc}</div>` : ``}
+          </div>
+        </button>
+        <div class="iad-mod-row__actions">
+          <button type="button" class="iad-btn" data-iad-mod-edit="${id}">Settings</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderModerationView(root) {
+    const mount = qs('[data-iad-view]', root);
+    if (!mount) return;
+
+    const items = cache.items || [];
+
+    mount.innerHTML = `
+      <div class="iad-moderation">
+        <div class="iad-moderation-head">
+          <div class="iad-h1">Moderation</div>
+          <div class="iad-muted">Agoras you can manage.</div>
+        </div>
+        <div class="iad-mod-list">
+          ${items.length ? items.map(rowHTML).join('') : `<div class="iad-empty">No agoras to moderate.</div>`}
+        </div>
+      </div>
+    `;
+  }
+
+
+  async function openSettings(forumId) {
+    const res = await API.post('ia_discuss_agora_settings_get', { forum_id: forumId });
+    if (!res || !res.success) {
+      showModal('Agora settings', `<div class="iad-empty">Failed to load settings.</div>`);
+      return;
+    }
+    const d = res.data || {};
+    showModal('Agora settings', settingsFormHTML(d));
+  }
+
+  async function saveSettings(form) {
+    const fid = parseInt(form.getAttribute('data-forum-id') || '0', 10) || 0;
+    const fd = new FormData(form);
+    fd.append('forum_id', String(fid));
+    const payload = {
+      forum_id: fid,
+      forum_name: fd.get('forum_name') || '',
+      forum_desc: fd.get('forum_desc') || '',
+      forum_rules: fd.get('forum_rules') || ''
+    };
+    const res = await API.post('ia_discuss_agora_settings_save', payload);
+    if (!res || !res.success) {
+      alert('Save failed.');
+      return;
+    }
+
+    // refresh cached list entry
+    try {
+      const d = res.data || {};
+      const idx = (cache.items || []).findIndex((x) => parseInt(String(x.forum_id||0),10) === fid);
+      if (idx >= 0) {
+        cache.items[idx].forum_name = d.forum_name || cache.items[idx].forum_name;
+        cache.items[idx].forum_desc_html = d.forum_desc_html || cache.items[idx].forum_desc_html;
+        cache.items[idx].has_rules = d.forum_rules_html ? 1 : 0;
+      }
+    } catch (e) {}
+    alert('Saved.');
+  }
+
+  async function deleteAgora(forumId) {
+    const ok = window.confirm('Delete this Agora? This will remove its topics and posts.');
+    if (!ok) return;
+    const res = await API.post('ia_discuss_agora_delete', { forum_id: forumId });
+    if (!res || !res.success) {
+      alert('Delete failed.');
+      return;
+    }
+    // remove from list
+    cache.items = (cache.items || []).filter((x) => parseInt(String(x.forum_id||0),10) !== forumId);
+    hideModal();
+    const root = qs('[data-ia-discuss-root]');
+    if (root) renderModerationView(root);
+  }
+
+  async function unbanUser(forumId, userId, btn) {
+    if (!forumId || !userId) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Working…'; }
+    const res = await API.post('ia_discuss_agora_unban', { forum_id: forumId, user_id: userId });
+    if (!res || !res.success) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Re-add'; }
+      alert('Failed.');
+      return;
+    }
+    // refresh settings modal
+    openSettings(forumId);
+  }
+
+  async function uploadCover(forumId, file, inputEl) {
+    if (!file) return;
+    const form = inputEl && inputEl.closest ? inputEl.closest('[data-iad-mod-form]') : null;
+    const st = form ? qs('[data-iad-save-status="cover"]', form) : null;
+    if (st) { st.textContent = 'Uploading…'; st.classList.remove('is-ok','is-bad'); st.classList.add('is-working'); }
+    // Re-use upload module then cover set.
+    try {
+      const up = await API.upload('ia_discuss_upload', file);
+      if (!up || !up.success || !up.data || !up.data.url) throw new Error('upload failed');
+      const url = String(up.data.url);
+      const res = await API.post('ia_discuss_cover_set', { forum_id: forumId, cover_url: url });
+      if (!res || !res.success) throw new Error('cover set failed');
+      if (st) { st.textContent = 'Saved.'; st.classList.remove('is-working','is-bad'); st.classList.add('is-ok'); }
+      // refresh modal
+      openSettings(forumId);
+    } catch (e) {
+      if (st) { st.textContent = 'Upload failed.'; st.classList.remove('is-working','is-ok'); st.classList.add('is-bad'); }
+      try { if (inputEl) inputEl.value = ''; } catch (e2) {}
+    } finally {
+      if (st) st.classList.remove('is-working');
+    }
+  }
+
+  function bind(root) {
+    // Ensure permissions loaded and button visibility updated.
+    loadMyModeration(root);
+
+    // Moderation pill
+    root.addEventListener('click', async (e) => {
+      const t = e.target;
+      const btn = t && t.closest ? t.closest('[data-iad-moderation]') : null;
+      if (btn) {
+        e.preventDefault();
+        try { e.stopPropagation(); } catch (e2) {}
+        try { if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation(); } catch (e3) {}
+        // Per requirements: clicking Moderation opens settings ONLY for the
+        // Agora currently being viewed (no long moderation list).
+        await loadMyModeration(root);
+
+        const u = new URL(window.location.href);
+        const fid = parseInt(u.searchParams.get('iad_forum') || '0', 10) || 0;
+        if (!fid) return;
+
+        const isGlobal = !!cache.global_admin;
+        const isLocal = Array.isArray(cache.items) && cache.items.some((x) => {
+          return (parseInt(String(x.forum_id || '0'), 10) || 0) === fid;
+        });
+        if (!isGlobal && !isLocal) return;
+
+        openSettings(fid);
+      }
+    });
+
+    // View interactions
+    root.addEventListener('click', (e) => {
+      const t = e.target;
+      const open = t && t.closest ? t.closest('[data-iad-mod-edit]') : null;
+      if (open) {
+        e.preventDefault();
+        const fid = parseInt(open.getAttribute('data-iad-mod-edit') || '0', 10) || 0;
+        if (fid) openSettings(fid);
+        return;
+      }
+
+
+      const saveOne = t && t.closest ? t.closest('[data-iad-save-field]') : null;
+      if (saveOne) {
+        e.preventDefault();
+        const fid = parseInt(saveOne.getAttribute('data-forum-id') || '0', 10) || 0;
+        const field = String(saveOne.getAttribute('data-iad-save-field') || '');
+        const form = saveOne.closest ? saveOne.closest('[data-iad-mod-form]') : null;
+        const inp = form ? qs(`[name="${field}"]`, form) : null;
+        const val = inp ? (inp.value || '') : '';
+        const st = form ? qs(`[data-iad-save-status="${field}"]`, form) : null;
+
+        if (st) {
+          st.textContent = 'Saving…';
+          st.classList.remove('is-ok', 'is-bad');
+          st.classList.add('is-working');
+        }
+
+        saveOne.disabled = true;
+        const oldTxt = saveOne.textContent;
+        saveOne.textContent = 'Saving…';
+
+        API.post('ia_discuss_agora_setting_save_one', { forum_id: fid, field: field, value: val }).then((res) => {
+          if (!res || !res.success) {
+            const msg = (res && res.data && res.data.message) ? String(res.data.message) : 'Save failed.';
+            if (st) {
+              st.textContent = msg;
+              st.classList.remove('is-working', 'is-ok');
+              st.classList.add('is-bad');
+            }
+            return;
+          }
+
+          if (st) {
+            st.textContent = 'Saved.';
+            st.classList.remove('is-working', 'is-bad');
+            st.classList.add('is-ok');
+          }
+
+          try {
+            const d = res.data || {};
+            const idx = (cache.items || []).findIndex((x) => (parseInt(String(x.forum_id || 0), 10) || 0) === fid);
+            if (idx >= 0) {
+              if (field === 'forum_name' && typeof d.value !== 'undefined') {
+                cache.items[idx].forum_name = String(d.value);
+              }
+              if (field === 'forum_desc' && d.forum_desc_html) {
+                cache.items[idx].forum_desc_html = d.forum_desc_html;
+              }
+              if (field === 'forum_rules') {
+                cache.items[idx].has_rules = (String(d.value || '') !== '') ? 1 : 0;
+              }
+            }
+          } catch (e) {}
+        }).finally(() => {
+          saveOne.disabled = false;
+          saveOne.textContent = oldTxt;
+          if (st) st.classList.remove('is-working');
+        });
+
+        return;
+      }
+
+      const unban = t && t.closest ? t.closest('[data-iad-unban]') : null;
+      if (unban) {
+        e.preventDefault();
+        const fid = parseInt(unban.getAttribute('data-forum-id') || '0', 10) || 0;
+        const uid = parseInt(unban.getAttribute('data-user-id') || '0', 10) || 0;
+        unbanUser(fid, uid, unban);
+        return;
+      }
+
+      const del = t && t.closest ? t.closest('[data-iad-delete-agora]') : null;
+      if (del) {
+        e.preventDefault();
+        const fid = parseInt(del.getAttribute('data-forum-id') || '0', 10) || 0;
+        if (fid) deleteAgora(fid);
+        return;
+      }
+
+      const setUrlBtn = t && t.closest ? t.closest('[data-iad-cover-url-set]') : null;
+      if (setUrlBtn) {
+        e.preventDefault();
+        const fid = parseInt(setUrlBtn.getAttribute('data-forum-id') || '0', 10) || 0;
+        if (!fid) return;
+        const inp = document.querySelector(`[data-iad-cover-url][data-forum-id="${fid}"]`);
+        const url = inp ? String(inp.value || '') : '';
+        const form = setUrlBtn.closest ? setUrlBtn.closest('[data-iad-mod-form]') : null;
+        const st = form ? qs('[data-iad-save-status="cover_url"]', form) : null;
+        if (st) { st.textContent = 'Saving…'; st.classList.remove('is-ok','is-bad'); st.classList.add('is-working'); }
+        API.post('ia_discuss_cover_set', { forum_id: fid, cover_url: url }).then((res) => {
+          if (!res || !res.success) {
+            const msg = (res && res.data && res.data.message) ? String(res.data.message) : 'Cover update failed.';
+            if (st) { st.textContent = msg; st.classList.remove('is-working','is-ok'); st.classList.add('is-bad'); }
+            return;
+          }
+          if (st) { st.textContent = 'Saved.'; st.classList.remove('is-working','is-bad'); st.classList.add('is-ok'); }
+          openSettings(fid);
+        }).finally(() => { if (st) st.classList.remove('is-working'); });
+        return;
+      }
+
+      const clearUrlBtn = t && t.closest ? t.closest('[data-iad-cover-url-clear]') : null;
+      if (clearUrlBtn) {
+        e.preventDefault();
+        const fid = parseInt(clearUrlBtn.getAttribute('data-forum-id') || '0', 10) || 0;
+        if (!fid) return;
+        const form = clearUrlBtn.closest ? clearUrlBtn.closest('[data-iad-mod-form]') : null;
+        const st = form ? qs('[data-iad-save-status="cover_url"]', form) : null;
+        if (st) { st.textContent = 'Saving…'; st.classList.remove('is-ok','is-bad'); st.classList.add('is-working'); }
+        API.post('ia_discuss_cover_set', { forum_id: fid, cover_url: '' }).then((res) => {
+          if (!res || !res.success) {
+            const msg = (res && res.data && res.data.message) ? String(res.data.message) : 'Cover update failed.';
+            if (st) { st.textContent = msg; st.classList.remove('is-working','is-ok'); st.classList.add('is-bad'); }
+            return;
+          }
+          if (st) { st.textContent = 'Saved.'; st.classList.remove('is-working','is-bad'); st.classList.add('is-ok'); }
+          openSettings(fid);
+        }).finally(() => { if (st) st.classList.remove('is-working'); });
+        return;
+      }
+    });
+
+    // Cover file input
+    document.addEventListener('change', (e) => {
+      const inp = e.target;
+      if (!inp || !inp.matches || !inp.matches('[data-iad-cover-file]')) return;
+      const fid = parseInt(inp.getAttribute('data-forum-id') || '0', 10) || 0;
+      const file = (inp.files && inp.files[0]) ? inp.files[0] : null;
+      uploadCover(fid, file, inp);
+    }, true);
+  }
+
+  window.IA_DISCUSS_UI_MODERATION = {
+    bind,
+    renderModerationView,
+    loadMyModeration
+  };
+})();

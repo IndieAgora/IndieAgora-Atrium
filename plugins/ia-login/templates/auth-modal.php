@@ -19,7 +19,7 @@
       <div class="ia-auth-panels">
         <!-- Login -->
         <section class="ia-auth-panel active" data-auth-panel="login" role="tabpanel" aria-label="Login">
-          <form class="ia-auth-form" data-action="ia_auth_login">
+          <form class="ia-auth-form" data-action="ia_user_login">
             <input type="hidden" name="nonce" value="" />
             <input type="hidden" name="redirect_to" value="" data-ia-redirect-to />
 

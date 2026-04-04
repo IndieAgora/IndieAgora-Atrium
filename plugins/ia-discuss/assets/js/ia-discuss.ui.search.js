@@ -118,21 +118,59 @@
   // ---------------------------
   // Suggestions dropdown
   // ---------------------------
-  function ensureSuggestBox(root) {
-    const wrap = qs("[data-iad-search-wrap]", root) || (qs(".iad-search", root) || null);
-    if (!wrap) return null;
+  // NOTE: Discuss frequently renders inside other tab shells (Connect profile, Messages fullscreen, etc)
+  // where ancestor containers can have overflow:hidden; an absolutely-positioned dropdown will be clipped.
+  // To match the previous behaviour (and Connect), suggestions are rendered in a fixed-position "portal"
+  // attached to <body>, and positioned under the search input.
 
-    let box = qs("[data-iad-suggest]", wrap);
+  function ensureSuggestBox(root, input) {
+    if (!input) return null;
+
+    let box = document.querySelector('[data-iad-suggest="portal"]');
     if (box) return box;
 
-    wrap.style.position = "relative";
     box = document.createElement("div");
-    box.setAttribute("data-iad-suggest", "1");
-    box.className = "iad-suggest";
+    box.setAttribute("data-iad-suggest", "portal");
+    box.className = "iad-suggest iad-suggest--portal";
     box.style.display = "none";
-    wrap.appendChild(box);
+
+    // Theme sync: this dropdown is rendered in <body> (portal) so it won't
+    // naturally inherit theme styles scoped under .ia-discuss-root.
+    // We mirror the current theme onto the portal element itself.
+    try {
+      const t = (root && root.getAttribute) ? (root.getAttribute('data-iad-theme') || 'dark') : 'dark';
+      box.setAttribute('data-iad-theme', t);
+    } catch (e) {}
+
+    // Keep the portal theme in sync if the user toggles light/dark.
+    if (root && root.__iadSuggestThemeObs !== true) {
+      try {
+        const mo = new MutationObserver(() => {
+          try {
+            const t = root.getAttribute('data-iad-theme') || 'dark';
+            const b = document.querySelector('[data-iad-suggest="portal"]');
+            if (b) b.setAttribute('data-iad-theme', t);
+          } catch (e) {}
+        });
+        mo.observe(root, { attributes: true, attributeFilter: ['data-iad-theme'] });
+        root.__iadSuggestThemeObs = true;
+      } catch (e) {}
+    }
+
+    document.body.appendChild(box);
     return box;
   }
+
+  function positionSuggestBox(box, input) {
+    if (!box || !input) return;
+    const r = input.getBoundingClientRect();
+    // fixed positioning: respect viewport
+    box.style.position = "fixed";
+    box.style.left = Math.max(8, Math.round(r.left)) + "px";
+    box.style.top = Math.round(r.bottom + 8) + "px";
+    box.style.width = Math.max(200, Math.round(r.width)) + "px";
+  }
+
 
   function hideSuggest(box) {
     if (!box) return;
@@ -140,8 +178,15 @@
     box.innerHTML = "";
   }
 
-  function showSuggest(box) {
+  function showSuggest(box, input) {
     if (!box) return;
+    // Re-assert theme on show in case the portal was created under a
+    // different root instance.
+    try {
+      const r = input && input.closest ? input.closest('.ia-discuss-root') : null;
+      if (r) box.setAttribute('data-iad-theme', r.getAttribute('data-iad-theme') || 'dark');
+    } catch (e) {}
+    positionSuggestBox(box, input);
     box.style.display = "block";
   }
 
@@ -154,12 +199,22 @@
     `;
   }
 
+
   function bindSearchBox(root) {
     const input = qs("[data-iad-search]", root);
     if (!input || input.__iadBound) return;
     input.__iadBound = true;
 
-    const box = ensureSuggestBox(root);
+    const box = ensureSuggestBox(root, input);
+
+    // Keep portal aligned
+    const onReflow = () => {
+      if (!box) return;
+      if (box.style.display === "none") return;
+      positionSuggestBox(box, input);
+    };
+    window.addEventListener("scroll", onReflow, true);
+    window.addEventListener("resize", onReflow);
 
     const runSuggest = debounce((q) => {
       q = String(q || "").trim();
@@ -174,32 +229,18 @@
         const topics = Array.isArray(d.topics) ? d.topics : [];
         const replies = Array.isArray(d.replies) ? d.replies : [];
 
+        // Suggestions dropdown
+        // Order required by Atrium UX: Replies, Topics, Agoras, Users
         const parts = [];
 
-        parts.push(`
-          <button type="button" class="iad-sug-row is-cta" data-iad-sug-open-search data-q="${esc(q)}">
-            Search for <span class="iad-sug-q">“${esc(q)}”</span>
-          </button>
-        `);
-
-        if (users.length) {
-          parts.push(suggestGroup("Users", users.map((u) => `
-            <button type="button" class="iad-sug-row" data-iad-sug-user data-user-id="${u.user_id}" data-username="${esc(u.username || "")}">
-              ${avatarHTML(u.username, u.avatar_url || "")}
+        if (replies.length) {
+          parts.push(suggestGroup("Replies", replies.map((r) => `
+            <button type="button" class="iad-sug-row" data-iad-sug-reply data-topic-id="${r.topic_id}" data-post-id="${r.post_id}">
+              <div class="iad-sug-ico">${iconSVG("reply")}</div>
               <div class="iad-sug-text">
-                <div class="iad-sug-main">${esc(u.username || "")}</div>
-              </div>
-              <div class="iad-sug-icon" aria-hidden="true">${iconSVG("user")}</div>
-            </button>
-          `).join("")));
-        }
-
-        if (agoras.length) {
-          parts.push(suggestGroup("Agoras", agoras.map((a) => `
-            <button type="button" class="iad-sug-row" data-iad-sug-agora data-forum-id="${a.forum_id}" data-forum-name="${esc(a.forum_name || "")}">
-              <div class="iad-sug-ico">${iconSVG("agora")}</div>
-              <div class="iad-sug-text">
-                <div class="iad-sug-main">agora/${esc(a.forum_name || "")}</div>
+                <div class="iad-sug-main">${esc(r.topic_title || "")}</div>
+                <div class="iad-sug-sub">by ${esc(r.username || "")} • ${esc(timeAgo(r.post_time || 0))}</div>
+                <div class="iad-sug-sn">${esc(stripMarkup(r.snippet || ""))}</div>
               </div>
             </button>
           `).join("")));
@@ -218,25 +259,47 @@
           `).join("")));
         }
 
-        if (replies.length) {
-          parts.push(suggestGroup("Replies", replies.map((r) => `
-            <button type="button" class="iad-sug-row" data-iad-sug-reply data-topic-id="${r.topic_id}" data-post-id="${r.post_id}">
-              <div class="iad-sug-ico">${iconSVG("reply")}</div>
+        if (agoras.length) {
+          parts.push(suggestGroup("Agoras", agoras.map((a) => `
+            <button type="button" class="iad-sug-row" data-iad-sug-agora data-forum-id="${a.forum_id}" data-forum-name="${esc(a.forum_name || "")}">
+              <div class="iad-sug-ico">${iconSVG("agora")}</div>
               <div class="iad-sug-text">
-                <div class="iad-sug-main">${esc(r.topic_title || "")}</div>
-                <div class="iad-sug-sub">by ${esc(r.username || "")} • ${esc(timeAgo(r.post_time || 0))}</div>
-                <div class="iad-sug-sn">${esc(stripMarkup(r.snippet || ""))}</div>
+                <div class="iad-sug-main">agora/${esc(a.forum_name || "")}</div>
               </div>
             </button>
           `).join("")));
         }
 
+        if (users.length) {
+          parts.push(suggestGroup("Users", users.map((u) => `
+            <button type="button" class="iad-sug-row" data-iad-sug-user data-user-id="${u.user_id}" data-username="${esc(u.display || u.username || "")}">
+              ${avatarHTML(u.username, u.avatar_url || "")}
+              <div class="iad-sug-text">
+                <div class="iad-sug-main">${esc(u.display || u.username || "")}</div>
+              </div>
+              <div class="iad-sug-icon" aria-hidden="true">${iconSVG("user")}</div>
+            </button>
+          `).join("")));
+        }
+
+        if (!parts.length) {
+          hideSuggest(box);
+          return;
+        }
+
         box.innerHTML = parts.join("");
-        showSuggest(box);
+        showSuggest(box, input);
       });
     }, 160);
 
-    input.addEventListener("input", () => runSuggest(input.value));
+    const runLive = debounce((q) => {
+      q = String(q || "").trim();
+      if (!q || q.length < 2) return;
+      window.dispatchEvent(new CustomEvent("iad:search_live", { detail: { q } }));
+    }, 220);
+
+
+    input.addEventListener("input", () => { runSuggest(input.value); runLive(input.value); });
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
@@ -255,9 +318,10 @@
 
     document.addEventListener("click", (e) => {
       if (!box) return;
-      const wrap = qs(".iad-search", root);
-      if (!wrap) return;
-      if (!wrap.contains(e.target)) hideSuggest(box);
+      // Portal is in <body>; close if click isn't inside the input or the dropdown.
+      if (box.contains(e.target)) return;
+      if (input.contains(e.target)) return;
+      hideSuggest(box);
     });
 
     if (box) {
@@ -318,6 +382,7 @@
   // ---------------------------
   // Results page (tabbed)
   // ---------------------------
+
   function resultsShellHTML(q) {
     return `
       <div class="iad-search-page">
@@ -357,10 +422,10 @@
 
     if (type === "users") {
       return `
-        <button type="button" class="iad-card iad-sr-row${altClass}" data-sr-user data-user-id="${item.user_id}" data-username="${esc(item.username || "")}">
+        <button type="button" class="iad-card iad-sr-row${altClass}" data-sr-user data-user-id="${item.user_id}" data-username="${esc(item.display || item.username || "")}">
           <div class="iad-sr-left">${avatarHTML(item.username, item.avatar_url || "")}</div>
           <div class="iad-sr-mid">
-            <div class="iad-sr-title">${esc(item.username || "")}</div>
+            <div class="iad-sr-title">${esc(item.display || item.username || "")}</div>
             <div class="iad-sr-sub">User</div>
           </div>
           <div class="iad-sr-right">${iconBubble("user")}</div>
@@ -405,6 +470,7 @@
       </button>
     `;
   }
+
 
   function bindResultsClicks(mount) {
     const box = qs("[data-iad-search-results]", mount);
@@ -452,6 +518,7 @@
       }
     });
   }
+
 
   function loadResults(mount, q, type, offset) {
     const box = qs("[data-iad-search-results]", mount);
@@ -536,4 +603,5 @@
     bindSearchBox,
     renderSearchPageInto
   };
+
 })();

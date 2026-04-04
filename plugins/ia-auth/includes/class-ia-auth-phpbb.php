@@ -150,6 +150,10 @@ final class IA_Auth_PHPBB {
         if ($username === '' || $email === '' || $password === '') {
             return ['ok' => false, 'message' => 'Missing fields.'];
         }
+        if (function_exists('ia_goodbye_identifier_is_tombstoned')
+            && (ia_goodbye_identifier_is_tombstoned($username) || ia_goodbye_identifier_is_tombstoned($email))) {
+            return ['ok' => false, 'message' => 'This account was previously deleted. Please use different credentials.'];
+        }
 
         $host   = (string)($cfg['host'] ?? '');
         $port   = (int)($cfg['port'] ?? 3306);
@@ -365,5 +369,293 @@ final class IA_Auth_PHPBB {
         } while ($i < $count);
 
         return $output;
+    }
+
+        // =========================
+    // Account management helpers
+    // =========================
+
+    private function pdo_from_cfg(array $cfg): ?PDO {
+        $host   = (string)($cfg['host'] ?? '');
+        $port   = (int)($cfg['port'] ?? 3306);
+        $db     = (string)($cfg['name'] ?? '');
+        $user   = (string)($cfg['user'] ?? '');
+        $pass   = (string)($cfg['pass'] ?? '');
+        if ($host === '' || $db === '' || $user === '') return null;
+
+        try {
+            $dsn = "mysql:host={$host};port={$port};dbname={$db};charset=utf8mb4";
+            return new PDO($dsn, $user, $pass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
+        } catch (Throwable $e) {
+            $this->log->error('phpbb_db_connect_failed', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    private function cfg_from_engine(): array {
+        if (class_exists('IA_Auth') && method_exists('IA_Auth', 'engine_normalized')) {
+            $e = IA_Auth::engine_normalized();
+            return (array)($e['phpbb'] ?? []);
+        }
+        return [
+            'host' => '',
+            'port' => 3306,
+            'name' => '',
+            'user' => '',
+            'pass' => '',
+            'prefix' => 'phpbb_',
+        ];
+    }
+
+    private function tname(array $cfg, string $short): string {
+        $prefix = (string)($cfg['prefix'] ?? 'phpbb_');
+        return $prefix . $short;
+    }
+
+    private function table_has_column(PDO $pdo, string $table, string $column): bool {
+        try {
+            $st = $pdo->prepare("SHOW COLUMNS FROM {$table} LIKE :column");
+            $st->execute([':column' => $column]);
+            return (bool)$st->fetch(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            $this->log->warn('phpbb_table_has_column_failed', ['table' => $table, 'column' => $column, 'err' => $e->getMessage()]);
+            return false;
+        }
+    }
+
+    public function update_user_fields(int $phpbb_user_id, array $fields, ?array $cfg = null): array {
+        $phpbb_user_id = (int)$phpbb_user_id;
+        if ($phpbb_user_id <= 0) return ['ok' => false, 'message' => 'Bad phpBB user id.'];
+        $cfg = $cfg ?: $this->cfg_from_engine();
+        $pdo = $this->pdo_from_cfg($cfg);
+        if (!$pdo) return ['ok' => false, 'message' => 'phpBB DB not available.'];
+
+        $allowed = ['username', 'username_clean', 'user_email', 'user_password'];
+        $set = [];
+        $params = [':uid' => $phpbb_user_id];
+
+        foreach ($allowed as $k) {
+            if (!array_key_exists($k, $fields)) continue;
+            $set[] = "{$k} = :{$k}";
+            $params[":{$k}"] = (string)$fields[$k];
+        }
+
+        if (!$set) return ['ok' => false, 'message' => 'No fields to update.'];
+
+        try {
+            $users = $this->tname($cfg, 'users');
+            $sql = "UPDATE {$users} SET " . implode(', ', $set) . " WHERE user_id = :uid";
+            $st = $pdo->prepare($sql);
+            $st->execute($params);
+            return ['ok' => true];
+        } catch (Throwable $e) {
+            $this->log->error('phpbb_update_user_fields_failed', ['uid' => $phpbb_user_id, 'err' => $e->getMessage()]);
+            return ['ok' => false, 'message' => 'phpBB update failed.'];
+        }
+    }
+
+    public function deactivate_user(int $phpbb_user_id, ?array $cfg = null): array {
+        $phpbb_user_id = (int)$phpbb_user_id;
+        if ($phpbb_user_id <= 0) return ['ok' => false, 'message' => 'Bad phpBB user id.'];
+        $cfg = $cfg ?: $this->cfg_from_engine();
+        $pdo = $this->pdo_from_cfg($cfg);
+        if (!$pdo) return ['ok' => false, 'message' => 'phpBB DB not available.'];
+
+        try {
+            $users = $this->tname($cfg, 'users');
+            $st = $pdo->prepare("UPDATE {$users} SET user_type=1, user_inactive_reason=3, user_inactive_time=:t WHERE user_id=:uid");
+            $st->execute([':t' => time(), ':uid' => $phpbb_user_id]);
+            return ['ok' => true];
+        } catch (Throwable $e) {
+            $this->log->error('phpbb_deactivate_failed', ['uid' => $phpbb_user_id, 'err' => $e->getMessage()]);
+            return ['ok' => false, 'message' => 'phpBB deactivate failed.'];
+        }
+    }
+
+    public function reactivate_user(int $phpbb_user_id, ?array $cfg = null): array {
+        $phpbb_user_id = (int)$phpbb_user_id;
+        if ($phpbb_user_id <= 0) return ['ok' => false, 'message' => 'Bad phpBB user id.'];
+        $cfg = $cfg ?: $this->cfg_from_engine();
+        $pdo = $this->pdo_from_cfg($cfg);
+        if (!$pdo) return ['ok' => false, 'message' => 'phpBB DB not available.'];
+
+        try {
+            $users = $this->tname($cfg, 'users');
+            $st = $pdo->prepare("UPDATE {$users} SET user_type=0, user_inactive_reason=0, user_inactive_time=0 WHERE user_id=:uid");
+            $st->execute([':uid' => $phpbb_user_id]);
+            return ['ok' => true];
+        } catch (Throwable $e) {
+            $this->log->error('phpbb_reactivate_failed', ['uid' => $phpbb_user_id, 'err' => $e->getMessage()]);
+            return ['ok' => false, 'message' => 'phpBB reactivate failed.'];
+        }
+    }
+
+    public function reactivate_if_deactivated(int $phpbb_user_id, ?array $cfg = null): void {
+        $phpbb_user_id = (int)$phpbb_user_id;
+        if ($phpbb_user_id <= 0) return;
+        $cfg = $cfg ?: $this->cfg_from_engine();
+        $pdo = $this->pdo_from_cfg($cfg);
+        if (!$pdo) return;
+
+        try {
+            $users = $this->tname($cfg, 'users');
+            $st = $pdo->prepare("SELECT user_type FROM {$users} WHERE user_id=:uid");
+            $st->execute([':uid' => $phpbb_user_id]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            $ut = (int)($row['user_type'] ?? 0);
+            if ($ut === 1) {
+                $u = $pdo->prepare("UPDATE {$users} SET user_type=0, user_inactive_reason=0, user_inactive_time=0 WHERE user_id=:uid");
+                $u->execute([':uid' => $phpbb_user_id]);
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+
+    public function anonymize_user_content(int $phpbb_user_id, string $deleted_name = 'deleted user', ?array $cfg = null): array {
+        $phpbb_user_id = (int)$phpbb_user_id;
+        if ($phpbb_user_id <= 0) return ['ok' => false, 'message' => 'Bad phpBB user id.'];
+        $cfg = $cfg ?: $this->cfg_from_engine();
+        $pdo = $this->pdo_from_cfg($cfg);
+        if (!$pdo) return ['ok' => false, 'message' => 'phpBB DB not available.'];
+
+        $uid = $phpbb_user_id;
+        $name = (string)$deleted_name;
+
+        try {
+            $topics = $this->tname($cfg, 'topics');
+            $posts  = $this->tname($cfg, 'posts');
+
+            // Topics
+            $st = $pdo->prepare("UPDATE {$topics} SET topic_poster=1 WHERE topic_poster=:uid");
+            $st->execute([':uid' => $uid]);
+            $st = $pdo->prepare("UPDATE {$topics} SET topic_first_poster_id=1, topic_first_poster_name=:n WHERE topic_first_poster_id=:uid");
+            $st->execute([':uid' => $uid, ':n' => $name]);
+            $st = $pdo->prepare("UPDATE {$topics} SET topic_last_poster_id=1, topic_last_poster_name=:n WHERE topic_last_poster_id=:uid");
+            $st->execute([':uid' => $uid, ':n' => $name]);
+
+            // Posts
+            $st = $pdo->prepare("UPDATE {$posts} SET poster_id=1, post_username=:n WHERE poster_id=:uid");
+            $st->execute([':uid' => $uid, ':n' => $name]);
+
+            return ['ok' => true];
+        } catch (Throwable $e) {
+            $this->log->error('phpbb_anonymize_failed', ['uid' => $uid, 'err' => $e->getMessage()]);
+            return ['ok' => false, 'message' => 'phpBB anonymize failed.'];
+        }
+    }
+
+    public function delete_user_preserve_posts(int $phpbb_user_id, string $deleted_name = 'deleted user', ?array $cfg = null): array {
+        $phpbb_user_id = (int)$phpbb_user_id;
+        if ($phpbb_user_id <= 0) return ['ok' => false, 'message' => 'Bad phpBB user id.'];
+        $cfg = $cfg ?: $this->cfg_from_engine();
+        $pdo = $this->pdo_from_cfg($cfg);
+        if (!$pdo) return ['ok' => false, 'message' => 'phpBB DB not available.'];
+
+        try {
+            $pdo->beginTransaction();
+            $topics = $this->tname($cfg, 'topics');
+            $posts  = $this->tname($cfg, 'posts');
+            $users  = $this->tname($cfg, 'users');
+
+            // Reassign authored content to anonymous/deleted-visible user in a schema-tolerant way.
+            if ($this->table_has_column($pdo, $posts, 'poster_id')) {
+                if ($this->table_has_column($pdo, $posts, 'post_username')) {
+                    $st = $pdo->prepare("UPDATE {$posts} SET poster_id=1, post_username=:dn WHERE poster_id=:uid");
+                    $st->execute([':dn' => $deleted_name, ':uid' => $phpbb_user_id]);
+                } else {
+                    $st = $pdo->prepare("UPDATE {$posts} SET poster_id=1 WHERE poster_id=:uid");
+                    $st->execute([':uid' => $phpbb_user_id]);
+                }
+            }
+
+            $topic_sets = [];
+            $topic_params = [':dn' => $deleted_name, ':uid' => $phpbb_user_id];
+            if ($this->table_has_column($pdo, $topics, 'topic_poster')) {
+                $topic_sets[] = 'topic_poster=1';
+            }
+            if ($this->table_has_column($pdo, $topics, 'topic_first_poster_id')) {
+                $topic_sets[] = 'topic_first_poster_id=1';
+            }
+            if ($this->table_has_column($pdo, $topics, 'topic_last_poster_id')) {
+                $topic_sets[] = 'topic_last_poster_id=1';
+            }
+            if ($this->table_has_column($pdo, $topics, 'topic_first_poster_name')) {
+                $topic_sets[] = 'topic_first_poster_name=:dn';
+            }
+            if ($this->table_has_column($pdo, $topics, 'topic_last_poster_name')) {
+                $topic_sets[] = 'topic_last_poster_name=:dn';
+            }
+            if ($topic_sets) {
+                $topic_where = [];
+                if ($this->table_has_column($pdo, $topics, 'topic_poster')) {
+                    $topic_where[] = 'topic_poster=:uid';
+                }
+                if ($this->table_has_column($pdo, $topics, 'topic_first_poster_id')) {
+                    $topic_where[] = 'topic_first_poster_id=:uid';
+                }
+                if ($this->table_has_column($pdo, $topics, 'topic_last_poster_id')) {
+                    $topic_where[] = 'topic_last_poster_id=:uid';
+                }
+                if ($topic_where) {
+                    $st = $pdo->prepare("UPDATE {$topics} SET " . implode(', ', $topic_sets) . " WHERE " . implode(' OR ', $topic_where));
+                    $st->execute($topic_params);
+                }
+            }
+
+            // Tombstone the user record (do not DELETE). Build this dynamically because some hosts/schema variants
+            // do not expose every phpBB inactivity column even when the core user table exists.
+            $rand = bin2hex(random_bytes(16));
+            $tomb_username = 'deleted_' . $phpbb_user_id;
+            $tomb_clean = strtolower($tomb_username);
+            $tomb_email = 'deleted+' . $phpbb_user_id . '@invalid.local';
+            $tomb_pass = password_hash($rand, PASSWORD_BCRYPT);
+
+            $user_sets = [];
+            $user_params = [':uid' => $phpbb_user_id];
+            if ($this->table_has_column($pdo, $users, 'username')) {
+                $user_sets[] = 'username=:u';
+                $user_params[':u'] = $tomb_username;
+            }
+            if ($this->table_has_column($pdo, $users, 'username_clean')) {
+                $user_sets[] = 'username_clean=:uc';
+                $user_params[':uc'] = $tomb_clean;
+            }
+            if ($this->table_has_column($pdo, $users, 'user_email')) {
+                $user_sets[] = 'user_email=:e';
+                $user_params[':e'] = $tomb_email;
+            }
+            if ($this->table_has_column($pdo, $users, 'user_password')) {
+                $user_sets[] = 'user_password=:p';
+                $user_params[':p'] = $tomb_pass;
+            }
+            if ($this->table_has_column($pdo, $users, 'user_type')) {
+                $user_sets[] = 'user_type=1';
+            }
+            if ($this->table_has_column($pdo, $users, 'user_inactive_reason')) {
+                $user_sets[] = 'user_inactive_reason=3';
+            }
+            if ($this->table_has_column($pdo, $users, 'user_inactive_time')) {
+                $user_sets[] = 'user_inactive_time=:t';
+                $user_params[':t'] = time();
+            }
+            if (!$user_sets) {
+                throw new RuntimeException('No supported phpBB user tombstone columns found.');
+            }
+
+            $st = $pdo->prepare("UPDATE {$users} SET " . implode(', ', $user_sets) . " WHERE user_id=:uid");
+            $st->execute($user_params);
+
+            $pdo->commit();
+            return ['ok' => true];
+        } catch (Throwable $e) {
+            try { $pdo->rollBack(); } catch (Throwable $e2) {}
+            $this->log->error('phpbb_delete_user_failed', ['uid' => $phpbb_user_id, 'err' => $e->getMessage()]);
+            error_log('[ia_auth_phpbb::delete_user_preserve_posts] uid=' . $phpbb_user_id . ' err=' . $e->getMessage());
+            return ['ok' => false, 'message' => 'phpBB delete failed: ' . $e->getMessage()];
+        }
     }
 }

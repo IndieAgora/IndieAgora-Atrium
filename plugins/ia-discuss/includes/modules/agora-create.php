@@ -90,15 +90,37 @@ final class IA_Discuss_Module_Agora_Create implements IA_Discuss_Module_Interfac
     if ($forum_id <= 0) ia_discuss_json_err('Failed to create agora (no id)', 500);
 
     // Make creator a moderator (display + badge) via phpBB moderator cache
-    $db->insert(
-      "{$p}moderator_cache",
+    $mods_table = "{$p}moderator_cache";
+    $mods_ok = $db->insert(
+      $mods_table,
       [
         'forum_id' => $forum_id,
         'user_id'  => $creator_id,
         'username' => $creator_name ?: '',
+        'group_id' => 0,
+        'group_name' => '',
+        'display_on_index' => 1,
       ],
-      ['%d','%d','%s']
+      ['%d','%d','%s','%d','%s','%d']
     );
+
+    if (!$mods_ok || !empty($db->last_error)) {
+      ia_discuss_log('CreateAgora: moderator_cache insert failed forum_id=' . $forum_id . ' user_id=' . $creator_id . ' err=' . $db->last_error);
+      ia_discuss_json_err('Agora created but moderator assignment failed', 500);
+    }
+
+    // Verify the marker exists (prevents silent partial writes)
+    $exists = (int)$db->get_var(
+      $db->prepare(
+        "SELECT 1 FROM {$mods_table} WHERE forum_id = %d AND user_id = %d LIMIT 1",
+        $forum_id,
+        $creator_id
+      )
+    );
+    if ($exists !== 1) {
+      ia_discuss_log('CreateAgora: moderator_cache verification missing forum_id=' . $forum_id . ' user_id=' . $creator_id);
+      ia_discuss_json_err('Agora created but moderator assignment could not be verified', 500);
+    }
 
     ia_discuss_json_ok([
       'forum_id'        => $forum_id,

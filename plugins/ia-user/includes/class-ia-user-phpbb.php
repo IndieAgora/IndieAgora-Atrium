@@ -86,6 +86,10 @@ final class IA_User_PHPBB {
         if ($username === '' || $email === '' || $password === '') {
             return ['ok' => false, 'message' => 'Missing fields.'];
         }
+        if (function_exists('ia_goodbye_identifier_is_tombstoned')
+            && (ia_goodbye_identifier_is_tombstoned($username) || ia_goodbye_identifier_is_tombstoned($email))) {
+            return ['ok' => false, 'message' => 'This account was previously deleted. Please use different credentials.'];
+        }
 
         $username_clean = strtolower($username);
 

@@ -35,23 +35,6 @@
     return String(n);
   }
 
-function isLoggedIn() {
-  const shell = NS.util.qs("#ia-stream-shell");
-  return !!(shell && shell.getAttribute("data-logged-in") === "1");
-}
-
-function deriveChannelUri(channelUrl, channelName) {
-  try {
-    if (channelUrl) {
-      const u = new URL(channelUrl);
-      const host = u.host || "";
-      const name = (channelName || "").replace(/^@/, "");
-      if (host && name) return "@" + name + "@" + host;
-    }
-  } catch (e) {}
-  return (channelName || "").replace(/^@/, "");
-}
-
   function cardHtml(ch) {
     const id = ch && ch.id ? String(ch.id) : "";
     const name = ch && (ch.display_name || ch.name) ? (ch.display_name || ch.name) : "Channel";
@@ -72,52 +55,11 @@ function deriveChannelUri(channelUrl, channelName) {
             '<div class="ia-stream-channel-meta">' +
               'Followers: ' + esc(followers) +
             '</div>' +
-            (isLoggedIn() ? (
-              '<div class="ia-stream-channel-actions" data-channel-url="' + esc(url) + '" data-channel-name="' + esc(ch && (ch.name || ch.display_name) ? (ch.name || ch.display_name) : name) + '">' +
-                '<button type="button" class="ia-stream-channel-action ia-stream-act ia-stream-act-subscribe" data-act="follow">Subscribe</button>' +
-                '<span class="ia-stream-channel-status"></span>' +
-              '</div>'
-            ) : '') +
           '</div>' +
         '</div>' +
       '</article>'
     );
   }
-
-  function bindChannelDelegation() {
-    const M = mount();
-    if (!M || M.__iaStreamChannelBound) return;
-    M.__iaStreamChannelBound = true;
-
-    NS.util.on(M, "click", async function (ev) {
-      const t = ev && ev.target ? ev.target : null;
-      if (!t) return;
-
-      const btn = (t.closest ? t.closest(".ia-stream-channel-action") : null);
-      if (!btn) return;
-
-      const act = btn.getAttribute("data-act") || "";
-      if (act !== "follow") return;
-
-      const wrap = btn.closest(".ia-stream-channel-actions");
-      const status = wrap ? wrap.querySelector(".ia-stream-channel-status") : null;
-      const url = wrap ? (wrap.getAttribute("data-channel-url") || "") : "";
-      const name = wrap ? (wrap.getAttribute("data-channel-name") || "") : "";
-      const uri = deriveChannelUri(url, name);
-
-      try {
-        if (status) status.textContent = "Working…";
-        const r = await NS.api.subscribe(uri);
-        if (status) status.textContent = (r && r.ok) ? "Subscribed." : ((r && (r.message || r.error)) || "Subscribe failed.");
-      } catch (e) {
-        if (status) status.textContent = "Subscribe failed.";
-      }
-
-      ev.preventDefault();
-      ev.stopPropagation();
-    });
-  }
-
 
   NS.ui.channels.load = async function () {
     renderPlaceholder("Loading channels…");
@@ -145,7 +87,6 @@ function deriveChannelUri(channelUrl, channelName) {
     if (!M) return;
 
     M.innerHTML = items.map(cardHtml).join("");
-    bindChannelDelegation();
   };
 
   NS.util.on(window, "ia:stream:tab", function (ev) {

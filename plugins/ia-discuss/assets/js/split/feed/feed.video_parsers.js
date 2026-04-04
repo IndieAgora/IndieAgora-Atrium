@@ -1,57 +1,24 @@
-"use strict";
-          </div>
-
-          <div class="iad-videomodal-body" data-iad-videomodal-body></div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(wrap.firstElementChild);
-    m = document.querySelector("[data-iad-videomodal]");
-
-    m.querySelectorAll("[data-iad-videomodal-close]").forEach((x) => {
-      x.addEventListener("click", () => closeVideoModal());
-    });
-
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && m && !m.hasAttribute("hidden")) {
-        closeVideoModal();
-      }
-    });
-
-    return m;
+  function decodeHtmlUrl(url) {
+    const YT = window.IA_DISCUSS_YOUTUBE || {};
+    if (YT.decodeHtmlUrl) return YT.decodeHtmlUrl(url);
+    const raw = String(url || "").trim();
+    if (!raw) return "";
+    return raw
+      .replace(/&amp;/gi, '&')
+      .replace(/&#038;/gi, '&')
+      .replace(/&#x26;/gi, '&');
   }
 
-  function closeVideoModal() {
-    var m = document.querySelector("[data-iad-videomodal]");
-    if (!m) return;
-
-    var body = m.querySelector("[data-iad-videomodal-body]");
-    if (body) body.innerHTML = ""; // stop playback
-    m.setAttribute("hidden", "");
-    lockPageScroll(false);
-  }
-
-  function parseYouTubeId(url) {
-    try {
-      var u = new URL(url);
-      if (u.hostname.includes("youtu.be")) {
-        var id = u.pathname.replace(/^\/+/, "").split("/")[0];
-        return id || null;
-      }
-      if (u.hostname.includes("youtube.com")) {
-        var id = u.searchParams.get("v");
-        return id || null;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
+  function parseYouTubeMeta(url) {
+    const YT = window.IA_DISCUSS_YOUTUBE || {};
+    if (YT.parseYouTubeMeta) return YT.parseYouTubeMeta(url);
+    return null;
   }
 
   function parsePeerTubeUuid(url) {
     try {
-      var u = new URL(url);
-      var m = u.pathname.match(/\/videos\/watch\/([^\/\?\#]+)/i);
+      const u = new URL(decodeHtmlUrl(url));
+      const m = u.pathname.match(/\/videos\/watch\/([^\/\?\#]+)/i);
       if (m && m[1]) return m[1];
       return null;
     } catch (e) {
@@ -60,24 +27,30 @@
   }
 
   function buildVideoMeta(videoUrl) {
-    var url = String(videoUrl || "").trim();
+    const url = String(videoUrl || "").trim();
     if (!url) return null;
 
-    var yid = parseYouTubeId(url);
-    if (yid) {
+    const yt = parseYouTubeMeta(url);
+    if (yt && (yt.id || yt.isPlaylist)) {
+      const YT = window.IA_DISCUSS_YOUTUBE || {};
+      const embedUrl = YT.buildEmbed ? YT.buildEmbed(yt) : "";
+      const thumbUrl = YT.thumbUrl ? YT.thumbUrl(yt) : "";
       return {
-        kind: "youtube",
+        kind: yt.isPlaylist ? "youtube-playlist" : "youtube",
         url,
-        embedUrl: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(yid)}`,
-        thumbUrl: `https://img.youtube.com/vi/${encodeURIComponent(yid)}/hqdefault.jpg`
+        isShort: !!yt.isShort,
+        isPlaylist: !!yt.isPlaylist,
+        embedUrl,
+        thumbUrl,
+        openUrl: YT.buildOpenUrl ? YT.buildOpenUrl(yt) : url
       };
     }
 
-    var uuid = parsePeerTubeUuid(url);
+    const uuid = parsePeerTubeUuid(url);
     if (uuid) {
       try {
-        var u = new URL(url);
-        var origin = u.origin;
+        const u = new URL(decodeHtmlUrl(url));
+        const origin = u.origin;
         return {
           kind: "peertube",
           url,
@@ -87,6 +60,16 @@
       } catch (e) {}
     }
 
-    var lu = url.toLowerCase();
+    const lu = url.toLowerCase();
     if (/\.(mp4|webm|mov)(\?|$)/i.test(lu)) {
-;
+      return { kind: "file", url, embedUrl: url, thumbUrl: "" };
+    }
+
+    return { kind: "iframe", url, embedUrl: url, thumbUrl: "" };
+  }
+
+  // Back-compat alias (older handler name)
+  function detectVideoMeta(videoUrl) {
+    return buildVideoMeta(videoUrl);
+  }
+

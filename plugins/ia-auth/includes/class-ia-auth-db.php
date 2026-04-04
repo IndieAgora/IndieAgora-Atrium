@@ -125,6 +125,20 @@ class IA_Auth_DB {
 
         $created = false;
 
+        if (function_exists('ia_goodbye_identifier_is_tombstoned')) {
+            if (($email !== '' && ia_goodbye_identifier_is_tombstoned($email))
+                || ($username_clean !== '' && ia_goodbye_identifier_is_tombstoned($username_clean))
+                || ($username !== '' && ia_goodbye_identifier_is_tombstoned($username))) {
+                $this->log->error('shadow_user_blocked_by_tombstone', [
+                    'phpbb_user_id' => $phpbb_user_id,
+                    'email' => $email,
+                    'username_clean' => $username_clean,
+                    'username' => $username,
+                ]);
+                return 0;
+            }
+        }
+
         // Try to find an existing user by meta mapping.
         $existing = $this->find_wp_user_by_phpbb_id($phpbb_user_id);
         if ($existing) {
@@ -353,11 +367,24 @@ class IA_Auth_DB {
             $this->wpdb->prepare("SELECT phpbb_user_id FROM $table WHERE phpbb_user_id=%d", $phpbb_user_id)
         );
 
+        $ok = false;
         if ($exists) {
-            $this->wpdb->update($table, $data, ['phpbb_user_id' => $phpbb_user_id]);
+            $r = $this->wpdb->update($table, $data, ['phpbb_user_id' => $phpbb_user_id]);
+            // update() returns false on error, 0 if no change, >0 if updated.
+            $ok = ($r !== false);
         } else {
             $data['phpbb_user_id'] = $phpbb_user_id;
-            $this->wpdb->insert($table, $data);
+            $r = $this->wpdb->insert($table, $data);
+            $ok = (bool)$r;
+        }
+
+        if (!$ok) {
+            $this->log->error('store_peertube_token_failed', [
+                'phpbb_user_id' => $phpbb_user_id,
+                'table' => $table,
+                'last_error' => (string)$this->wpdb->last_error,
+            ]);
+            return false;
         }
 
         return true;
@@ -443,4 +470,17 @@ class IA_Auth_DB {
         delete_option('ia_auth_verify_' . $token);
     }
 
+
+    public function get_tokens_by_phpbb_user_id(int $phpbb_user_id): ?array {
+        $phpbb_user_id = (int)$phpbb_user_id;
+        if ($phpbb_user_id <= 0) return null;
+
+        $this->maybe_install();
+        $table = $this->wpdb->prefix . 'ia_peertube_user_tokens';
+        $row = $this->wpdb->get_row(
+            $this->wpdb->prepare("SELECT * FROM $table WHERE phpbb_user_id=%d LIMIT 1", $phpbb_user_id),
+            ARRAY_A
+        );
+        return is_array($row) && !empty($row) ? $row : null;
+    }
 }

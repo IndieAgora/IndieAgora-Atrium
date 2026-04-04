@@ -249,6 +249,16 @@ final class IA_Engine {
     }
 
     public static function peertube_api_token(): string {
+        // On-demand refresh (no manual ACP babysitting, and works even if WP-Cron is disabled).
+        if (class_exists('IA_Engine_PeerTube_Token') && method_exists('IA_Engine_PeerTube_Token', 'refresh_if_needed')) {
+            try {
+                IA_Engine_PeerTube_Token::refresh_if_needed();
+            } catch (Throwable $e) {
+                // Never fatal: token refresh should not take the site down.
+            }
+        }
+
+        // Re-read config after a possible refresh.
         $c = self::peertube_api();
         if (!empty($c['token'])) return (string)$c['token'];
         if (!empty($c['admin_access_token'])) return (string)$c['admin_access_token'];

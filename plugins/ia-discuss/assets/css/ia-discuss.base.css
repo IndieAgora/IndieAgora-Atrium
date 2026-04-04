@@ -81,6 +81,19 @@
   color: var(--iad-text);
 }
 
+/* Links should stay in-theme (white) rather than browser default blue */
+.ia-discuss-root a,
+.ia-discuss-root a:visited,
+.iad-shell a,
+.iad-shell a:visited{
+  color: var(--iad-text);
+  text-decoration: none;
+}
+.ia-discuss-root a:hover,
+.iad-shell a:hover{
+  text-decoration: underline;
+}
+
 /* Common link-button */
 .iad-link{
   appearance:none;
@@ -103,6 +116,17 @@
 .iad-dotsep{
   margin: 0 6px;
   color: rgba(255,255,255,0.32);
+}
+
+/* Connect avatar (used in feed + topic) */
+.iad-uava{
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.06);
+  flex: 0 0 auto;
 }
 
 .iad-btn{
@@ -135,6 +159,66 @@
   font-family: var(--iad-font-mono);
   font-size: 13px;
   line-height: 1.45;
+}
+
+/* Reddit-like code block styling (scoped to BBCode output via .iad-code-block) */
+.iad-post-body .iad-code-block{
+  display: block;
+  position: relative;
+  margin: 10px 0;
+
+  /* Terminal look */
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.00) 22px),
+              rgba(0,0,0,0.88);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.04),
+    0 10px 28px rgba(0,0,0,0.22);
+
+  /* Make room for the "terminal" bar */
+  padding: 34px 14px 14px;
+
+  overflow-x: auto;
+  white-space: pre;
+  line-height: 1.4;
+  color: rgba(215, 255, 220, 0.92);
+}
+.iad-post-body .iad-code-block::before{
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 22px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  background: rgba(255,255,255,0.04);
+}
+.iad-post-body .iad-code-block::after{
+  content: "●  ●  ●";
+  position: absolute;
+  top: 3px;
+  left: 10px;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.35);
+}
+.iad-post-body .iad-code-block code{
+  display:block;
+  white-space: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-post-body .iad-code-block{
+  /* Keep terminal aesthetic in light mode */
+  border-color: rgba(0,0,0,0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.04),
+    0 10px 28px rgba(0,0,0,0.14);
 }
 
 /* Slightly nicer selection */
@@ -174,6 +258,15 @@
   background:rgba(255,255,255,.03);
 }
 .iad-linkcard:hover{ background:rgba(255,255,255,.06); }
+.iad-linkcard,
+.iad-linkcard:visited{
+  color: rgba(255,255,255,0.92);
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-linkcard,
+.ia-discuss-root[data-iad-theme="light"] .iad-linkcard:visited{
+  color: rgba(0,0,0,0.84);
+}
+
 .iad-linkcard-thumb{flex:0 0 96px;max-width:96px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.06);}
 .iad-linkcard-thumb img{display:block;width:96px;height:64px;object-fit:cover;}
 .iad-linkcard-main{ display:flex; flex-direction:column; min-width:0; gap:2px; }
@@ -186,3 +279,61 @@
 
 /* Quote header */
 .iad-quote-meta{ font-size:12px; opacity:.8; margin:0 0 8px 0; }
+
+
+/* Follow/Block mini icon buttons */
+.iad-relbtn{ margin-left:6px; }
+.iad-relbtn.is-on .iad-plus{ display:none; }
+
+
+/* Feed Sort Dropdown – Reddit-style pill */
+.ia-discuss-feed-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-left: 6px;
+}
+
+.ia-discuss-feed-sort select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #fff;
+  padding: 6px 28px 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ia-discuss-feed-sort select:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.ia-discuss-feed-sort select:focus {
+  outline: none;
+  border-color: #ff6a00;
+  box-shadow: 0 0 0 2px rgba(255,106,0,0.25);
+}
+
+.ia-discuss-feed-sort::after {
+  content: '';
+  position: relative;
+}
+
+
+.ia-discuss-root .iad-screen-reader-text{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0,0,0,0) !important;
+  white-space:nowrap !important;
+  border:0 !important;
+}

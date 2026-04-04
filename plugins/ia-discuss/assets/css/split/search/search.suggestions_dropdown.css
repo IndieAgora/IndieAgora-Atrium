@@ -12,6 +12,58 @@
   z-index: 9999;
 }
 
+/*
+  Theme-aware suggestions box.
+  The suggestions dropdown can be rendered in a body portal (fixed positioned) which may place it
+  outside `.ia-discuss-root[data-iad-theme=...]` selector chains.
+  JS sets `data-iad-theme` directly on the box; use that for reliable theming.
+*/
+.iad-suggest[data-iad-theme="light"]{
+  background: rgba(255,255,255,0.78);
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.iad-suggest[data-iad-theme="light"] .iad-sug-row{
+  color: rgba(0,0,0,0.86);
+}
+.iad-suggest[data-iad-theme="light"] .iad-sug-row:hover{
+  background: rgba(0,0,0,0.04);
+}
+.iad-suggest[data-iad-theme="light"] .iad-sug-row.is-cta{
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+.iad-suggest[data-iad-theme="light"] .iad-sg-title{
+  color: rgba(0,0,0,0.55);
+  opacity: 1;
+}
+.iad-suggest[data-iad-theme="light"] .iad-sug-sub,
+.iad-suggest[data-iad-theme="light"] .iad-sug-sn{
+  color: rgba(0,0,0,0.55);
+  opacity: 1;
+}
+.iad-suggest[data-iad-theme="light"] .iad-sug-ico,
+.iad-suggest[data-iad-theme="light"] .iad-av{
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.10);
+}
+.iad-suggest[data-iad-theme="light"] .iad-sug-icon{
+  opacity: 0.78;
+}
+
+/* When Discuss is embedded inside other shells with overflow clipping, render suggestions in a body portal. */
+.iad-suggest.iad-suggest--portal{
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: auto;
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  z-index: 1000000;
+}
+
 .iad-sug-row{
   width:100%;
   display:flex;

@@ -7,6 +7,36 @@
   border: 0;
 }
 
+.iad-att-iframe.is-vertical {
+  aspect-ratio: 9/16;
+  width: min(300px, 100%);
+  margin: 0 auto;
+}
+
+/* Topic view: keep inline video players smaller on desktop so they don't dominate the thread */
+.iad-topic-modal .iad-attwrap{
+  align-items: start;
+}
+
+.iad-topic-modal .iad-att-media.iad-att-video{
+  width: min(720px, 100%);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+@media (min-width: 980px){
+  .iad-topic-modal .iad-att-media.iad-att-video{
+    width: 640px;
+    max-width: 640px;
+  }
+}
+
+.iad-topic-modal .iad-att-media.iad-att-video video.iad-att-video,
+.iad-topic-modal .iad-att-media.iad-att-video .iad-att-iframe{
+  width: 100%;
+  max-width: 100%;
+}
+
 .iad-compose-overlay {
   position: absolute;
   inset: 0;
@@ -129,7 +159,7 @@
 .iad-backtop{
   position: fixed;
   right: 18px;
-  bottom: 92px; /* sits above the bottom nav bar */
+  bottom: 150px; /* sits above the topic nav + bottom nav bar */
   z-index: 9999;
   border: 1px solid rgba(255,255,255,0.18);
   background: rgba(0,0,0,0.55);
@@ -142,6 +172,49 @@
   backdrop-filter: blur(6px);
 }
 .iad-backtop:hover{ background: rgba(0,0,0,0.70); }
+
+/* Topic-to-topic navigation (topic view) */
+.iad-topic-nav{
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 92px; /* sits above Atrium bottom nav bar */
+  z-index: 9999;
+  height: 36px;
+  pointer-events: none; /* allow clicks only on buttons */
+}
+
+.iad-topic-navbtn{
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  width: 44px;
+  height: 36px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  bottom: 0;
+  pointer-events: auto;
+}
+
+.iad-topic-navbtn.is-prev{ left: 14px; }
+.iad-topic-navbtn.is-top{
+  left: 50%;
+  transform: translateX(-50%);
+}
+.iad-topic-navbtn.is-next{ right: 14px; }
+.iad-topic-navbtn:hover{ background: rgba(255,255,255,0.10); }
+.iad-topic-navbtn:active{ transform: translateY(1px); }
+.iad-topic-navbtn[disabled]{
+  opacity: 0.35;
+  cursor: default;
+}
 
 /* Collapse control (Reddit-style expand/collapse of body) */
 .iad-collapse{
@@ -164,3 +237,99 @@
 
 /* Patch: collapse removed */
 .iad-collapse{display:none!important;}
+
+
+/* Housekeeping: topic view close button (icon only) */
+.iad-topic-modal .iad-modal-top .iad-x{
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* Discuss post signature (from Connect bio) */
+.iad-post-signature{margin-top:10px;}
+.iad-post-sig-divider{height:1px;width:100%;background:rgba(255,255,255,.12);margin:8px 0;}
+.iad-post-sig-body{font-size:13px;line-height:1.4;color:rgba(255,255,255,.78);}
+
+
+.iad-topic-modal .iad-att-media.iad-att-video .iad-att-iframe.is-vertical{
+  width: min(240px, 100%);
+  max-width: min(240px, 100%);
+  margin: 0 auto;
+}
+
+
+.iad-att-playlist,
+.iad-playlist-card{
+  display:block;
+}
+.iad-playlist-card{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  width:min(720px,100%);
+  margin:0 auto;
+  padding:14px;
+  border:1px solid rgba(255,255,255,0.12);
+  border-radius:18px;
+  background:rgba(255,255,255,0.04);
+  color:inherit;
+  text-decoration:none;
+  box-sizing:border-box;
+}
+.iad-playlist-card:hover{
+  background:rgba(255,255,255,0.06);
+}
+.iad-playlist-thumb{
+  display:block;
+  width:min(220px,38vw);
+  max-width:220px;
+  aspect-ratio:16/9;
+  border-radius:14px;
+  overflow:hidden;
+  background:rgba(255,255,255,0.08);
+  flex:0 0 auto;
+}
+.iad-playlist-thumb img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.iad-playlist-thumb-empty{
+  background:rgba(255,255,255,0.08);
+}
+.iad-playlist-body{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+}
+.iad-playlist-kicker{
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:rgba(255,255,255,0.72);
+}
+.iad-playlist-title{
+  font-size:16px;
+  line-height:1.35;
+  color:rgba(255,255,255,0.94);
+}
+@media (max-width:640px){
+  .iad-playlist-card{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .iad-playlist-thumb{
+    width:100%;
+    max-width:none;
+  }
+}

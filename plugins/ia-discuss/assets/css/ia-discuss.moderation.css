@@ -1,0 +1,394 @@
+/* Moderation / Agora settings */
+
+/*
+  The settings form renders inside a fullscreen modal sheet.
+  Keep the primary actions visible without needing to scroll.
+*/
+
+.iad-mod-form .iad-form-row{ margin: 0 0 12px; }
+
+/* Atrium's bottom nav can overlap the end of long modals.
+   Give the settings form extra breathing room so the Danger Zone isn't clipped. */
+.iad-mod-form{
+  padding-bottom: 140px;
+  font-family: var(--iad-font-sans);
+}
+
+.iad-mod-form .iad-btn,
+.iad-mod-form .iad-input,
+.iad-mod-form .iad-textarea,
+.iad-mod-form .iad-label,
+.iad-mod-form .iad-help{
+  font-family: var(--iad-font-sans);
+}
+
+.iad-mod-form .iad-label{
+  display:block;
+  font-size: 12px;
+  color: var(--iad-muted);
+  margin: 10px 0 6px;
+}
+
+.iad-mod-form .iad-input,
+.iad-mod-form .iad-textarea{
+  width: 100%;
+  border: 1px solid var(--iad-border);
+  border-radius: var(--iad-radius);
+  background: rgba(255,255,255,0.05);
+  color: var(--iad-text);
+  padding: 10px;
+}
+
+.iad-mod-form .iad-textarea{ min-height: 140px; resize: vertical; }
+
+.iad-form-actions{
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display:flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 0 2px;
+  margin-top: 12px;
+
+  background: linear-gradient(180deg, rgba(10,12,16,0.00), rgba(10,12,16,0.92) 40%, rgba(10,12,16,0.98));
+  backdrop-filter: blur(6px);
+}
+
+.iad-form-actions .iad-btn{ white-space: nowrap; }
+
+.iad-btn-primary{
+  border-color: rgba(71,179,255,0.35);
+  background: rgba(71,179,255,0.14);
+}
+.iad-btn-primary:hover{ background: rgba(71,179,255,0.22); }
+
+.iad-btn-danger{
+  border-color: rgba(255,70,70,0.35);
+  background: rgba(255,70,70,0.12);
+}
+.iad-btn-danger:hover{ background: rgba(255,70,70,0.18); }
+
+/* Light mode: keep sticky bar readable */
+[data-iad-theme="light"] .iad-form-actions{
+  background: linear-gradient(180deg, rgba(255,255,255,0.00), rgba(255,255,255,0.92) 40%, rgba(255,255,255,0.98));
+}
+
+.iad-mod-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.iad-mod-card{
+  border: 1px solid var(--iad-border);
+  border-radius: var(--iad-radius2);
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  box-shadow: 0 10px 24px rgba(0,0,0,0.25);
+}
+
+[data-iad-theme="light"] .iad-mod-card{
+  background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.84));
+  box-shadow: 0 10px 24px rgba(0,0,0,0.10);
+}
+
+.iad-mod-card--danger{
+  border-color: rgba(255,70,70,0.35);
+}
+
+/* Kicked users tools */
+.iad-kicks-tools{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.iad-kicks-tools .iad-input{ flex: 1 1 auto; }
+.iad-kicks-count{
+  font-size: 12px;
+  color: var(--iad-muted);
+  white-space: nowrap;
+}
+.iad-kicks-empty{ margin-top: 8px; }
+
+.iad-mod-title{
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.iad-mod-desc{
+  margin-top: 8px;
+  color: var(--iad-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.iad-mod-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.iad-modal-sheet.iad-modal-full{
+  top: 0;
+  left: 0;
+  transform: none;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  border-radius: 0;
+}
+
+.iad-mod-form label{
+  display:block;
+  font-size: 12px;
+  color: var(--iad-muted);
+  margin: 10px 0 6px;
+}
+
+.iad-mod-form input[type="text"],
+.iad-mod-form textarea{
+  width: 100%;
+  border: 1px solid var(--iad-border);
+  border-radius: var(--iad-radius);
+  background: rgba(255,255,255,0.05);
+  color: var(--iad-text);
+  padding: 10px;
+}
+
+.iad-mod-form textarea{ min-height: 140px; resize: vertical; }
+
+.iad-kicked{
+  border-top: 1px solid var(--iad-border);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.iad-kicked-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  border: 1px solid var(--iad-border);
+  border-radius: var(--iad-radius);
+  padding: 10px;
+  background: rgba(255,255,255,0.03);
+  margin-bottom: 10px;
+}
+
+.iad-kicked-who{
+  font-size: 13px;
+  color: var(--iad-text);
+}
+
+.iad-kicked-meta{
+  font-size: 12px;
+  color: var(--iad-muted);
+  margin-top: 2px;
+}
+
+.iad-danger{
+  border-color: rgba(255,70,70,0.4) !important;
+}
+
+.iad-cover-row{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+
+.iad-cover-thumb{
+  width: 120px;
+  height: 48px;
+  border-radius: var(--iad-radius);
+  border: 1px solid var(--iad-border);
+  background: rgba(255,255,255,0.04);
+  background-size: cover;
+  background-position: center;
+}
+
+.iad-cover-url{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.iad-cover-url .iad-input{
+  flex: 1;
+  min-width: 0;
+}
+
+/* Light mode corrections for Agora description (avoid hard-coded white) */
+[data-iad-theme="light"] .iad-agora-desc{
+  color: var(--iad-text);
+}
+
+/* Per-field save controls */
+.iad-field-with-save{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+
+.iad-field-with-save--top{
+  align-items:flex-start;
+}
+
+.iad-field-with-save--top .iad-textarea{ flex: 1; }
+
+.iad-field-with-save__side{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.iad-cover-inputs{
+  display:flex;
+  flex-direction:column;
+  gap: 6px;
+}
+
+.iad-save-status{
+  font-size: 12px;
+  color: var(--iad-muted);
+  min-height: 16px;
+}
+
+.iad-save-status.is-working{ opacity: 0.9; }
+.iad-save-status.is-ok{ color: rgba(90, 210, 140, 0.95); }
+.iad-save-status.is-bad{ color: rgba(255, 120, 120, 0.95); }
+
+/* Kicked users (limit + search) */
+.iad-kicks-tools{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  margin: 8px 0 10px;
+}
+.iad-kicks-tools .iad-input{ flex: 1; min-width: 0; }
+.iad-kicks-count{ font-size: 12px; color: var(--iad-muted); white-space:nowrap; }
+
+.iad-kick-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  border: 1px solid var(--iad-border);
+  border-radius: var(--iad-radius);
+  padding: 10px;
+  background: rgba(0,0,0,0.10);
+  margin: 0 0 10px;
+}
+[data-iad-theme="light"] .iad-kick-row{ background: rgba(255,255,255,0.75); }
+
+.iad-kick-name{ font-size: 13px; font-weight: 650; }
+.iad-kicks-actions{ margin-top: 6px; }
+
+.iad-kicks-empty{
+  margin: 6px 0 0;
+  color: var(--iad-muted);
+}
+
+/* Flash message (post-delete) */
+.iad-flash{
+  position: fixed;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  z-index: 99999;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--iad-border);
+  background: linear-gradient(180deg, rgba(10,12,16,0.92), rgba(10,12,16,0.78));
+  backdrop-filter: blur(8px);
+  color: var(--iad-text);
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.iad-flash.is-on{ opacity: 1; transform: translateX(-50%) translateY(0); }
+[data-iad-theme="light"] .iad-flash{
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.86));
+}
+
+
+
+
+/* Private-Agora invite search results */
+.iad-invite-result-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  text-align:left;
+  border:1px solid var(--iad-border);
+  border-radius:var(--iad-radius);
+  padding:10px;
+  margin-bottom:10px;
+  background:rgba(255,255,255,0.04);
+  color:var(--iad-text);
+}
+.iad-invite-result-row:hover{
+  background:rgba(255,255,255,0.08);
+}
+.iad-invite-result-avatar{
+  width:32px;
+  height:32px;
+  flex:0 0 32px;
+  border-radius:999px;
+  border:1px solid var(--iad-border);
+  background:rgba(255,255,255,0.08);
+  background-size:cover;
+  background-position:center;
+}
+.iad-invite-result-text{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+}
+.iad-invite-result-name{
+  color:var(--iad-text);
+  font-size:14px;
+  font-weight:700;
+  line-height:1.2;
+}
+.iad-invite-result-username{
+  color:var(--iad-muted);
+  font-size:12px;
+  line-height:1.2;
+}
+[data-iad-theme="light"] .iad-invite-result-row{
+  background:rgba(255,255,255,0.9);
+}
+[data-iad-theme="light"] .iad-invite-result-row:hover{
+  background:#fff;
+}
+
+
+/* 0.3.78 invite results hardening */
+[data-iad-invite-results] .iad-invite-result-row{
+  display:flex !important;
+  width:100% !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:10px !important;
+  background:rgba(255,255,255,0.05) !important;
+  color:var(--iad-text) !important;
+}
+[data-iad-invite-results] .iad-invite-result-name,
+[data-iad-invite-results] .iad-invite-result-text,
+[data-iad-invite-results] .iad-invite-result-row *{
+  color:var(--iad-text) !important;
+}
+[data-iad-invite-results] .iad-invite-result-username{
+  color:var(--iad-muted) !important;
+}
+[data-iad-theme="light"] [data-iad-invite-results] .iad-invite-result-row{
+  background:#fff !important;
+}

@@ -2,14 +2,14 @@
 /**
  * Plugin Name: IA Stream
  * Description: Atrium Stream panel (PeerTube-backed) with mobile-first video feed + channels + modal video view + PeerTube comments.
- * Version: 0.1.0
+ * Version: 0.1.3
  * Author: IndieAgora
  * Text Domain: ia-stream
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('IA_STREAM_VERSION', '0.1.0');
+define('IA_STREAM_VERSION', '0.1.3');
 define('IA_STREAM_PATH', plugin_dir_path(__FILE__));
 define('IA_STREAM_URL', plugin_dir_url(__FILE__));
 
@@ -69,3 +69,37 @@ if (!function_exists('ia_stream_boot')) {
 }
 
 add_action('plugins_loaded', 'ia_stream_boot', 20);
+
+/**
+ * Plugin activation: create Stream-local tables.
+ *
+ * PeerTube supports rating videos, but (per the provided OpenAPI) does not
+ * expose a like/dislike endpoint for individual comments. To implement
+ * comment ratings without redesigning identity/auth, we store comment votes
+ * locally in WordPress.
+ */
+function ia_stream_activate(): void {
+  global $wpdb;
+  if (!($wpdb instanceof wpdb)) return;
+
+  require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+  $charset = $wpdb->get_charset_collate();
+  $table = $wpdb->prefix . 'ia_stream_comment_votes';
+
+  $sql = "CREATE TABLE {$table} (
+    id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    phpbb_user_id BIGINT(20) UNSIGNED NOT NULL,
+    comment_id VARCHAR(64) NOT NULL,
+    rating TINYINT NOT NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    PRIMARY KEY  (id),
+    UNIQUE KEY uniq_user_comment (phpbb_user_id, comment_id),
+    KEY idx_comment (comment_id)
+  ) {$charset};";
+
+  dbDelta($sql);
+}
+
+register_activation_hook(__FILE__, 'ia_stream_activate');

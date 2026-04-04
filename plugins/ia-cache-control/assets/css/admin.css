@@ -1,0 +1,10 @@
+/* Minimal admin styling to keep IA pages readable */
+.ia-box{
+  background:#fff;
+  border:1px solid #dcdcde;
+  border-radius:10px;
+  padding:16px;
+  margin:16px 0;
+}
+.ia-list{ margin:0 0 0 18px; }
+.ia-toggle{ display:inline-block; margin:8px 0; }

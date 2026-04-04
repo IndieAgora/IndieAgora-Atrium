@@ -20,6 +20,70 @@ final class IA_Discuss_Service_PhpBB_Write {
     $this->ensure_bans_table();
   }
 
+  /**
+   * phpBB formatter safety.
+   *
+   * Discuss writes directly to phpBB tables. To avoid s9e TextFormatter XML
+   * renderer fatals (e.g. "Cannot load XML: Extra content at the end of the document"),
+   * we must only store plain text in phpBB's post_text.
+   *
+   * This means:
+   * - Strip any HTML.
+   * - If content is already in s9e richtext form (<r>...</r>), strip tags to plain.
+   * - Disable bbcode fields/flags for all Discuss-originated writes.
+   */
+  private function to_plain_text(string $s): string {
+    $s = (string) $s;
+
+    // WordPress request payloads are frequently "slashed".
+    // If we persist slashed text into phpBB, Discuss will display backslashes
+    // (e.g. can\'t, user\'s). Unsash early so storage matches user intent.
+    if (function_exists('wp_unslash')) {
+      $s = wp_unslash($s);
+    } else {
+      $s = stripslashes($s);
+    }
+
+    // Normalize line endings early.
+    $s = str_replace(["\r\n", "\r"], "\n", $s);
+
+    // If content came from a rich editor (HTML), preserve intentional
+    // paragraph breaks BEFORE stripping tags.
+    // Without this, stripping <p>/<br>/<div> collapses everything into one block.
+    $s = preg_replace('~<\s*br\s*/?\s*>~i', "\n", $s);
+    $s = preg_replace('~</\s*(p|div|li|blockquote|pre|h[1-6])\s*>~i', "\n\n", $s);
+    $s = preg_replace('~<\s*(p|div|blockquote|pre|h[1-6])\b[^>]*>~i', "\n", $s);
+
+    // If we were accidentally handed s9e richtext (<r>...</r>), strip tags.
+    // This is intentionally blunt: correctness > fancy formatting.
+    if (preg_match('/^\s*<r[>\s]/i', $s)) {
+      $s = strip_tags($s);
+    } else {
+      // Strip any HTML that may have been produced upstream.
+      // Use WP helper when available (handles edge cases better).
+      if (function_exists('wp_strip_all_tags')) {
+        // Do NOT remove line breaks here.
+        // wp_strip_all_tags($text, true) removes \n/\r/\t which collapses paragraphs.
+        $s = wp_strip_all_tags($s, false);
+      } else {
+        $s = strip_tags($s);
+      }
+    }
+
+    // Decode common entities so the stored text matches what users typed.
+    if (function_exists('html_entity_decode')) {
+      $s = html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    // Trim but keep intentional internal spacing.
+    $s = trim($s);
+
+    // Never store NUL bytes.
+    $s = str_replace("\0", '', $s);
+
+    return $s;
+  }
+
   private function ensure_bans_table(): void {
     global $wpdb;
     if (!$wpdb) return;
@@ -93,7 +157,7 @@ final class IA_Discuss_Service_PhpBB_Write {
 
     $post_id = (int)$post_id;
     $editor_user_id = (int)$editor_user_id;
-    $new_body = trim((string)$new_body);
+    $new_body = $this->to_plain_text((string)$new_body);
     if ($post_id <= 0) throw new Exception('Invalid post_id');
     if ($new_body === '') throw new Exception('Empty body');
 
@@ -105,13 +169,23 @@ final class IA_Discuss_Service_PhpBB_Write {
     $checksum = md5($new_body);
     $edit_count = (int)($row['post_edit_count'] ?? 0) + 1;
 
-    $ok = $db->update($posts, [
-      'post_text' => $new_body,
-      'post_checksum' => $checksum,
-      'post_edit_time' => $now,
-      'post_edit_user' => $editor_user_id,
-      'post_edit_count' => $edit_count,
-    ], ['post_id' => $post_id], ['%s','%s','%d','%d','%d'], ['%d']);
+    $ok = $db->update(
+      $posts,
+      [
+        'post_text' => $new_body,
+        'post_checksum' => $checksum,
+        // Plain text only for Discuss writes.
+        'enable_bbcode' => 0,
+        'bbcode_uid' => '',
+        'bbcode_bitfield' => '',
+        'post_edit_time' => $now,
+        'post_edit_user' => $editor_user_id,
+        'post_edit_count' => $edit_count,
+      ],
+      ['post_id' => $post_id],
+      ['%s','%s','%d','%s','%s','%d','%d','%d'],
+      ['%d']
+    );
     if (!$ok) throw new Exception($db->last_error ?: 'Edit failed');
 
     return [
@@ -202,7 +276,7 @@ final class IA_Discuss_Service_PhpBB_Write {
   public function create_topic(int $forum_id, string $title, string $body): array {
     $forum_id = max(0, (int)$forum_id);
     $title = trim((string)$title);
-    $body  = trim((string)$body);
+    $body  = $this->to_plain_text((string)$body);
 
     if ($forum_id <= 0) throw new Exception('Missing forum_id');
     if ($title === '') throw new Exception('Missing title');
@@ -210,6 +284,11 @@ final class IA_Discuss_Service_PhpBB_Write {
 
     $poster_id = $this->auth->current_phpbb_user_id();
     if ($poster_id <= 0) throw new Exception('No phpBB identity for this user');
+
+    // Forum-level bans: user can view but cannot post.
+    if ($this->is_user_banned($forum_id, $poster_id)) {
+      throw new Exception('You are banned from this Agora');
+    }
 
     $db = $this->phpbb->db();
     if (!$db) throw new Exception('phpBB db not available');
@@ -227,7 +306,6 @@ final class IA_Discuss_Service_PhpBB_Write {
     $poster_name = (string) $db->get_var($db->prepare("SELECT username FROM {$users} WHERE user_id = %d", $poster_id));
     if ($poster_name === '') $poster_name = 'agorian';
 
-    $bbcode_uid = substr(md5(uniqid('', true)), 0, 8);
     $checksum = md5($body);
 
     // 1) Insert topic (shell) – we’ll set last_* after post insert
@@ -271,9 +349,10 @@ final class IA_Discuss_Service_PhpBB_Write {
       'post_subject' => $title,
       'post_text' => $body,
       'post_checksum' => $checksum,
-      'bbcode_uid' => $bbcode_uid,
+      // Plain text only (no BBCode parsing) to prevent s9e richtext corruption.
+      'bbcode_uid' => '',
       'bbcode_bitfield' => '',
-      'enable_bbcode' => 1,
+      'enable_bbcode' => 0,
       'enable_smilies' => 1,
       'enable_magic_url' => 1,
       'post_visibility' => 1,
@@ -316,7 +395,7 @@ final class IA_Discuss_Service_PhpBB_Write {
 
   public function reply(int $topic_id, string $body): array {
     $topic_id = max(0, (int)$topic_id);
-    $body = trim((string)$body);
+    $body = $this->to_plain_text((string)$body);
 
     if ($topic_id <= 0) throw new Exception('Missing topic_id');
     if ($body === '') throw new Exception('Missing body');
@@ -353,10 +432,14 @@ final class IA_Discuss_Service_PhpBB_Write {
     $forum_id = (int)($trow['forum_id'] ?? 0);
     $subject  = (string)($trow['topic_title'] ?? 'Reply');
 
+    // Forum-level bans: user can view but cannot post.
+    if ($forum_id > 0 && $this->is_user_banned($forum_id, $poster_id)) {
+      throw new Exception('You are banned from this Agora');
+    }
+
     $poster_name = (string) $db->get_var($db->prepare("SELECT username FROM {$users} WHERE user_id = %d", $poster_id));
     if ($poster_name === '') $poster_name = 'agorian';
 
-    $bbcode_uid = substr(md5(uniqid('', true)), 0, 8);
     $checksum = md5($body);
 
     // ------------------------------------------------------------
@@ -383,7 +466,7 @@ final class IA_Discuss_Service_PhpBB_Write {
       $last_poster  = (int)($last['poster_id'] ?? 0);
 
       if ($last_post_id > 0 && $last_poster === $poster_id) {
-        $old_text = (string)($last['post_text'] ?? '');
+        $old_text = $this->to_plain_text((string)($last['post_text'] ?? ''));
 
         // Keep it simple: append with spacing, no formatting assumptions.
         $merged_text = rtrim($old_text) . "\n\n" . $body;
@@ -393,6 +476,10 @@ final class IA_Discuss_Service_PhpBB_Write {
         $okm = $db->update($posts, [
           'post_text'       => $merged_text,
           'post_checksum'   => $merged_checksum,
+          // Plain text only for Discuss writes.
+          'enable_bbcode'   => 0,
+          'bbcode_uid'      => '',
+          'bbcode_bitfield' => '',
           'post_edit_time'  => $now,
           'post_edit_user'  => $poster_id,
           'post_edit_count' => $edit_count + 1,
@@ -446,9 +533,10 @@ final class IA_Discuss_Service_PhpBB_Write {
       'post_subject' => $subject,
       'post_text' => $body,
       'post_checksum' => $checksum,
-      'bbcode_uid' => $bbcode_uid,
+      // Plain text only (no BBCode parsing) to prevent s9e richtext corruption.
+      'bbcode_uid' => '',
       'bbcode_bitfield' => '',
-      'enable_bbcode' => 1,
+      'enable_bbcode' => 0,
       'enable_smilies' => 1,
       'enable_magic_url' => 1,
       'post_visibility' => 1,

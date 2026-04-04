@@ -27,6 +27,10 @@ final class IA_Mail_Suite {
 
     add_action('wp_ajax_ia_mail_suite_test_send', [$this, 'ajax_test_send']);
     add_action('wp_ajax_ia_mail_suite_send_user', [$this, 'ajax_send_user']);
+
+    // Signals from IA follow/block architecture
+    add_action('ia_user_follow_created', [$this, 'on_user_follow_created'], 10, 3);
+    add_action('ia_user_activity', [$this, 'on_user_activity'], 10, 3);
   }
 
   public function defaults(): array {
@@ -48,6 +52,12 @@ final class IA_Mail_Suite {
       ],
       'templates' => $this->default_templates(),
       'matchers' => [],
+      'ia_message_new_message' => [
+        'label' => 'IA: New private message notification',
+        'enabled' => 1,
+        'subject' => '[{site_name}] New message from {from_username}',
+        'body' => "Hi {display_name},\n\nYou have a new private message from {from_username}:\n\n{message_preview}\n\nOpen Messages: {messages_url}\n",
+      ],
     ];
   }
 
@@ -94,6 +104,139 @@ final class IA_Mail_Suite {
         'enabled' => 1,
         'subject' => '[{site_name}] Message',
         'body' => "Hi {display_name},\n\n{message}\n\n— {site_name}\n",
+      ],
+      'ia_message_new_message' => [
+        'label' => 'IA: New private message notification',
+        'enabled' => 1,
+        'subject' => '[{site_name}] New message from {from_username}',
+        'body' => "Hi {display_name},\n\nYou have a new private message from {from_username}:\n\n{message_preview}\n\nOpen Messages: {messages_url}\n",
+      ],
+
+      // IA Connect notifications (template keys used by ia-connect).
+      'ia_connect_share_to_wall' => [
+        'label' => 'IA Connect: Someone shared a post to your wall',
+        'enabled' => 1,
+        'subject' => '[{site_name}] {actor_name} shared a post with you',
+        'body' => "Hi {display_name},\n\n{actor_name} shared a post with you.\n\nOpen post: {post_url}\n",
+      ],
+      'ia_connect_comment_new' => [
+        'label' => 'IA Connect: New comment on a post you follow',
+        'enabled' => 1,
+        'subject' => '[{site_name}] New comment from {actor_name}',
+        'body' => "Hi {display_name},\n\n{actor_name} commented on a post you follow.\n\nOpen comment: {comment_url}\n",
+      ],
+      'ia_connect_mention_post' => [
+        'label' => 'IA Connect: You were mentioned in a post',
+        'enabled' => 1,
+        'subject' => '[{site_name}] You were mentioned by {actor_name}',
+        'body' => "Hi {display_name},\n\nYou were mentioned by {actor_name} in a post.\n\nOpen post: {post_url}\n",
+      ],
+      'ia_connect_mention_comment' => [
+        'label' => 'IA Connect: You were mentioned in a comment',
+        'enabled' => 1,
+        'subject' => '[{site_name}] You were mentioned by {actor_name}',
+        'body' => "Hi {display_name},\n\nYou were mentioned by {actor_name} in a comment.\n\nOpen comment: {comment_url}\n",
+      ],
+'ia_connect_account_deactivated' => [
+  'label' => 'IA Connect: Account deactivated confirmation',
+  'enabled' => 1,
+  'subject' => '[{site_name}] Your account has been deactivated',
+  'body' => "Hi {display_name},\n\nYour IndieAgora Atrium account has been deactivated.\n\nTo reactivate your account, simply log back in: {reactivate_url}\n\nIf you did not request this, please contact support.\n",
+],
+      'ia_connect_reshare_shared_post' => [
+        'label' => 'IA Connect: Someone reshared a post you shared',
+        'enabled' => 1,
+        'subject' => '[{site_name}] {actor_name} reshared a post you shared',
+        'body' => "Hi {display_name},\n\n{actor_name} shared a post that you previously shared.\n\nOpen post: {post_url}\n",
+      ],
+      // IA Discuss notifications (template keys used by ia-discuss).
+      'ia_discuss_new_topic' => [
+        'label' => 'IA Discuss: New topic in an Agora you follow',
+        'enabled' => 1,
+        'subject' => '[{site_name}] New topic: {topic_title}',
+        'body' => "Hi {display_name},\n\n{actor_name} started a new topic in an Agora you follow:\n\n{topic_title}\n\nOpen topic: {topic_url}\n",
+      ],
+      'ia_discuss_reply' => [
+        'label' => 'IA Discuss: Reply to a topic you follow',
+        'enabled' => 1,
+        'subject' => '[{site_name}] New reply in {topic_title}',
+        'body' => "Hi {display_name},\n\n{actor_name} replied in “{topic_title}”.\n\nOpen reply: {post_url}\n",
+      ],
+      'ia_discuss_mention' => [
+        'label' => 'IA Discuss: You were mentioned',
+        'enabled' => 1,
+        'subject' => '[{site_name}] You were mentioned by {actor_name}',
+        'body' => "Hi {display_name},\n\nYou were mentioned by {actor_name} in Discuss.\n\nOpen post: {post_url}\n",
+      ],
+      'ia_discuss_share_to_connect' => [
+        'label' => 'IA Discuss: Your post was shared to Connect',
+        'enabled' => 1,
+        'subject' => '[{site_name}] {actor_name} shared your Discuss post to Connect',
+        'body' => "Hi {display_name},\n\n{actor_name} shared your Discuss post to Connect.\n\nOpen post: {post_url}\n",
+      ],
+      'ia_discuss_agora_kicked' => [
+        'label' => 'IA Discuss: You were removed from an Agora',
+        'enabled' => 1,
+        'subject' => '[{site_name}] Removed from agora/{agora_name}',
+        'body' => "Hi {display_name},\n\nYou have been removed from agora/{agora_name}.\n\nOpen agora: {agora_url}\n",
+      ],
+      'ia_discuss_agora_readded' => [
+        'label' => 'IA Discuss: You were re-added to an Agora',
+        'enabled' => 1,
+        'subject' => '[{site_name}] Re-added to agora/{agora_name}',
+        'body' => "Hi {display_name},\n\nYou have been re-added to agora/{agora_name}.\n\nOpen agora: {agora_url}\n",
+      ],
+
+      // IA Follow notifications (email) — emitted via ia_user_follow_created + ia_user_activity.
+      'ia_follow_new_follower' => [
+        'label' => 'IA: New follower',
+        'enabled' => 1,
+        'subject' => '[{site_name}] {follower_name} followed you',
+        'body' => "Hi {display_name},\n\n{follower_name} (@{follower_username}) started following you.\n\nView profile: {profile_url}\n",
+      ],
+      'ia_follow_activity_connect_post' => [
+        'label' => 'IA: Followed user posted in Connect',
+        'enabled' => 1,
+        'subject' => '[{site_name}] {actor_name} posted in Connect',
+        'body' => "Hi {display_name},\n\n{actor_name} (@{actor_username}) created a new Connect post.\n\nOpen post: {post_url}\n",
+      ],
+      'ia_follow_activity_connect_reply' => [
+        'label' => 'IA: Followed user replied in Connect',
+        'enabled' => 1,
+        'subject' => '[{site_name}] {actor_name} replied in Connect',
+        'body' => "Hi {display_name},\n\n{actor_name} (@{actor_username}) replied in Connect.\n\nOpen thread: {post_url}\n",
+      ],
+      'ia_follow_activity_discuss_topic' => [
+        'label' => 'IA: Followed user created a Discuss topic',
+        'enabled' => 1,
+        'subject' => '[{site_name}] {actor_name} started a new topic',
+        'body' => "Hi {display_name},\n\n{actor_name} (@{actor_username}) started a new Discuss topic.\n\nOpen topic: {topic_url}\n",
+      ],
+      'ia_follow_activity_discuss_reply' => [
+        'label' => 'IA: Followed user replied in Discuss',
+        'enabled' => 1,
+        'subject' => '[{site_name}] {actor_name} replied in Discuss',
+        'body' => "Hi {display_name},\n\n{actor_name} (@{actor_username}) replied in Discuss.\n\nOpen reply: {post_url}\n",
+      ],
+
+      // IA Message group chats
+      'ia_message_group_added' => [
+        'label' => 'IA: Added to group chat',
+        'enabled' => 1,
+        'subject' => '[{site_name}] You were added to {thread_title}',
+        'body' => "Hi {display_name},\n\n{actor_name} added you to the group chat \"{thread_title}\".\n\nOpen Messages: {thread_url}\n",
+      ],
+      'ia_message_group_invite' => [
+        'label' => 'IA: Group chat invite',
+        'enabled' => 1,
+        'subject' => '[{site_name}] Group chat invite: {thread_title}',
+        'body' => "Hi {display_name},\n\n{actor_name} invited you to join the group chat \"{thread_title}\".\n\nReview invite: {invite_url}\n",
+      ],
+      'ia_message_group_kicked' => [
+        'label' => 'IA: Removed from group chat',
+        'enabled' => 1,
+        'subject' => '[{site_name}] Removed from {thread_title}',
+        'body' => "Hi {display_name},\n\n{actor_name} removed you from the group chat \"{thread_title}\".\n",
       ],
     ];
   }
@@ -212,6 +355,7 @@ final class IA_Mail_Suite {
           Use placeholders in Subject/Body:
           <code>{site_name}</code> <code>{site_url}</code> <code>{user_login}</code> <code>{user_email}</code> <code>{display_name}</code>
           <code>{reset_url}</code> <code>{verify_url}</code> <code>{ip}</code> <code>{date}</code> <code>{message}</code>.
+          For IA Connect notifications: <code>{actor_name}</code> <code>{actor_username}</code> <code>{post_url}</code> <code>{comment_url}</code>.
           Also supports <code>[site_name]</code> style.
         </p>
 
@@ -348,6 +492,44 @@ final class IA_Mail_Suite {
     return !empty($o['templates'][$key]['enabled']);
   }
 
+
+  /**
+   * Render a template (subject + body) with token replacement.
+   * Returns ['subject'=>string,'body'=>string].
+   */
+  public function render_template(string $key, array $ctx = []): array {
+    $o = $this->get_opts();
+    if (empty($o['templates'][$key])) return ['subject'=>'', 'body'=>''];
+    $tpl = $o['templates'][$key];
+
+    $subject = $this->apply_tokens((string)($tpl['subject'] ?? ''), $ctx);
+    $body    = $this->apply_tokens((string)($tpl['body'] ?? ''), $ctx);
+    return ['subject' => $subject, 'body' => $body];
+  }
+
+  /**
+   * Send an email using a stored template key (if enabled).
+   */
+  public function send_template(string $key, string $to_email, array $ctx = [], $headers = []): bool {
+    $to_email = sanitize_email($to_email);
+    if ($to_email === '' || !is_email($to_email)) return false;
+
+    // If template exists but disabled, do nothing.
+    if (!$this->template_enabled($key)) return false;
+
+    // Allow downstream plugins to veto sending (e.g., user-level preferences).
+    $allow = apply_filters('ia_mail_suite_allow_send', true, $key, $to_email, $ctx);
+    if (!$allow) return false;
+
+    $rendered = $this->render_template($key, $ctx);
+    $subject = $rendered['subject'] ?? '';
+    $body = $rendered['body'] ?? '';
+    if (trim((string)$subject) === '' || trim((string)$body) === '') return false;
+
+    return wp_mail($to_email, $subject, $body, $headers);
+  }
+
+
   private function apply_tokens(string $text, array $ctx): string {
     $tokens = [
       '{site_name}' => get_bloginfo('name') ?: 'WordPress',
@@ -355,12 +537,21 @@ final class IA_Mail_Suite {
       '{date}' => gmdate('c'),
       '{ip}' => $this->client_ip(),
     ];
-    foreach (['user_login','user_email','display_name','reset_url','verify_url','message'] as $k) {
+    foreach ([
+      'user_login','user_email','display_name','reset_url','verify_url','message',
+      'from_username','message_preview','messages_url',
+      // IA Connect tokens
+      'actor_name','actor_username','post_url','comment_url','post_id','comment_id','reactivate_url',
+      // IA Discuss tokens
+      'topic_title','topic_url','topic_id','agora_name','agora_url','forum_id',
+      // IA Follow tokens
+      'follower_name','follower_username','profile_url'
+    ] as $k) {
       $tokens['{'.$k.'}'] = isset($ctx[$k]) ? (string)$ctx[$k] : '';
     }
 
     // [token] style
-    $text = preg_replace_callback('/\[(site_name|site_url|date|ip|user_login|user_email|display_name|reset_url|verify_url|message)\]/', function($m) use ($tokens){
+    $text = preg_replace_callback('/\[(site_name|site_url|date|ip|user_login|user_email|display_name|reset_url|verify_url|reactivate_url|message|actor_name|actor_username|post_url|comment_url|post_id|comment_id|topic_url|topic_title|topic_id|follower_name|follower_username|profile_url)\]/', function($m) use ($tokens){
       return $tokens['{'.$m[1].'}'] ?? '';
     }, $text);
 
@@ -386,6 +577,137 @@ final class IA_Mail_Suite {
       $ctx['display_name'] = $user->display_name ?: $user->user_login;
     }
     return $ctx;
+  }
+
+  /*
+   * Follow architecture: resolve WP user from canonical phpBB user id.
+   */
+  private function wp_user_from_phpbb(int $phpbb_user_id): ?WP_User {
+    $phpbb_user_id = (int)$phpbb_user_id;
+    if ($phpbb_user_id <= 0) return null;
+    $users = get_users([
+      'number' => 1,
+      'fields' => 'all',
+      'meta_key' => 'ia_phpbb_user_id',
+      'meta_value' => (string)$phpbb_user_id,
+    ]);
+    if (!empty($users) && ($users[0] instanceof WP_User)) return $users[0];
+    return null;
+  }
+
+  private function rel_table(): string {
+    global $wpdb;
+    return $wpdb->prefix . 'ia_user_relations';
+  }
+
+  private function is_blocked_any(int $a_phpbb, int $b_phpbb): bool {
+    $a_phpbb=(int)$a_phpbb; $b_phpbb=(int)$b_phpbb;
+    if ($a_phpbb<=0||$b_phpbb<=0||$a_phpbb===$b_phpbb) return false;
+    global $wpdb;
+    $t = $this->rel_table();
+    $v = $wpdb->get_var($wpdb->prepare(
+      "SELECT 1 FROM {$t} WHERE rel_type='block' AND ((src_phpbb_id=%d AND dst_phpbb_id=%d) OR (src_phpbb_id=%d AND dst_phpbb_id=%d)) LIMIT 1",
+      $a_phpbb,$b_phpbb,$b_phpbb,$a_phpbb
+    ));
+    return (string)$v === '1';
+  }
+
+  private function followers_of(int $dst_phpbb): array {
+    $dst_phpbb = (int)$dst_phpbb;
+    if ($dst_phpbb <= 0) return [];
+    global $wpdb;
+    $t = $this->rel_table();
+    $ids = $wpdb->get_col($wpdb->prepare(
+      "SELECT src_phpbb_id FROM {$t} WHERE rel_type='follow' AND dst_phpbb_id=%d",
+      $dst_phpbb
+    )) ?: [];
+    return array_values(array_unique(array_filter(array_map('intval', $ids))));
+  }
+
+  /**
+   * When a user follows another user (created only; unfollow does not emit).
+   */
+  public function on_user_follow_created(int $follower_phpbb, int $followed_phpbb, array $meta = []): void {
+    $follower_phpbb = (int)$follower_phpbb;
+    $followed_phpbb = (int)$followed_phpbb;
+    if ($follower_phpbb <= 0 || $followed_phpbb <= 0 || $follower_phpbb === $followed_phpbb) return;
+    if ($this->is_blocked_any($follower_phpbb, $followed_phpbb)) return;
+
+    $followed_wp = $this->wp_user_from_phpbb($followed_phpbb);
+    $follower_wp = $this->wp_user_from_phpbb($follower_phpbb);
+    if (!$followed_wp || !$follower_wp) return;
+
+    $ctx = $this->ctx_from_user($followed_wp);
+    $ctx['follower_name'] = $follower_wp->display_name ?: $follower_wp->user_login;
+    $ctx['follower_username'] = $follower_wp->user_login;
+    $ctx['profile_url'] = home_url('/?tab=connect&ia_profile_name=' . rawurlencode($follower_wp->user_login));
+
+    $this->send_template('ia_follow_new_follower', $followed_wp->user_email, $ctx);
+  }
+
+  /**
+   * Activity signal used to notify followers about posts/replies anywhere.
+   * $type values expected: connect_post, connect_reply, discuss_topic, discuss_reply
+   */
+  public function on_user_activity(int $actor_phpbb, string $type, array $payload = []): void {
+    $actor_phpbb = (int)$actor_phpbb;
+    $type = sanitize_key($type);
+    if ($actor_phpbb <= 0 || $type === '') return;
+
+    $actor_wp = $this->wp_user_from_phpbb($actor_phpbb);
+    if (!$actor_wp) return;
+
+    $followers = $this->followers_of($actor_phpbb);
+    if (empty($followers)) return;
+
+    $tpl = '';
+    $ctxBase = [
+      'actor_name' => ($actor_wp->display_name ?: $actor_wp->user_login),
+      'actor_username' => $actor_wp->user_login,
+    ];
+
+    // URLs
+    $post_id = (int)($payload['post_id'] ?? 0);
+    $comment_id = (int)($payload['comment_id'] ?? 0);
+    $topic_id = (int)($payload['topic_id'] ?? 0);
+    $forum_id = (int)($payload['forum_id'] ?? 0);
+    $post_url = '';
+    $topic_url = '';
+
+    // Build URLs without assuming pretty permalinks.
+    if ($type === 'connect_post' || $type === 'connect_reply') {
+      if ($post_id > 0) {
+        $u = home_url('/');
+        $post_url = $u . (strpos($u, '?') !== false ? '&' : '?') . 'tab=connect&ia_post=' . $post_id;
+      }
+      $tpl = ($type === 'connect_post') ? 'ia_follow_activity_connect_post' : 'ia_follow_activity_connect_reply';
+    }
+    if ($type === 'discuss_topic' || $type === 'discuss_reply') {
+      if ($topic_id > 0) {
+        $u = home_url('/');
+        $topic_url = $u . (strpos($u, '?') !== false ? '&' : '?') . 'tab=discuss&iad_topic=' . $topic_id;
+        if (!empty($payload['post_id'])) {
+          $topic_url .= '&iad_post=' . (int)$payload['post_id'];
+        }
+        // Ensure post_url token is also populated for Discuss templates
+        $post_url = $topic_url;
+      }
+      $tpl = ($type === 'discuss_topic') ? 'ia_follow_activity_discuss_topic' : 'ia_follow_activity_discuss_reply';
+    }
+
+    if ($tpl === '') return;
+
+    foreach ($followers as $fid) {
+      $fid = (int)$fid;
+      if ($fid <= 0 || $fid === $actor_phpbb) continue;
+      if ($this->is_blocked_any($fid, $actor_phpbb)) continue;
+      $fwp = $this->wp_user_from_phpbb($fid);
+      if (!$fwp) continue;
+      $ctx = $this->ctx_from_user($fwp) + $ctxBase;
+      if ($post_url !== '') $ctx['post_url'] = $post_url;
+      if ($topic_url !== '') $ctx['topic_url'] = $topic_url;
+      $this->send_template($tpl, $fwp->user_email, $ctx);
+    }
   }
 
   public function filter_retrieve_password_title(string $title, string $user_login): string {

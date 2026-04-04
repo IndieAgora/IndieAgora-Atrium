@@ -36,10 +36,13 @@ if (!function_exists('ia_discuss_boot')) {
     }
     require_once $core;
 
+    if (function_exists('ia_discuss_meta_boot')) ia_discuss_meta_boot();
+
     // Support
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/support/security.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/support/assets.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/support/ajax.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/support/user-rel-ajax.php');
 
     // Render helpers
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/render/text.php');
@@ -49,6 +52,10 @@ if (!function_exists('ia_discuss_boot')) {
 
     // Services
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/auth.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/membership.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/agora-privacy.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/reports.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/notify.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/phpbb.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/text.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/services/upload.php');
@@ -60,6 +67,9 @@ if (!function_exists('ia_discuss_boot')) {
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/feed.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/topic.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/agoras.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/membership.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/forum-meta.php');
+    ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/moderation.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/upload.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/write.php');
     ia_discuss_require_if_exists(IA_DISCUSS_PATH . 'includes/modules/diag.php');
@@ -96,17 +106,85 @@ if (!function_exists('ia_discuss_boot')) {
       $atts   = new IA_Discuss_Render_Attachments();
 
       $auth   = new IA_Discuss_Service_Auth($phpbb);
+      $membership = new IA_Discuss_Service_Membership($phpbb, $auth);
+      $membership->boot();
+      $privacy = new IA_Discuss_Service_Agora_Privacy($phpbb);
+      $privacy->boot();
+      $reports = new IA_Discuss_Service_Reports($phpbb);
+      $reports->boot();
+      $notify = new IA_Discuss_Service_Notify($phpbb, $auth);
+      $notify->set_membership_service($membership);
+      $notify->boot();
+
+      // Expose topic participant IDs to other Atrium plugins (e.g. IA Notify).
+      // Returns an array of canonical phpBB user IDs who have posted in the topic.
+      add_filter('ia_discuss_topic_participants', function ($ids, $topic_id) use ($notify) {
+        try {
+          return $notify->list_topic_participants((int)$topic_id);
+        } catch (Throwable $e) {
+          return is_array($ids) ? $ids : [];
+        }
+      }, 10, 2);
       $upload = new IA_Discuss_Service_Upload();
       $write  = new IA_Discuss_Service_PhpBB_Write($phpbb, $auth);
       $write->boot();
 
+      // Wire cron handler.
+      add_action('ia_discuss_agora_inactivity_tick', function () use ($membership, $notify) {
+        try { $membership->cron_inactivity_tick($notify); } catch (Throwable $e) {}
+      });
+
+      // --- Self-heal: backfill missing moderator_cache markers for agoras ---
+      // In this project, "Agora created" is represented by a row in phpBB's
+      // {prefix}moderator_cache. If forums exist without the marker row, profile
+      // views and moderation badges become inconsistent. We:
+      // 1) Run a one-time repair after update/first boot.
+      // 2) Schedule a daily lightweight repair via wp-cron.
+      add_action('ia_discuss_repair_agora_modcache_tick', function () use ($phpbb) {
+        try {
+          if (!function_exists('ia_discuss_repair_agora_moderator_cache')) return;
+          $r = ia_discuss_repair_agora_moderator_cache($phpbb, 200);
+          if (!empty($r['ok']) && !empty($r['inserted'])) {
+            ia_discuss_log('AutoRepair: inserted=' . (int)$r['inserted'] . ' skipped=' . (int)($r['skipped'] ?? 0));
+          }
+        } catch (Throwable $e) {
+          ia_discuss_log('AutoRepair: exception ' . $e->getMessage());
+        }
+      });
+
+      if (!wp_next_scheduled('ia_discuss_repair_agora_modcache_tick')) {
+        // Run daily at a random-ish minute to reduce collision.
+        wp_schedule_event(time() + 300, 'daily', 'ia_discuss_repair_agora_modcache_tick');
+      }
+
+      // One-time repair after plugin update/first boot.
+      $repair_flag = 'ia_discuss_repair_agora_modcache_v1_done';
+      if (!get_option($repair_flag)) {
+        try {
+          if (function_exists('ia_discuss_repair_agora_moderator_cache')) {
+            $r = ia_discuss_repair_agora_moderator_cache($phpbb, 500);
+            if (!empty($r['ok'])) {
+              update_option($repair_flag, 1, false);
+              if (!empty($r['inserted'])) {
+                ia_discuss_log('OneTimeRepair: inserted=' . (int)$r['inserted'] . ' skipped=' . (int)($r['skipped'] ?? 0));
+              }
+            }
+          }
+        } catch (Throwable $e) {
+          ia_discuss_log('OneTimeRepair: exception ' . $e->getMessage());
+        }
+      }
+
       $modules = [
-        new IA_Discuss_Module_Feed($phpbb, $bbcode, $media, $atts),
-        new IA_Discuss_Module_Topic($phpbb, $bbcode, $media, $auth),
-        new IA_Discuss_Module_Agoras($phpbb, $bbcode),
+        new IA_Discuss_Module_Feed($phpbb, $bbcode, $media, $atts, $auth, $privacy),
+        new IA_Discuss_Module_Topic($phpbb, $bbcode, $media, $auth, $notify, $membership, $privacy, $reports),
+        new IA_Discuss_Module_Agoras($phpbb, $bbcode, $auth, $membership, $write, $privacy),
+        new IA_Discuss_Module_Forum_Meta($phpbb, $bbcode, $auth, $membership, $write, $privacy),
+        new IA_Discuss_Module_Moderation($phpbb, $bbcode, $auth, $membership, $write, $privacy),
+        new IA_Discuss_Module_Membership($auth, $phpbb, $write, $membership, $privacy),
         new IA_Discuss_Module_Agora_Create($phpbb, $bbcode, $auth),
         new IA_Discuss_Module_Upload($upload),
-        new IA_Discuss_Module_Write($phpbb, $bbcode, $auth, $write),
+        new IA_Discuss_Module_Write($phpbb, $bbcode, $auth, $write, $notify, $membership, $privacy, $reports),
         new IA_Discuss_Module_Diag($phpbb),
 
         // ✅ NEW: Search

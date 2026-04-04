@@ -152,7 +152,17 @@ function ia_stream_norm_video(array $v, string $base = ''): array {
   $views = isset($v['views']) ? (int)$v['views'] : (isset($v['viewsCount']) ? (int)$v['viewsCount'] : 0);
   $likes = isset($v['likes']) ? (int)$v['likes'] : (isset($v['likesCount']) ? (int)$v['likesCount'] : 0);
   $dislikes = isset($v['dislikes']) ? (int)$v['dislikes'] : 0;
-  $comments = isset($v['commentsEnabled']) && !$v['commentsEnabled'] ? 0 : (isset($v['commentsCount']) ? (int)$v['commentsCount'] : 0);
+  // PeerTube list endpoints are not always consistent about comment count field names.
+  // Prefer commentsCount, but fall back to other common variants.
+  $comments = 0;
+  if (isset($v['commentsEnabled']) && !$v['commentsEnabled']) {
+    $comments = 0;
+  } else {
+    if (isset($v['commentsCount'])) $comments = (int)$v['commentsCount'];
+    elseif (isset($v['commentCount'])) $comments = (int)$v['commentCount'];
+    elseif (isset($v['comments'])) $comments = (int)$v['comments'];
+    elseif (isset($v['totalComments'])) $comments = (int)$v['totalComments'];
+  }
 
   // publish
   $publishedAt = ia_stream_first_str(
@@ -166,6 +176,12 @@ function ia_stream_norm_video(array $v, string $base = ''): array {
     $embed = rtrim($base, '/') . '/videos/embed/' . rawurlencode($id);
   }
 
+  // Optional support text (PeerTube "support" field)
+  $support = '';
+  if (array_key_exists('support', $v)) {
+    $support = is_string($v['support']) ? (string) $v['support'] : '';
+  }
+
   return [
     'id'          => $id,
     'title'       => $title,
@@ -174,6 +190,7 @@ function ia_stream_norm_video(array $v, string $base = ''): array {
     'thumbnail'   => ia_stream_abs_url($base, $thumbPath),
     'preview'     => ia_stream_abs_url($base, $prevPath),
     'excerpt'     => ia_stream_excerpt($desc, 240),
+    'support'     => $support,
     'published_at'=> $publishedAt,
     'published_ago'=> ia_stream_time_ago($publishedAt),
     'channel'     => $channel,
@@ -203,6 +220,10 @@ function ia_stream_norm_comment_thread(array $t, string $base = ''): array {
   if (isset($t['comment']) && is_array($t['comment'])) $c = $t['comment'];
   else $c = $t;
 
+  // Root comment id (used for replies endpoint).
+  $comment_id = '';
+  if (isset($c['id'])) $comment_id = (string)$c['id'];
+
   $text = ia_stream_first_str(
     isset($c['text']) ? (string)$c['text'] : '',
     isset($c['textHtml']) ? (string)$c['textHtml'] : '',
@@ -217,6 +238,9 @@ function ia_stream_norm_comment_thread(array $t, string $base = ''): array {
   // author/account
   $acc = [];
   if (isset($c['account']) && is_array($c['account'])) $acc = $c['account'];
+
+  $authorId = 0;
+  if (isset($acc['id'])) $authorId = (int)$acc['id'];
 
   $authorName = ia_stream_first_str(
     isset($acc['displayName']) ? (string)$acc['displayName'] : '',
@@ -238,20 +262,146 @@ function ia_stream_norm_comment_thread(array $t, string $base = ''): array {
     }
   }
 
+  // Tombstone detection: deleted comments should vanish in Atrium UI.
+  $is_deleted = false;
+  if (isset($comment['deletedAt']) && is_string($comment['deletedAt']) && trim($comment['deletedAt']) !== '') $is_deleted = true;
+  if (isset($comment['isDeleted']) && $comment['isDeleted'] === true) $is_deleted = true;
+  if (!$is_deleted) {
+    $hasText = trim(strip_tags((string)$text)) !== '';
+    $hasAcc = !empty($acc);
+    if (!$hasText && !$hasAcc) $is_deleted = true;
+  }
+
   $replies = 0;
   if (isset($t['totalReplies'])) $replies = (int)$t['totalReplies'];
   if (isset($t['totalRepliesCount'])) $replies = (int)$t['totalRepliesCount'];
 
   return [
     'id'          => $id,
+    'comment_id'  => $comment_id,
     'text'        => ia_stream_excerpt($text, 800),
     'created_at'  => $created,
     'created_ago' => ia_stream_time_ago($created),
+    'is_deleted'  => $is_deleted,
     'author'      => [
+      'id'     => $authorId,
       'name'   => $authorName,
       'url'    => $authorUrl,
       'avatar' => ia_stream_abs_url($base, $authorAvatar),
     ],
     'replies_count' => $replies,
+  ];
+}
+
+/**
+ * Normalize a comment node (used by comment thread tree).
+ * Returns a compact structure with nested children.
+ */
+function ia_stream_norm_comment_node(array $c, string $base = ''): array {
+  $comment_id = isset($c['id']) ? (string)$c['id'] : '';
+
+  // PeerTube will sometimes return a "tombstone" comment after deletion.
+  // We mark these so the UI can omit them entirely (Atrium wants deleted comments to vanish).
+  $is_deleted = false;
+  if (isset($c['deletedAt']) && is_string($c['deletedAt']) && trim($c['deletedAt']) !== '') $is_deleted = true;
+  if (isset($c['isDeleted']) && $c['isDeleted'] === true) $is_deleted = true;
+
+  $text = ia_stream_first_str(
+    isset($c['text']) ? (string)$c['text'] : '',
+    isset($c['textHtml']) ? (string)$c['textHtml'] : '',
+    isset($c['textHTML']) ? (string)$c['textHTML'] : ''
+  );
+
+  $created = ia_stream_first_str(
+    isset($c['createdAt']) ? (string)$c['createdAt'] : '',
+    isset($c['publishedAt']) ? (string)$c['publishedAt'] : ''
+  );
+
+  $acc = [];
+  if (isset($c['account']) && is_array($c['account'])) $acc = $c['account'];
+
+  $authorId = 0;
+  if (isset($acc['id'])) $authorId = (int)$acc['id'];
+  elseif (isset($acc['accountId'])) $authorId = (int)$acc['accountId'];
+  elseif (isset($acc['userId'])) $authorId = (int)$acc['userId'];
+
+  $authorName = ia_stream_first_str(
+    isset($acc['displayName']) ? (string)$acc['displayName'] : '',
+    isset($acc['name']) ? (string)$acc['name'] : ''
+  );
+
+  $authorUrl = ia_stream_first_str(
+    isset($acc['url']) ? (string)$acc['url'] : '',
+    isset($acc['uri']) ? (string)$acc['uri'] : ''
+  );
+
+  $authorAvatar = '';
+  if (isset($acc['avatars']) && is_array($acc['avatars'])) {
+    foreach ($acc['avatars'] as $a) {
+      if (is_array($a) && isset($a['path']) && is_string($a['path']) && trim($a['path']) !== '') {
+        $authorAvatar = trim($a['path']);
+        break;
+      }
+    }
+  }
+
+  $children = [];
+  if (isset($c['children']) && is_array($c['children'])) {
+    foreach ($c['children'] as $ch) {
+      if (is_array($ch) && isset($ch['comment']) && is_array($ch['comment'])) {
+        $children[] = ia_stream_norm_comment_node($ch['comment'], $base);
+      } elseif (is_array($ch)) {
+        $children[] = ia_stream_norm_comment_node($ch, $base);
+      }
+    }
+  }
+
+  // If it's a tombstone (no text + no account), treat as deleted.
+  if (!$is_deleted) {
+    $hasText = trim(strip_tags((string)$text)) !== '';
+    $hasAcc = !empty($acc);
+    if (!$hasText && !$hasAcc) $is_deleted = true;
+  }
+
+  return [
+    'id' => $comment_id,
+    'text' => ia_stream_excerpt($text, 2000),
+    'created_at' => $created,
+    'created_ago' => ia_stream_time_ago($created),
+    'is_deleted' => $is_deleted,
+    'author' => [
+      'id' => $authorId,
+      'name' => $authorName,
+      'url' => $authorUrl,
+      'avatar' => ia_stream_abs_url($base, $authorAvatar),
+    ],
+    'children' => $children,
+  ];
+}
+
+/**
+ * Normalize PeerTube thread tree response.
+ */
+function ia_stream_norm_comment_thread_tree(array $tree, string $base = ''): array {
+  $thread_id = isset($tree['id']) ? (string)$tree['id'] : '';
+  $root = [];
+  if (isset($tree['comment']) && is_array($tree['comment'])) $root = $tree['comment'];
+  elseif (is_array($tree)) $root = $tree;
+
+  $node = ia_stream_norm_comment_node($root, $base);
+  // If thread response wraps children at the top level, merge them.
+  if (isset($tree['children']) && is_array($tree['children']) && empty($node['children'])) {
+    foreach ($tree['children'] as $ch) {
+      if (is_array($ch) && isset($ch['comment']) && is_array($ch['comment'])) {
+        $node['children'][] = ia_stream_norm_comment_node($ch['comment'], $base);
+      } elseif (is_array($ch)) {
+        $node['children'][] = ia_stream_norm_comment_node($ch, $base);
+      }
+    }
+  }
+
+  return [
+    'thread_id' => $thread_id,
+    'root' => $node,
   ];
 }

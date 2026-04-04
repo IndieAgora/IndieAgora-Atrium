@@ -1,0 +1,170 @@
+/* Agora Player (audio attachments) */
+
+.iad-audio-player{
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: linear-gradient(135deg, rgba(255,69,0,0.12), rgba(71,179,255,0.08) 45%, rgba(0,0,0,0) 80%),
+              linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.02));
+  box-shadow:
+    0 10px 28px rgba(0,0,0,0.45),
+    0 0 0 1px rgba(255,69,0,0.10) inset;
+  padding: 12px 12px 10px;
+}
+
+.iad-audio-player:before{
+  content:"";
+  position:absolute;
+  inset:-2px;
+  border-radius: 20px;
+  background: radial-gradient(closest-side at 20% 15%, rgba(255,69,0,0.26), rgba(0,0,0,0) 60%),
+              radial-gradient(closest-side at 85% 65%, rgba(71,179,255,0.18), rgba(0,0,0,0) 62%);
+  opacity: 0.85;
+  pointer-events:none;
+}
+
+.iad-audio-player > *{ position: relative; }
+
+.iad-ap-head{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.iad-ap-logo{
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35));
+}
+
+.iad-ap-brand{
+  font-weight: 750;
+  letter-spacing: 0.25px;
+  font-size: var(--iad-fs-13);
+  color: rgba(255,255,255,0.90);
+  white-space: nowrap;
+}
+
+.iad-ap-file{
+  margin-left: auto;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--iad-fs-12);
+  color: rgba(255,255,255,0.62);
+}
+
+.iad-ap-main{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+
+.iad-ap-play{
+  appearance:none;
+  border: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  cursor:pointer;
+  color: rgba(255,255,255,0.95);
+  background: linear-gradient(180deg, rgba(255,69,0,0.35), rgba(255,69,0,0.14));
+  box-shadow:
+    0 10px 22px rgba(0,0,0,0.35),
+    0 0 0 1px rgba(255,255,255,0.08) inset;
+  font-size: 16px;
+  line-height: 44px;
+  text-align:center;
+  user-select:none;
+}
+
+.iad-audio-player.is-playing .iad-ap-play{
+  background: linear-gradient(180deg, rgba(71,179,255,0.30), rgba(71,179,255,0.12));
+}
+
+.iad-ap-wave{
+  flex: 1;
+  display:flex;
+  align-items:flex-end;
+  gap: 2px;
+  height: 34px;
+  padding: 0 4px;
+}
+
+.iad-ap-bar{
+  width: 3px;
+  flex: 0 0 auto;
+  height: calc(6px + (var(--h, 0.6) * 26px));
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.22));
+  opacity: 0.55;
+  transform-origin: bottom;
+}
+
+.iad-audio-player.is-playing .iad-ap-bar{
+  opacity: 0.95;
+  animation: iadWavePulse 0.9s ease-in-out infinite;
+  animation-delay: var(--d, 0s);
+}
+
+@keyframes iadWavePulse{
+  0%{ transform: scaleY(0.35); }
+  40%{ transform: scaleY(1); }
+  100%{ transform: scaleY(0.55); }
+}
+
+.iad-ap-time{
+  font-size: var(--iad-fs-12);
+  color: rgba(255,255,255,0.70);
+  min-width: 86px;
+  text-align: right;
+}
+
+.iad-ap-sep{ margin: 0 4px; opacity: 0.6; }
+
+.iad-ap-seek{
+  width: 100%;
+  margin-top: 10px;
+  appearance:none;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  outline: none;
+}
+
+.iad-ap-seek::-webkit-slider-thumb{
+  appearance:none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+  cursor: pointer;
+}
+
+.iad-ap-seek::-moz-range-thumb{
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+  cursor: pointer;
+}
+
+.iad-ap-seek::-moz-range-track{
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+}
+
+@media (max-width: 520px){
+  .iad-audio-player{ padding: 10px 10px 9px; }
+  .iad-ap-play{ width: 42px; height: 42px; border-radius: 13px; line-height: 42px; }
+  .iad-ap-wave{ height: 30px; }
+  .iad-ap-time{ min-width: 78px; }
+}

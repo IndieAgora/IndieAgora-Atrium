@@ -7,24 +7,56 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
   private $bbcode;
   private $media;
   private $auth;
+  private $notify;
+  private $membership;
+  private $privacy;
+  private $reports;
   private $atts;
 
   public function __construct(
     IA_Discuss_Service_PhpBB $phpbb,
     IA_Discuss_Render_BBCode $bbcode,
     IA_Discuss_Render_Media $media,
-    IA_Discuss_Service_Auth $auth
+    IA_Discuss_Service_Auth $auth,
+    IA_Discuss_Service_Notify $notify,
+    IA_Discuss_Service_Membership $membership,
+    IA_Discuss_Service_Agora_Privacy $privacy,
+    IA_Discuss_Service_Reports $reports
   ) {
     $this->phpbb  = $phpbb;
     $this->bbcode = $bbcode;
     $this->media  = $media;
     $this->auth   = $auth;
+    $this->notify = $notify;
+    $this->membership = $membership;
+    $this->privacy = $privacy;
+    $this->reports = $reports;
 
     // stable attachments API
     $this->atts = new IA_Discuss_Render_Attachments();
   }
 
   public function boot(): void {}
+
+  private function effective_topic_notify(int $viewer_phpbb_id, int $forum_id, int $topic_id, bool $viewer_participated): bool {
+    if ($viewer_phpbb_id <= 0 || $topic_id <= 0) return false;
+
+    // Explicit topic preference always wins.
+    $state = $this->notify->topic_notify_state($viewer_phpbb_id, $topic_id);
+    if ($state === 0) return false;
+    if ($state === 1) return true;
+
+    // No explicit per-topic preference.
+    // If the viewer has participated in this topic, treat them as subscribed by default.
+    if ($viewer_participated) return true;
+
+    // Otherwise, fall back to the Agora bell (global opt-in for the Agora).
+    $bell = false;
+    if ($forum_id > 0) {
+      try { $bell = (bool)$this->membership->get_notify_agora($viewer_phpbb_id, $forum_id); } catch (Throwable $e) { $bell = false; }
+    }
+    return $bell ? true : false;
+  }
 
   public function ajax_routes(): array {
     return [
@@ -45,6 +77,17 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
 
     $topic   = $this->phpbb->get_topic_row($topic_id);
     $forum_id = (int)($topic['forum_id'] ?? 0);
+    $viewer_phpbb_id = (int)$this->auth->current_phpbb_user_id();
+    $report_id = isset($_REQUEST['report_id']) ? (int)$_REQUEST['report_id'] : (isset($_REQUEST['iad_report']) ? (int)$_REQUEST['iad_report'] : 0);
+    $report_override = ($report_id > 0 && $this->reports->user_can_view_report($report_id, $viewer_phpbb_id));
+    if (!$report_override && !$this->privacy->user_has_access($viewer_phpbb_id, $forum_id)) ia_discuss_json_err('Private Agora', 403);
+
+    $viewer_wp_user_id = (int) get_current_user_id();
+    if ($viewer_wp_user_id > 0) {
+      try {
+        ia_discuss_topic_history_record($viewer_wp_user_id, $topic_id, time());
+      } catch (Throwable $e) {}
+    }
 
     // Fetch all topic posts. We page internally to avoid huge single queries,
     // but we return everything to the client.
@@ -61,6 +104,16 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
       }
       if (count($batch) < $chunk) break;
       $off += $chunk;
+    }
+
+    if ($report_override) {
+      $report = $this->reports->get_report($report_id);
+      $report_post_id = (int)($report['post_id'] ?? 0);
+      if ($report_post_id > 0) {
+        $rows = array_values(array_filter($rows, function($r) use ($report_post_id){
+          return ((int)($r['post_id'] ?? 0) === $report_post_id);
+        }));
+      }
     }
 
     $has_more = 0;
@@ -81,7 +134,15 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
     }
 
     // Viewer context
-    $viewer_phpbb_id = (int)$this->auth->current_phpbb_user_id();
+
+    // Block filtering (hide blocked users' posts within topics).
+    $blocked = $viewer_phpbb_id > 0 ? array_fill_keys(ia_user_rel_blocked_ids_for($viewer_phpbb_id), true) : [];
+    if (!empty($blocked)) {
+      $rows = array_values(array_filter($rows, function($r) use ($blocked){
+        $poster = (int)($r['poster_id'] ?? 0);
+        return $poster <= 0 || empty($blocked[$poster]);
+      }));
+    }
     $viewer_is_admin = (function_exists('current_user_can') && current_user_can('manage_options')) ? 1 : 0;
 
     // Moderator scope: forum-only unless WP admin
@@ -123,6 +184,7 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
     }
 
     $posts = [];
+    $viewer_participated = false;
     foreach ($rows as $r) {
       $post_id   = (int)($r['post_id'] ?? 0);
       $poster_id = (int)($r['poster_id'] ?? 0);
@@ -169,11 +231,16 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
         'post_id'         => $post_id,
         'poster_id'       => $poster_id,
         'poster_username' => $username,
+        'poster_display'  => ia_discuss_display_name_from_phpbb($poster_id, $username),
+        'avatar_url'      => ia_discuss_avatar_url_from_phpbb($poster_id, 34),
         'post_time'       => $post_time,
 
         'content_html'    => $this->bbcode->format_post_html($text),
         'raw_text'        => $text_raw,
         'media'           => $media,
+
+        // Optional user bio signature (from IA Connect user settings)
+        'signature_html'  => ia_discuss_signature_html_from_phpbb($poster_id),
 
         'is_admin'        => $is_admin_author ? 1 : 0,
         'is_moderator'    => $is_mod_author ? 1 : 0,
@@ -189,6 +256,10 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
         // needed for ban endpoint
         'forum_id'        => $forum_id,
       ];
+
+      if ($viewer_phpbb_id > 0 && $poster_id === $viewer_phpbb_id) {
+        $viewer_participated = true;
+      }
     }
 
     ia_discuss_json_ok([
@@ -202,6 +273,11 @@ final class IA_Discuss_Module_Topic implements IA_Discuss_Module_Interface {
       'posts'          => $posts,
       'has_more'       => $has_more ? 1 : 0,
       'posts_total'    => $posts_total,
+      // Effective notification checkbox state (Agora bell defaults + per-topic overrides)
+      'notify_enabled' => $this->effective_topic_notify($viewer_phpbb_id, $forum_id, $topic_id, $viewer_participated) ? 1 : 0,
+      'forum_is_private' => $this->privacy->is_private($forum_id) ? 1 : 0,
+      'report_override' => $report_override ? 1 : 0,
+      'report_id' => $report_id,
 
       'viewer'         => [
         'phpbb_user_id' => $viewer_phpbb_id,

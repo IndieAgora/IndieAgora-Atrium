@@ -11,7 +11,6 @@
       window.IA_DISCUSS_UI_AGORA &&
       window.IA_DISCUSS_UI_TOPIC &&
       window.IA_DISCUSS_UI_COMPOSER &&
-      window.IA_DISCUSS_UI_SEARCH &&   // ✅ NEW
       window.IA_DISCUSS_ROUTER &&
       typeof window.IA_DISCUSS_ROUTER.mount === "function"
     );

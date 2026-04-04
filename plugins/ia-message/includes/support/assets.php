@@ -16,7 +16,11 @@ add_action('wp_enqueue_scripts', function () {
   wp_enqueue_style('ia-message-modal', IA_MESSAGE_URL . 'assets/css/ia-message.modal.css', ['ia-message-base'], IA_MESSAGE_VERSION);
 
   // Scripts
-  wp_enqueue_script('ia-message-boot', IA_MESSAGE_URL . 'assets/js/ia-message.boot.js', [], IA_MESSAGE_VERSION, true);
+  wp_enqueue_script('ia-message-api', IA_MESSAGE_URL . 'assets/js/ia-message.api.js', [], IA_MESSAGE_VERSION, true);
+  wp_enqueue_script('ia-message-state', IA_MESSAGE_URL . 'assets/js/ia-message.state.js', ['ia-message-api'], IA_MESSAGE_VERSION, true);
+  wp_enqueue_script('ia-message-ui-modals', IA_MESSAGE_URL . 'assets/js/ia-message.ui.modals.js', ['ia-message-state'], IA_MESSAGE_VERSION, true);
+  wp_enqueue_script('ia-message-ui-composer', IA_MESSAGE_URL . 'assets/js/ia-message.ui.composer.js', ['ia-message-ui-modals'], IA_MESSAGE_VERSION, true);
+  wp_enqueue_script('ia-message-boot', IA_MESSAGE_URL . 'assets/js/ia-message.boot.js', ['ia-message-ui-composer'], IA_MESSAGE_VERSION, true);
 
   wp_localize_script('ia-message-boot', 'IA_MESSAGE', [
     'version'   => IA_MESSAGE_VERSION,
@@ -24,7 +28,8 @@ add_action('wp_enqueue_scripts', function () {
     'ajaxUrl'   => admin_url('admin-ajax.php'),
     'nonceBoot' => ia_message_nonce_field('boot'),
   ]);
-});
+}, 999);
+
 
  /**
   * Inject the panel template so Atrium can mount it at runtime.

@@ -134,6 +134,11 @@
           ${makeToolbar()}
           <textarea class="iad-textarea" data-iad-bodytext placeholder="Text (BBCode supported)"></textarea>
 
+          ${mode === "topic" ? `<label class="iad-check" style="display:flex;align-items:center;gap:8px;margin:8px 0 2px 0;user-select:none;">
+            <input type="checkbox" data-iad-notify checked />
+            <span>Email me replies to this topic</span>
+          </label>` : ``}
+
           <div data-iad-error aria-live="polite"></div>
 
           <div class="iad-attachlist" data-iad-attachlist></div>
@@ -146,6 +151,7 @@
       </div>
     `;
   }
+
 
   function bindComposer(root, opts) {
     const box = qs("[data-iad-composer]", root);
@@ -160,12 +166,45 @@
     const addAttachBtn = qs("[data-iad-add-attach]", box);
 
     const startOpen = !!(opts && opts.startOpen);
-
-
-    // Prefill (used for editing existing posts)
+    // Prefill (used for editing existing posts / quote)
     const prefillBody = (opts && typeof opts.prefillBody === "string") ? opts.prefillBody : "";
-    if (ta && prefillBody) {
-      ta.value = prefillBody;
+
+    // Draft memory (modal composer is mounted/unmounted on close, so persistence must live outside the DOM).
+    const mode = (opts && opts.mode) ? String(opts.mode) : "topic";
+    const topicId = (opts && opts.topicId != null) ? (parseInt(opts.topicId, 10) || 0) : 0;
+    const hasDraft = (mode === "reply" && topicId > 0 && typeof window !== "undefined" && window.localStorage);
+
+    const draftKey = hasDraft ? ("ia_discuss_reply_draft_v1_" + String(topicId)) : "";
+    function draftLoad() {
+      if (!hasDraft) return "";
+      try { return String(localStorage.getItem(draftKey) || ""); } catch (e) { return ""; }
+    }
+    function draftSave(val) {
+      if (!hasDraft) return;
+      try { localStorage.setItem(draftKey, String(val || "")); } catch (e) {}
+    }
+    function draftClear() {
+      if (!hasDraft) return;
+      try { localStorage.removeItem(draftKey); } catch (e) {}
+    }
+
+    // Restore draft first, then merge any prefillBody (e.g., quote) without overwriting what the user already typed.
+    if (ta) {
+      const existingDraft = draftLoad();
+      if (existingDraft) {
+        ta.value = existingDraft;
+      } else if (prefillBody) {
+        ta.value = prefillBody;
+      }
+
+      // If both exist, append the prefill (quote) instead of overwriting.
+      if (prefillBody && existingDraft) {
+        const pb = String(prefillBody || "").trim();
+        const cur = String(ta.value || "");
+        if (pb && cur.indexOf(pb) === -1) {
+          ta.value = (cur ? (cur + "\n\n") : "") + pb;
+        }
+      }
     }
 
     // Smart paste: keep paragraphs + basic formatting when pasting rich text (Word, web pages, etc.)
@@ -191,6 +230,16 @@
         } catch (e) {}
       });
     }
+
+    // Draft autosave (reply mode only)
+    if (ta && hasDraft) {
+      const saveNow = () => { try { draftSave(ta.value || ""); } catch (e) {} };
+      ta.addEventListener("input", saveNow);
+      ta.addEventListener("change", saveNow);
+      // Save once on bind in case a prefill/merge happened.
+      saveNow();
+    }
+
 
     // Default: start collapsed on mount (keeps inline composer tidy).
     // Modal composers can request startOpen=true.
@@ -275,6 +324,7 @@
       };
       input.click();
     }
+
 
     function setOpen(open) {
       if (open) {
@@ -362,30 +412,54 @@
     }
 
     const submit = qs("[data-iad-submit]", box);
+    let submitting = false;
     submit.addEventListener("click", () => {
+      if (submitting) return;
+      submitting = true;
+      try { submit.disabled = true; submit.classList.add("is-busy"); } catch(e) {}
+
       setError("");
       const mode = (opts && opts.mode) || "topic";
       const bodyText = (ta.value || "").trim();
       const titleText = title ? (title.value || "").trim() : "";
 
+      const notifyEl = qs('[data-iad-notify]', box);
+      const notifyVal = notifyEl ? (notifyEl.checked ? 1 : 0) : 1;
+
       const payload = {
         mode,
         title: titleText,
         body: bodyText,
+        notify: (mode === 'topic') ? notifyVal : 1,
         attachments
       };
 
       if (opts && typeof opts.onSubmit === "function") {
-        opts.onSubmit(payload, {
+        const maybePromise = opts.onSubmit(payload, {
           error: setError,
+          setError,
           clear() {
             if (title) title.value = "";
             ta.value = "";
             attachments.length = 0;
             attachList.innerHTML = "";
+            try { draftClear(); } catch (e) {}
             setOpen(false); // ✅ collapse after submit
           }
         });
+
+        if (maybePromise && typeof maybePromise.then === "function") {
+          maybePromise.finally(() => {
+            submitting = false;
+            try { submit.disabled = false; submit.classList.remove("is-busy"); } catch(e) {}
+          });
+        } else {
+          // If onSubmit didn't return a promise, unlock after a short tick.
+          setTimeout(() => {
+            submitting = false;
+            try { submit.disabled = false; submit.classList.remove("is-busy"); } catch(e) {}
+          }, 800);
+        }
       }
     });
 
@@ -398,4 +472,5 @@
   }
 
   window.IA_DISCUSS_UI_COMPOSER = { composerHTML, bindComposer };
+
 })();

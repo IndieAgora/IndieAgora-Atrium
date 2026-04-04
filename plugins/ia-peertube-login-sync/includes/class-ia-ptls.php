@@ -88,6 +88,10 @@ final class IA_PTLS {
      * Response: {ok: true, redirect: url}
      */
     public function ajax_login() {
+        ia_pt_trace_log('ia-ptls.ajax_login.enter', [
+            'identifier' => (string)($_POST['identifier'] ?? ''),
+            'uri' => (string)($_SERVER['REQUEST_URI'] ?? ''),
+        ]);
         check_ajax_referer('ia_ptls_login_nonce', 'nonce');
 
         if (!class_exists('IA_Engine')) {
@@ -139,6 +143,23 @@ final class IA_PTLS {
         // 4) Log the WP user in.
         wp_set_current_user($wp_user_id);
         wp_set_auth_cookie($wp_user_id, true);
+
+        /**
+         * Atrium shadow-session logins bypass wp_signon/wp_authenticate.
+         * The per-user PeerTube token mint plugin relies on receiving the
+         * plaintext password at login time via this action.
+         */
+        do_action('ia_pt_user_password', (int)$wp_user_id, (string)$pw, (string)$id);
+        // Hard-call capture to avoid reliance on action wiring in shadow-session stacks.
+        if (class_exists('IA_PT_Password_Capture') && method_exists('IA_PT_Password_Capture', 'capture_for_user')) {
+            try { IA_PT_Password_Capture::capture_for_user((int)$wp_user_id, (string)$pw, (string)$id); } catch (Throwable $e) { /* ignore */ }
+        }
+
+
+        // Opportunistically mint/store per-user token now if the helper is available.
+        if (class_exists('IA_PeerTube_Token_Helper') && method_exists('IA_PeerTube_Token_Helper', 'get_token_for_current_user')) {
+            try { IA_PeerTube_Token_Helper::get_token_for_current_user(); } catch (Throwable $e) { /* ignore */ }
+        }
 
         wp_send_json_success([
             'ok' => true,
@@ -496,6 +517,12 @@ final class IA_PTLS {
     }
 
     public function phpbb_find_or_create_user(string $pt_username, string $pt_email): array {
+        if (function_exists('ia_goodbye_identifier_is_tombstoned')
+            && ((trim($pt_username) !== '' && ia_goodbye_identifier_is_tombstoned($pt_username))
+                || (trim($pt_email) !== '' && ia_goodbye_identifier_is_tombstoned($pt_email)))) {
+            return ['ok' => false, 'message' => 'Deleted account tombstone blocks recreation.'];
+        }
+
         $conn = $this->phpbb_conn();
         if (!$conn) return ['ok' => false, 'message' => 'Could not connect to phpBB DB (check IA Engine config).'];
 
@@ -533,6 +560,14 @@ final class IA_PTLS {
         $phpbb_user_id = (int)($phpbb_user['user_id'] ?? 0);
         if (!$phpbb_user_id) return 0;
 
+        $email = (string)($phpbb_user['user_email'] ?? '');
+        $username_clean = (string)($phpbb_user['username_clean'] ?? '');
+        if (function_exists('ia_goodbye_identifier_is_tombstoned')
+            && (($email !== '' && ia_goodbye_identifier_is_tombstoned($email))
+                || ($username_clean !== '' && ia_goodbye_identifier_is_tombstoned($username_clean)))) {
+            return 0;
+        }
+
         // Ensure mapping table exists (created by IA Auth). If not, bail.
         $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $map));
         if (!$exists) return 0;
@@ -541,6 +576,9 @@ final class IA_PTLS {
         $row = $wpdb->get_row($wpdb->prepare("SELECT wp_user_id FROM $map WHERE phpbb_user_id=%d LIMIT 1", $phpbb_user_id), ARRAY_A);
         $wp_user_id = isset($row['wp_user_id']) ? (int)$row['wp_user_id'] : 0;
         if ($wp_user_id && get_user_by('id', $wp_user_id)) {
+            // Ensure WP usermeta carries canonical phpBB id for downstream plugins.
+            update_user_meta($wp_user_id, 'ia_phpbb_user_id', (string)$phpbb_user_id);
+
             // Update peertube link
             $wpdb->update($map, [
                 'peertube_user_id' => $peertube_user_id,
@@ -582,6 +620,9 @@ final class IA_PTLS {
                 return 0;
             }
         }
+
+        // Ensure WP usermeta carries canonical phpBB id for downstream plugins.
+        update_user_meta($wp_user_id, 'ia_phpbb_user_id', (string)$phpbb_user_id);
 
         // Upsert identity row
         $now = gmdate('Y-m-d H:i:s');

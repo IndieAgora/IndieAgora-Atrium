@@ -27,6 +27,7 @@ function ia_message_install(): void {
   $threads  = $wpdb->prefix . 'ia_msg_threads';
   $members  = $wpdb->prefix . 'ia_msg_thread_members';
   $messages = $wpdb->prefix . 'ia_msg_messages';
+  $invites  = $wpdb->prefix . 'ia_msg_thread_invites';
 
   $sql = [];
 
@@ -34,6 +35,8 @@ function ia_message_install(): void {
     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
     thread_key VARCHAR(190) NOT NULL,
     type VARCHAR(20) NOT NULL DEFAULT 'dm',
+    title VARCHAR(190) DEFAULT NULL,
+    avatar_url TEXT DEFAULT NULL,
     last_message_id BIGINT(20) UNSIGNED DEFAULT NULL,
     last_activity_at DATETIME DEFAULT NULL,
     created_at DATETIME NOT NULL,
@@ -53,6 +56,7 @@ function ia_message_install(): void {
     last_read_message_id BIGINT(20) UNSIGNED DEFAULT NULL,
     is_muted TINYINT(1) NOT NULL DEFAULT 0,
     is_pinned TINYINT(1) NOT NULL DEFAULT 0,
+    is_mod TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     PRIMARY KEY (id),
@@ -61,10 +65,26 @@ function ia_message_install(): void {
     KEY phpbb_user_id (phpbb_user_id)
   ) {$charset};";
 
+  $sql[] = "CREATE TABLE {$invites} (
+    id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    thread_id BIGINT(20) UNSIGNED NOT NULL,
+    inviter_phpbb_user_id BIGINT(20) UNSIGNED NOT NULL,
+    invitee_phpbb_user_id BIGINT(20) UNSIGNED NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at DATETIME NOT NULL,
+    responded_at DATETIME DEFAULT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_invite (thread_id, invitee_phpbb_user_id, status),
+    KEY thread_id (thread_id),
+    KEY invitee_phpbb_user_id (invitee_phpbb_user_id),
+    KEY status (status)
+  ) {$charset};";
+
   $sql[] = "CREATE TABLE {$messages} (
     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
     thread_id BIGINT(20) UNSIGNED NOT NULL,
     author_phpbb_user_id BIGINT(20) UNSIGNED NOT NULL,
+    reply_to_message_id BIGINT(20) UNSIGNED DEFAULT NULL,
     body LONGTEXT NOT NULL,
     body_format VARCHAR(20) NOT NULL DEFAULT 'plain',
     created_at DATETIME NOT NULL,
@@ -73,6 +93,7 @@ function ia_message_install(): void {
     PRIMARY KEY (id),
     KEY thread_id (thread_id),
     KEY author_phpbb_user_id (author_phpbb_user_id),
+    KEY reply_to_message_id (reply_to_message_id),
     KEY created_at (created_at)
   ) {$charset};";
 

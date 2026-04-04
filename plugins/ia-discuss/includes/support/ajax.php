@@ -87,7 +87,12 @@ final class IA_Discuss_Support_Ajax {
       $method = $def['method'];
       $module->{$method}();
     } catch (Throwable $e) {
-      ia_discuss_json_err('AJAX error: ' . $e->getMessage(), 500);
+      // Log server-side for diagnosis (AJAX 500s don't always hit debug.log).
+      if (function_exists('error_log')) {
+        error_log('[ia-discuss][ajax][500] action=' . $action . ' msg=' . $e->getMessage());
+        error_log('[ia-discuss][ajax][500] trace=' . $e->getTraceAsString());
+      }
+      ia_discuss_json_err('AJAX error (' . $action . '): ' . $e->getMessage(), 500);
     }
   }
 }

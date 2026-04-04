@@ -1,48 +1,51 @@
-"use strict";
-  }
+  function ensureSuggestBox(root, input) {
+    if (!input) return null;
 
-  // -------------------------------------------------
-  // Connect open helper (MUST match feed behaviour)
-  // -------------------------------------------------
-  function openConnectProfile(payload) {
-    var p = payload || {};
-    var username = String(p.username || "").trim();
-    var user_id = parseInt(p.user_id || "0", 10) || 0;
-
-    try {
-      localStorage.setItem("ia_connect_last_profile", JSON.stringify({
-        username,
-        user_id,
-        ts: Math.floor(Date.now() / 1000)
-      }));
-    } catch (e) {}
-
-    try {
-      window.dispatchEvent(new CustomEvent("ia:open_profile", { detail: { username, user_id } }));
-    } catch (e) {}
-
-    var tabBtn = document.querySelector('.ia-tab[data-target="connect"]');
-    if (tabBtn) tabBtn.click();
-  }
-
-  // ---------------------------
-  // Suggestions dropdown
-  // ---------------------------
-  function ensureSuggestBox(root) {
-    var wrap = qs("[data-iad-search-wrap]", root) || (qs(".iad-search", root) || null);
-    if (!wrap) return null;
-
-    var box = qs("[data-iad-suggest]", wrap);
+    let box = document.querySelector('[data-iad-suggest="portal"]');
     if (box) return box;
 
-    wrap.style.position = "relative";
     box = document.createElement("div");
-    box.setAttribute("data-iad-suggest", "1");
-    box.className = "iad-suggest";
+    box.setAttribute("data-iad-suggest", "portal");
+    box.className = "iad-suggest iad-suggest--portal";
     box.style.display = "none";
-    wrap.appendChild(box);
+
+    // Theme sync: this dropdown is rendered in <body> (portal) so it won't
+    // naturally inherit theme styles scoped under .ia-discuss-root.
+    // We mirror the current theme onto the portal element itself.
+    try {
+      const t = (root && root.getAttribute) ? (root.getAttribute('data-iad-theme') || 'dark') : 'dark';
+      box.setAttribute('data-iad-theme', t);
+    } catch (e) {}
+
+    // Keep the portal theme in sync if the user toggles light/dark.
+    if (root && root.__iadSuggestThemeObs !== true) {
+      try {
+        const mo = new MutationObserver(() => {
+          try {
+            const t = root.getAttribute('data-iad-theme') || 'dark';
+            const b = document.querySelector('[data-iad-suggest="portal"]');
+            if (b) b.setAttribute('data-iad-theme', t);
+          } catch (e) {}
+        });
+        mo.observe(root, { attributes: true, attributeFilter: ['data-iad-theme'] });
+        root.__iadSuggestThemeObs = true;
+      } catch (e) {}
+    }
+
+    document.body.appendChild(box);
     return box;
   }
+
+  function positionSuggestBox(box, input) {
+    if (!box || !input) return;
+    const r = input.getBoundingClientRect();
+    // fixed positioning: respect viewport
+    box.style.position = "fixed";
+    box.style.left = Math.max(8, Math.round(r.left)) + "px";
+    box.style.top = Math.round(r.bottom + 8) + "px";
+    box.style.width = Math.max(200, Math.round(r.width)) + "px";
+  }
+
 
   function hideSuggest(box) {
     if (!box) return;
@@ -50,8 +53,15 @@
     box.innerHTML = "";
   }
 
-  function showSuggest(box) {
+  function showSuggest(box, input) {
     if (!box) return;
+    // Re-assert theme on show in case the portal was created under a
+    // different root instance.
+    try {
+      const r = input && input.closest ? input.closest('.ia-discuss-root') : null;
+      if (r) box.setAttribute('data-iad-theme', r.getAttribute('data-iad-theme') || 'dark');
+    } catch (e) {}
+    positionSuggestBox(box, input);
     box.style.display = "block";
   }
 
@@ -64,29 +74,3 @@
     `;
   }
 
-  function bindSearchBox(root) {
-    var input = qs("[data-iad-search]", root);
-    if (!input || input.__iadBound) return;
-    input.__iadBound = true;
-
-    var box = ensureSuggestBox(root);
-
-    var runSuggest = debounce((q) => {
-      q = String(q || "").trim();
-      if (!q || q.length < 2) return hideSuggest(box);
-
-      API.post("ia_discuss_search_suggest", { q }).then((res) => {
-        if (!res || !res.success) return hideSuggest(box);
-
-        var d = res.data || {};
-        var users = Array.isArray(d.users) ? d.users : [];
-        var agoras = Array.isArray(d.agoras) ? d.agoras : [];
-        var topics = Array.isArray(d.topics) ? d.topics : [];
-        var replies = Array.isArray(d.replies) ? d.replies : [];
-
-        var parts = [];
-
-        parts.push(`
-          <button type="button" class="iad-sug-row is-cta" data-iad-sug-open-search data-q="${esc(q)}">
-            Search for <span class="iad-sug-q">“${esc(q)}”</span>
-;

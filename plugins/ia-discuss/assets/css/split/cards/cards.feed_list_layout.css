@@ -1,6 +1,7 @@
 .iad-feed-list{ display:flex; flex-direction:column; gap: 10px; }
 
 .iad-card{
+  position: relative;
   display:block;
   padding: 12px;
   border: 1px solid var(--iad-border);
@@ -19,7 +20,48 @@
   word-break: break-word;
 }
 
+/* Gradient glow layer (stronger than shadow-only) */
+.iad-card::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 0;
+}
+.iad-card.is-unread::before{
+  opacity: 0.95;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(255, 60, 60, 0.38), rgba(255, 60, 60, 0.00) 60%),
+    radial-gradient(120% 140% at 100% 100%, rgba(255, 120, 120, 0.22), rgba(255, 120, 120, 0.00) 58%);
+}
+.iad-card.is-read::before{
+  opacity: 0.85;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(60, 220, 120, 0.26), rgba(60, 220, 120, 0.00) 62%),
+    radial-gradient(120% 140% at 100% 100%, rgba(60, 220, 120, 0.16), rgba(60, 220, 120, 0.00) 58%);
+}
+
+/* Read / unread glow */
+.iad-card.is-unread{
+  border-color: rgba(255, 80, 80, 0.45);
+  box-shadow:
+    0 10px 22px rgba(0,0,0,0.25),
+    0 0 0 1px rgba(255, 60, 60, 0.30),
+    0 0 18px rgba(255, 60, 60, 0.22);
+}
+.iad-card.is-read{
+  border-color: rgba(60, 220, 120, 0.35);
+  box-shadow:
+    0 10px 22px rgba(0,0,0,0.25),
+    0 0 0 1px rgba(60, 220, 120, 0.22),
+    0 0 16px rgba(60, 220, 120, 0.18);
+}
+
 .iad-card-main{
+  position: relative;
+  z-index: 1;
   display: block !important;
   grid-template-columns: none !important;
 
@@ -88,3 +130,373 @@
 .iad-att-img{
   width: 100%;
   height: auto;
+  max-width: 100%;
+  display: block;
+}
+
+/* Desktop: feed attachments should render as previews, not full-width banners */
+@media (min-width: 900px){
+  .iad-feed-list .iad-att-media{
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .iad-feed-list .iad-att-img{
+    width: auto;
+    max-width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* Feed Sort Dropdown – Reddit-style pill */
+/* Ensure the Sort <select> matches IA pill styling (avoid native OS look) */
+.ia-discuss-root .iad-feed-controls {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin: 0;
+}
+
+.ia-discuss-root .iad-feed-controls .iad-select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  background-color: rgba(255,255,255,0.06) !important;
+  color: rgba(255,255,255,0.92) !important;
+  padding: 7px 32px 7px 12px !important;
+  border-radius: 999px !important;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.1;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.70) 50%),
+    linear-gradient(135deg, rgba(255,255,255,0.70) 50%, transparent 50%) !important;
+  background-position:
+    calc(100% - 16px) 55%,
+    calc(100% - 11px) 55% !important;
+  background-size: 5px 5px, 5px 5px !important;
+  background-repeat: no-repeat !important;
+}
+
+.ia-discuss-root .iad-feed-controls .iad-select:hover {
+  background-color: rgba(255,255,255,0.10) !important;
+  border-color: rgba(255,255,255,0.22) !important;
+}
+
+.ia-discuss-root .iad-feed-controls .iad-select:focus {
+  outline: none !important;
+  border-color: rgba(255,106,0,0.75) !important;
+  box-shadow: 0 0 0 2px rgba(255,106,0,0.25) !important;
+}
+
+/* Make dropdown options readable in dark mode (many clients default to white background) */
+.ia-discuss-root .iad-feed-controls .iad-select option {
+  background-color: #111;
+  color: #fff;
+}
+
+/* Hide legacy arrow where applicable */
+.ia-discuss-root .iad-feed-controls .iad-select::-ms-expand { display: none; }
+
+/* Light theme override (real selector used by Discuss) */
+.ia-discuss-root[data-iad-theme="light"] .iad-feed-controls .iad-select {
+  border-color: rgba(0,0,0,0.14) !important;
+  background-color: rgba(255,255,255,0.88) !important;
+  color: rgba(0,0,0,0.85) !important;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(0,0,0,0.50) 50%),
+    linear-gradient(135deg, rgba(0,0,0,0.50) 50%, transparent 50%) !important;
+}
+.ia-discuss-root[data-iad-theme="light"] .iad-feed-controls .iad-select option {
+  background-color: #fff;
+  color: #111;
+}
+/* /Feed Sort Dropdown – Reddit-style pill */
+
+
+.ia-discuss-root .iad-feed-toolbar{
+  display:grid;
+  grid-template-columns:auto max-content max-content;
+  align-items:center;
+  justify-content:start;
+  column-gap:14px;
+  row-gap:8px;
+  margin: 6px 0 2px;
+}
+
+.ia-discuss-root .iad-feed-toolbar-left,
+.ia-discuss-root .iad-feed-toolbar-right{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:nowrap;
+}
+
+.ia-discuss-root .iad-feed-toolbar-left{
+  min-width:0;
+}
+
+.ia-discuss-root .iad-feed-toolbar-center{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.ia-discuss-root .iad-feed-toolbar-right{
+  justify-content:flex-start;
+}
+
+.ia-discuss-root .iad-feed-controls{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.ia-discuss-root .iad-feed-control-group{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:nowrap;
+}
+
+.ia-discuss-root .iad-feed-mode-toggle{
+  margin-right: 0;
+}
+
+.ia-discuss-root .iad-feed-sort-group{
+  gap:0;
+}
+
+.ia-discuss-root .iad-feed-mode-btn svg,
+.ia-discuss-root .iad-feed-jump-toggle svg{
+  width:18px;
+  height:18px;
+  display:block;
+  flex:0 0 auto;
+  pointer-events:none;
+}
+
+.ia-discuss-root .iad-feed-mode-btn,
+.ia-discuss-root .iad-feed-jump-toggle{
+  width:36px;
+  height:36px;
+  padding:0;
+  border-radius:10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:0;
+  flex:0 0 auto;
+  overflow:hidden;
+}
+
+.ia-discuss-root .iad-feed-mode-btn.is-active,
+.ia-discuss-root .iad-feed-jump-toggle.is-active{
+  border-color: rgba(255,106,0,0.55);
+  box-shadow: 0 0 0 1px rgba(255,106,0,0.18);
+  background: rgba(255,106,0,0.14);
+}
+
+.ia-discuss-root .iad-feed-sort-group .iad-select{
+  min-width: 170px;
+  min-height: 36px;
+}
+
+.ia-discuss-root .iad-feed-summary{
+  min-height: 36px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-end;
+  font-size: 13px;
+  color: var(--iad-muted);
+  white-space: nowrap;
+  text-align:right;
+}
+
+.ia-discuss-root .iad-feed-jump[hidden]{
+  display:none !important;
+}
+
+.ia-discuss-root .iad-feed-jump{
+  display:flex;
+  justify-content:flex-end;
+  margin: 6px 0 4px;
+}
+
+.ia-discuss-root .iad-feed-jump-form{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:nowrap;
+}
+
+.ia-discuss-root .iad-feed-jump-input{
+  width: 132px;
+  min-height: 36px;
+}
+
+.ia-discuss-root .iad-feed-jump-go{
+  min-height: 36px;
+  min-width: 64px;
+}
+
+.ia-discuss-root .iad-feed-pager{
+  display:flex;
+  justify-content:center;
+  margin: 0;
+}
+
+.ia-discuss-root .iad-feed-pager:empty{
+  display:none;
+}
+
+.ia-discuss-root .iad-pagination{
+  width:auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  flex-wrap:nowrap;
+}
+
+.ia-discuss-root .iad-pagination-pages{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
+
+.ia-discuss-root .iad-pagebtn{
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.94);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  cursor:pointer;
+  font-size: 13px;
+  line-height:1;
+}
+
+.ia-discuss-root .iad-pagebtn:hover,
+.ia-discuss-root .iad-feed-mode-btn:hover,
+.ia-discuss-root .iad-feed-jump-toggle:hover{
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.24);
+}
+
+.ia-discuss-root .iad-pagebtn.is-active{
+  background: rgba(255,106,0,0.16);
+  border-color: rgba(255,106,0,0.60);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(255,106,0,0.18);
+}
+
+.ia-discuss-root .iad-pagebtn[disabled]{
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ia-discuss-root .iad-pagegap{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width: 18px;
+  color: var(--iad-muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-feed-mode-btn,
+.ia-discuss-root[data-iad-theme="light"] .iad-feed-jump-toggle,
+.ia-discuss-root[data-iad-theme="light"] .iad-pagebtn{
+  border-color: rgba(0,0,0,0.16);
+  background: rgba(255,255,255,0.94);
+  color: rgba(0,0,0,0.84);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-feed-mode-btn:hover,
+.ia-discuss-root[data-iad-theme="light"] .iad-feed-jump-toggle:hover,
+.ia-discuss-root[data-iad-theme="light"] .iad-pagebtn:hover{
+  background: rgba(255,255,255,1);
+  border-color: rgba(0,0,0,0.24);
+}
+
+.ia-discuss-root[data-iad-theme="light"] .iad-pagebtn.is-active,
+.ia-discuss-root[data-iad-theme="light"] .iad-feed-mode-btn.is-active{
+  background: rgba(255,106,0,0.10);
+  border-color: rgba(255,106,0,0.42);
+  color: rgba(0,0,0,0.92);
+}
+@media (max-width: 720px){
+  .ia-discuss-root .iad-feed-toolbar{
+    grid-template-columns:1fr;
+    align-items:stretch;
+  }
+
+  .ia-discuss-root .iad-feed-toolbar-left,
+  .ia-discuss-root .iad-feed-toolbar-center,
+  .ia-discuss-root .iad-feed-toolbar-right,
+  .ia-discuss-root .iad-feed-controls{
+    width:100%;
+  }
+
+  .ia-discuss-root .iad-feed-toolbar-center,
+  .ia-discuss-root .iad-feed-toolbar-right,
+  .ia-discuss-root .iad-feed-controls,
+  .ia-discuss-root .iad-pagination{
+    justify-content:flex-start;
+  }
+
+  .ia-discuss-root .iad-feed-jump,
+  .ia-discuss-root .iad-feed-jump-form,
+  .ia-discuss-root .iad-feed-summary{
+    justify-content:flex-start;
+    text-align:left;
+  }
+
+  .ia-discuss-root .iad-feed-jump-form,
+  .ia-discuss-root .iad-pagination-pages{
+    flex-wrap:wrap;
+  }
+}
+
+.ia-discuss-root .iad-feed-toolbar-center .iad-feed-pager--top{
+  width:auto;
+}
+
+.ia-discuss-root .iad-feed-toolbar-right .iad-feed-summary{
+  margin-right:2px;
+}
+
+@media (max-width: 980px){
+  .ia-discuss-root .iad-feed-toolbar{
+    grid-template-columns:auto 1fr;
+  }
+
+  .ia-discuss-root .iad-feed-toolbar-center{
+    grid-column:1 / -1;
+    justify-content:center;
+  }
+
+  .ia-discuss-root .iad-feed-toolbar-right{
+    justify-content:flex-end;
+  }
+}

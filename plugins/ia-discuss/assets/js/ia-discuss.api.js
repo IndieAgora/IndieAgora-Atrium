@@ -98,5 +98,13 @@
     });
   }
 
-  window.IA_DISCUSS_API = { post, uploadFile, uploadFileWithProgress };
+  // Compatibility helper: some newer modules call API.upload(action, file, onProgress)
+  // while older code calls uploadFile / uploadFileWithProgress.
+  function upload(action, file, onProgress) {
+    // Currently only ia_discuss_upload exists, but we keep the signature generic.
+    if (typeof onProgress === 'function') return uploadFileWithProgress(file, onProgress);
+    return uploadFile(file);
+  }
+
+  window.IA_DISCUSS_API = { post, uploadFile, uploadFileWithProgress, upload };
 })();

@@ -1,0 +1,294 @@
+/* IA Post: mounts inside Atrium composer modal */
+
+.ia-post-root{ width:100%; }
+
+
+/* Typeface: avoid serif fallback inside modal */
+#ia-atrium-composer .ia-post-root,
+#ia-atrium-composer .ia-post-root input,
+#ia-atrium-composer .ia-post-root textarea,
+#ia-atrium-composer .ia-post-root button,
+#ia-atrium-composer .ia-post-root select{
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+
+/* Hide Atrium placeholder once ia-post is mounted */
+#ia-atrium-composer .ia-composer-placeholder{ display:none; }
+
+.ia-post-loading{ opacity:0.7; padding: 10px 0; }
+
+.ia-post-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin: 2px 0 10px 0;
+}
+
+.ia-post-switch{ display:flex; gap:8px; }
+
+.ia-post-pill{
+  appearance:none;
+  border:1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor:pointer;
+}
+
+.ia-post-pill.is-active{
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.22);
+}
+
+.ia-post-dest{
+  font-size: 12px;
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 46vw;
+}
+
+.ia-post-section{ width:100%; }
+
+/* Make Discuss suggestion dropdown usable inside modal */
+.ia-post-agora-picker{ position: relative; margin: 0 0 10px 0; }
+
+.ia-post-agora-selected{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin: 0 0 8px 0;
+}
+
+.ia-post-agora-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.ia-post-agora-clear{
+  border:0;
+  background: transparent;
+  color: rgba(255,255,255,0.75);
+  cursor:pointer;
+  font-size: 12px;
+}
+
+.ia-post-agora-hint{ font-size: 12px; opacity: 0.65; margin-top: 6px; }
+
+/* Ensure Connect composer looks tidy in modal */
+#ia-atrium-composer .iac-composer{ margin: 0; }
+#ia-atrium-composer .iac-composer-title{ display:none; }
+#ia-atrium-composer .iac-composer-fields{ padding: 0; }
+
+/* Mention dropdown (ia-post mounts it to <body>, so give it complete styling here) */
+.iac-mentionbox{
+  position: fixed;
+  z-index: 100000;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 16px;
+  background: rgba(18,18,18,0.96);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.55);
+  overflow: hidden;
+  max-height: 260px;
+}
+.iac-mention-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  cursor:pointer;
+}
+.iac-mention-row:hover{ background: rgba(255,255,255,0.05); }
+.iac-mention-ava{
+  width:34px;
+  height:34px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+.iac-mention-name{ font-size: 13px; font-weight: 600; line-height:1.1; }
+.iac-mention-user{ font-size: 12px; opacity: 0.8; margin-top:2px; }
+
+@media (max-width: 520px){
+  .ia-post-dest{ max-width: 60vw; }
+}
+
+
+/* Discuss: joined agoras row */
+.ia-post-agora-joined{
+  margin-top:10px;
+  padding:10px 12px;
+  border:1px solid rgba(255,255,255,0.10);
+  border-radius:14px;
+  background: rgba(0,0,0,0.12);
+}
+.ia-post-agora-joined-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+.ia-post-agora-joined-label{
+  font-size:12px;
+  opacity:0.85;
+  letter-spacing:0.2px;
+}
+.ia-post-linkbtn{
+  appearance:none;
+  border:0;
+  background:none;
+  color: inherit;
+  opacity:0.85;
+  cursor:pointer;
+  padding:4px 6px;
+  border-radius:10px;
+}
+.ia-post-linkbtn:hover{ opacity:1; text-decoration:underline; }
+
+.ia-post-agora-chips{
+  display:flex;
+  gap:8px;
+  overflow:auto;
+  padding-bottom:4px;
+  -webkit-overflow-scrolling:touch;
+}
+.ia-post-agora-chips::-webkit-scrollbar{ height:6px; }
+.ia-post-agora-chip{
+  flex:0 0 auto;
+  appearance:none;
+  border:1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: inherit;
+  border-radius:999px;
+  padding:8px 10px;
+  font-size:12px;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.ia-post-agora-chip:hover{
+  border-color: rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.06);
+}
+.ia-post-agora-more{
+  opacity:0.9;
+}
+
+.ia-post-agora-tip{
+  margin-top:8px;
+  font-size:12px;
+  opacity:0.75;
+}
+
+/* Mini modal (joined agoras list) */
+.ia-post-mini-modal{
+  position:fixed;
+  inset:0;
+  z-index: 99999;
+}
+.ia-post-mini-backdrop{
+  position:absolute;
+  inset:0;
+  background: rgba(0,0,0,0.55);
+}
+.ia-post-mini-panel{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, calc(100vw - 28px));
+  max-height: min(70vh, 640px);
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,0.12);
+  background: rgba(20,20,20,0.96);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.6);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+.ia-post-mini-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:12px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.10);
+}
+.ia-post-mini-title{
+  font-size:14px;
+  font-weight:600;
+}
+.ia-post-mini-x{
+  appearance:none;
+  border:1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: inherit;
+  width:32px;
+  height:32px;
+  border-radius:999px;
+  cursor:pointer;
+}
+.ia-post-mini-q{
+  margin:12px 14px 10px 14px;
+}
+.ia-post-mini-list{
+  padding: 6px 10px 12px 10px;
+  overflow:auto;
+}
+.ia-post-mini-row{
+  width:100%;
+  text-align:left;
+  appearance:none;
+  border:0;
+  background:none;
+  color: inherit;
+  padding:10px 10px;
+  border-radius:12px;
+  cursor:pointer;
+}
+.ia-post-mini-row:hover{
+  background: rgba(255,255,255,0.05);
+}
+.ia-post-mini-row-name{
+  font-size:13px;
+}
+.ia-post-mini-empty{
+  padding:14px 10px;
+  opacity:0.75;
+  font-size:13px;
+}
+
+/* Highlight flash (Discuss-style) for newly created items after reload */
+@keyframes iaPostFlash {
+  0% { box-shadow: 0 0 0 0 rgba(120,180,255,0.00); outline: 0 solid rgba(120,180,255,0.00); }
+  15% { box-shadow: 0 0 0 6px rgba(120,180,255,0.18); outline: 2px solid rgba(120,180,255,0.22); }
+  70% { box-shadow: 0 0 0 10px rgba(120,180,255,0.06); outline: 2px solid rgba(120,180,255,0.08); }
+  100% { box-shadow: 0 0 0 0 rgba(120,180,255,0.00); outline: 0 solid rgba(120,180,255,0.00); }
+}
+.ia-post-flash{
+  animation: iaPostFlash 2.2s ease-out 1;
+  border-radius: 16px;
+}
+
+
+/* Discuss Agora suggestions: pin directly under the search input (avoid being pushed down by joined chips) */
+#ia-atrium-composer .ia-post-agora-picker{ position:relative; }
+#ia-atrium-composer .ia-post-agora-picker .iad-suggest[data-ia-post-agora-suggest]{
+  position:absolute;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  margin-top: 0;
+}
+
