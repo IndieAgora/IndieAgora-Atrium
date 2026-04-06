@@ -286,7 +286,7 @@ final class IA_User_PeerTube_Fallback_Clean {
 
             $wp_uid = (int)$ia->db->ensure_wp_shadow_user($phpbb_user, $ia->options());
             if ($wp_uid <= 0) {
-                wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
+                wp_send_json_error(['message' => 'Could not complete sign-in.'], 500);
             }
 
             wp_set_current_user($wp_uid);
@@ -426,7 +426,7 @@ final class IA_User_PeerTube_Fallback_Clean {
 
         $wp_uid = (int)$ia->db->ensure_wp_shadow_user($phpbb_user, $ia->options());
         if ($wp_uid <= 0) {
-            wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
+            wp_send_json_error(['message' => 'Could not complete sign-in.'], 500);
         }
 
         wp_set_current_user($wp_uid);

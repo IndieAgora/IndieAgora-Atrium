@@ -76,7 +76,7 @@ final class IA_User_PHPBB {
 
             return ['ok' => true, 'user' => $row];
         } catch (Throwable $e) {
-            return ['ok' => false, 'message' => 'phpBB auth error.'];
+            return ['ok' => false, 'message' => 'Account sign-in error.'];
         }
     }
 
@@ -170,7 +170,7 @@ final class IA_User_PHPBB {
             $st->execute([':id' => $new_id]);
             $row = $st->fetch();
 
-            if (!$row) return ['ok' => false, 'message' => 'User created but could not reload phpBB user row.'];
+            if (!$row) return ['ok' => false, 'message' => 'Account was created but could not be loaded.'];
 
             return ['ok' => true, 'user' => $row];
 

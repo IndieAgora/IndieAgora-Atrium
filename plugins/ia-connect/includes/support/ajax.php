@@ -2787,7 +2787,7 @@ function ia_connect_ajax_account_change_name(): void {
   }
   $phpbb_user_id = ia_connect_user_phpbb_id($wp_user_id);
   if ($phpbb_user_id <= 0) {
-    wp_send_json_error(['message' => 'No phpBB mapping for this user.'], 500);
+    wp_send_json_error(['message' => 'No account mapping was found for this user.'], 500);
   }
   $wp_user = get_user_by('id', $wp_user_id);
   if (!$wp_user || !ia_connect_verify_current_password($wp_user_id, $phpbb_user_id, $current_password)) {
@@ -2806,7 +2806,7 @@ function ia_connect_ajax_account_change_name(): void {
     'username_clean' => $clean,
   ]);
   if (empty($r['ok'])) {
-    wp_send_json_error(['message' => $r['message'] ?? 'phpBB update failed.'], 500);
+    wp_send_json_error(['message' => $r['message'] ?? 'Account update failed.'], 500);
   }
 
   // WP shadow user: display_name, nickname, user_nicename
@@ -2865,7 +2865,7 @@ function ia_connect_ajax_account_change_email(): void {
   }
   $phpbb_user_id = ia_connect_user_phpbb_id($wp_user_id);
   if ($phpbb_user_id <= 0) {
-    wp_send_json_error(['message' => 'No phpBB mapping for this user.'], 500);
+    wp_send_json_error(['message' => 'No account mapping was found for this user.'], 500);
   }
   $wp_user = get_user_by('id', $wp_user_id);
   if (!$wp_user || !ia_connect_verify_current_password($wp_user_id, $phpbb_user_id, $current_password)) {
@@ -2879,7 +2879,7 @@ function ia_connect_ajax_account_change_email(): void {
 
   $r = $ia->phpbb->update_user_fields($phpbb_user_id, ['user_email' => $new_email]);
   if (empty($r['ok'])) {
-    wp_send_json_error(['message' => $r['message'] ?? 'phpBB update failed.'], 500);
+    wp_send_json_error(['message' => $r['message'] ?? 'Account update failed.'], 500);
   }
 
   wp_update_user(['ID' => $wp_user_id, 'user_email' => $new_email]);
@@ -2908,14 +2908,14 @@ function ia_connect_ajax_account_change_password(): void {
   }
   $phpbb_user_id = ia_connect_user_phpbb_id($wp_user_id);
   if ($phpbb_user_id <= 0) {
-    wp_send_json_error(['message' => 'No phpBB mapping for this user.'], 500);
+    wp_send_json_error(['message' => 'No account mapping was found for this user.'], 500);
   }
   $wp_user = get_user_by('id', $wp_user_id);
   if (!$wp_user || !ia_connect_verify_current_password($wp_user_id, $phpbb_user_id, $cur)) {
     wp_send_json_error(['message' => 'Current password is incorrect.'], 403);
   }
   if ($phpbb_user_id <= 0) {
-    wp_send_json_error(['message' => 'No phpBB mapping for this user.'], 500);
+    wp_send_json_error(['message' => 'No account mapping was found for this user.'], 500);
   }
 
   if (!class_exists('IA_Auth') || !method_exists('IA_Auth','instance')) {
@@ -2927,7 +2927,7 @@ function ia_connect_ajax_account_change_password(): void {
   $hash = password_hash($new, PASSWORD_BCRYPT);
   $r = $ia->phpbb->update_user_fields($phpbb_user_id, ['user_password' => $hash]);
   if (empty($r['ok'])) {
-    wp_send_json_error(['message' => $r['message'] ?? 'phpBB update failed.'], 500);
+    wp_send_json_error(['message' => $r['message'] ?? 'Account update failed.'], 500);
   }
 
   wp_set_password($new, $wp_user_id);
@@ -2950,7 +2950,7 @@ function ia_connect_ajax_account_deactivate(): void {
   }
   $phpbb_user_id = ia_connect_user_phpbb_id($wp_user_id);
   if ($phpbb_user_id <= 0) {
-    wp_send_json_error(['message' => 'No phpBB mapping for this user.'], 500);
+    wp_send_json_error(['message' => 'No account mapping was found for this user.'], 500);
   }
   // Delegate lifecycle enforcement to IA Goodbye when available.
   if (class_exists('IA_Goodbye')) {
@@ -3009,7 +3009,7 @@ function ia_connect_ajax_account_delete(): void {
 
   $phpbb_user_id = ia_connect_user_phpbb_id($wp_user_id);
   if ($phpbb_user_id <= 0) {
-    wp_send_json_error(['message' => 'No phpBB mapping for this user.'], 500);
+    wp_send_json_error(['message' => 'No account mapping was found for this user.'], 500);
   }
 
   $wp_user = get_user_by('id', $wp_user_id);
@@ -3032,7 +3032,7 @@ function ia_connect_ajax_account_delete(): void {
       $ia = IA_Auth::instance();
       $r = $ia->phpbb->delete_user_preserve_posts($phpbb_user_id, 'deleted user');
       if (!is_array($r) || empty($r['ok'])) {
-        wp_send_json_error(['message' => $r['message'] ?? 'phpBB delete failed.'], 500);
+        wp_send_json_error(['message' => $r['message'] ?? 'Account delete failed.'], 500);
       }
       global $wpdb;
       $map_t = $wpdb->prefix . 'ia_identity_map';
@@ -3062,7 +3062,7 @@ function ia_connect_ajax_export_data(): void {
 
   $phpbb_user_id = ia_connect_user_phpbb_id($wp_user_id);
   if ($phpbb_user_id <= 0) {
-    wp_send_json_error(['message' => 'No phpBB mapping for this user.'], 500);
+    wp_send_json_error(['message' => 'No account mapping was found for this user.'], 500);
   }
 
   global $wpdb;

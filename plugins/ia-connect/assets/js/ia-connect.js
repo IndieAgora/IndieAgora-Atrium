@@ -958,7 +958,7 @@ const qs = (root, sel) => (root || document).querySelector(sel);
       shareSend.addEventListener('click', async ()=>{
         if (!shareForPostId) return;
         const targets = sharePickedUsers.map(u=>u.phpbb_user_id||0).filter(Boolean);
-        if (!targets.length) { alert('Selected user(s) have no phpBB id mapping yet.'); return; }
+        if (!targets.length) { alert('Selected user(s) are not linked yet.'); return; }
         shareSend.disabled = true;
         try{
           const r = await postForm('ia_connect_post_share', {nonce: nonces.post_share||'', post_id: shareForPostId, targets});

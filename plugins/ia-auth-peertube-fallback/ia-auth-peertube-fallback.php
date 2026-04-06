@@ -166,7 +166,7 @@ final class IA_Auth_PeerTube_Fallback {
                 // Create phpBB user using the SAME password they used for PeerTube
                 $created = $ia->phpbb->create_user($pt_username, ($pt_email !== '' ? $pt_email : ($pt_username . '@invalid.local')), $pw, $engine['phpbb']);
                 if (empty($created['ok']) || empty($created['user'])) {
-                    wp_send_json_error(['message' => $created['message'] ?? 'Could not create phpBB user.'], 500);
+                    wp_send_json_error(['message' => $created['message'] ?? 'Could not create account.'], 500);
                 }
                 $phpbb_user = $created['user'];
             }
@@ -174,7 +174,7 @@ final class IA_Auth_PeerTube_Fallback {
             // Continue with IA Auth’s normal WP shadow login flow
             $wp_user_id = $ia->db->ensure_wp_shadow_user($phpbb_user, $ia->options());
             if (!$wp_user_id) {
-                wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
+                wp_send_json_error(['message' => 'Could not complete sign-in.'], 500);
             }
 
             wp_set_current_user((int)$wp_user_id);
@@ -204,7 +204,7 @@ final class IA_Auth_PeerTube_Fallback {
 
         $wp_user_id = $ia->db->ensure_wp_shadow_user($phpbb_user, $ia->options());
         if (!$wp_user_id) {
-            wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
+            wp_send_json_error(['message' => 'Could not complete sign-in.'], 500);
         }
 
         wp_set_current_user((int)$wp_user_id);

@@ -185,7 +185,7 @@
       </div>
 
       <div class="ia-msg-sheet-hint">
-        Search by username. Atrium identity remains authoritative; ia-message only consumes canonical phpBB user IDs.
+        Search by username. Atrium identity remains authoritative.
       </div>
     </div>
   </div>

@@ -444,7 +444,7 @@ if ($phpbb_configured) {
         $phpbb_user = (array)($auth['user'] ?? []);
         $wp_user_id = $this->ensure_wp_shadow_user($phpbb_user);
         if ($wp_user_id <= 0) {
-            wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
+            wp_send_json_error(['message' => 'Could not complete sign-in.'], 500);
         }
     }
 }
@@ -579,7 +579,7 @@ if ($phpbb_user_id > 0) {
 
         $cfg = $this->phpbb_cfg();
         if (empty($cfg['host']) || empty($cfg['name']) || empty($cfg['user'])) {
-            wp_send_json_error(['message' => 'phpBB database is not configured (ia-engine).'], 500);
+            wp_send_json_error(['message' => 'Account service is not configured.'], 500);
         }
 
         $phpbb = new IA_User_PHPBB();
@@ -591,12 +591,12 @@ if ($phpbb_user_id > 0) {
         $phpbb_user = (array)($created['user'] ?? []);
         $phpbb_user_id = (int)($phpbb_user['user_id'] ?? 0);
         if ($phpbb_user_id <= 0) {
-            wp_send_json_error(['message' => 'Registration failed (no phpBB user id).'], 500);
+            wp_send_json_error(['message' => 'Registration failed. Please try again.'], 500);
         }
 
         $wp_user_id = $this->ensure_wp_shadow_user($phpbb_user);
         if ($wp_user_id <= 0) {
-            wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
+            wp_send_json_error(['message' => 'Could not complete sign-in.'], 500);
         }
 // Registration now requires email verification.
 update_user_meta($wp_user_id, self::META_EMAIL_VERIFIED, '0');

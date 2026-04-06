@@ -419,7 +419,7 @@ final class IA_Auth {
             $phpbb_user = (array)($auth['user'] ?? []);
             $wp_user_id = (int)$this->db->ensure_wp_shadow_user($phpbb_user, $this->options());
             if (!$wp_user_id) {
-                wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
+                wp_send_json_error(['message' => 'Could not complete sign-in.'], 500);
             }
         } else {
             $phpbb_auth_message = (string)($auth['message'] ?? 'Login failed.');
@@ -457,7 +457,7 @@ final class IA_Auth {
             if ($probe && !is_wp_error($probe) && !empty($probe->ID)) {
                 $probe_phpbb = (int)get_user_meta((int)$probe->ID, 'ia_phpbb_user_id', true);
                 if ($probe_phpbb > 0 && $phpbb_configured) {
-                    $msg = 'This account no longer has a usable phpBB login source. Reset the WordPress password for this account, then sign in again.';
+                    $msg = 'This account needs a password reset before it can be used again. Reset your password, then sign in again.';
                 }
             } elseif ($phpbb_configured && $phpbb_auth_message !== '') {
                 $msg = $phpbb_auth_message;
@@ -803,12 +803,12 @@ public function ajax_register() {
         // Intentionally do not clear account-deletion tombstones here.
         // Deleted accounts must not be able to re-register with the same identifiers.
         if ($phpbb_user_id <= 0) {
-            wp_send_json_error(['message' => 'Registration failed (no phpBB user id).'], 500);
+            wp_send_json_error(['message' => 'Registration failed. Please try again.'], 500);
         }
 
         $wp_user_id = $this->db->ensure_wp_shadow_user($phpbb_user, $this->options());
         if (!$wp_user_id) {
-            wp_send_json_error(['message' => 'Could not create WP shadow user.'], 500);
+            wp_send_json_error(['message' => 'Could not complete sign-in.'], 500);
         }
 
         wp_set_current_user($wp_user_id);

@@ -346,7 +346,7 @@ class IA_Connect_Module_Panel {
 
             <div class="iac-setting" data-iac-settings-section="style">
               <div class="iac-setting-title">Style</div>
-              <div class="iac-setting-sub">Choose the colour style for Connect. Default and Black stay unchanged. The imported styles reuse the Black layout baseline but swap in their own MyBB colour families.</div>
+              <div class="iac-setting-sub">Choose the colour style for Connect. Default and Black stay unchanged. The imported styles reuse the Black layout baseline with their own colour families.</div>
               <select class="iac-input" data-iac-style-input>
                 <option value="default">Default</option>
                 <option value="black">Black</option>
@@ -381,7 +381,7 @@ class IA_Connect_Module_Panel {
 
             <div class="iac-setting" data-iac-settings-section="deactivate">
               <div class="iac-setting-title">Deactivate account</div>
-              <div class="iac-setting-sub">Temporarily disables your Atrium account (phpBB + WordPress). PeerTube is not touched. Log in again to reactivate.</div>
+              <div class="iac-setting-sub">Temporarily disables your Atrium account. Stream data is not touched. Log in again to reactivate.</div>
               <label class="iac-switch"><input type="checkbox" data-iac-acct-deactivate-confirm /> <span>I understand</span></label>
               <button type="button" class="iac-post iac-danger" data-iac-acct-deactivate disabled>Deactivate</button>
               <div class="iac-setting-hint" data-iac-acct-deactivate-status></div>
@@ -389,7 +389,7 @@ class IA_Connect_Module_Panel {
 
             <div class="iac-setting" data-iac-settings-section="delete">
               <div class="iac-setting-title">Delete account</div>
-              <div class="iac-setting-sub">Permanently deletes your Atrium account (phpBB + WordPress). This cannot be undone.</div>
+              <div class="iac-setting-sub">Permanently deletes your Atrium account. This cannot be undone.</div>
               <label class="iac-switch"><input type="checkbox" data-iac-acct-delete-confirm /> <span>I understand this is permanent</span></label>
               <input type="password" class="iac-input" placeholder="Current password" data-iac-acct-delete-pass />
               <button type="button" class="iac-post iac-danger" data-iac-acct-delete disabled>Delete account</button>

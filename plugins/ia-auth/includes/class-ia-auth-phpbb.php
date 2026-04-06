@@ -40,7 +40,7 @@ final class IA_Auth_PHPBB {
         $prefix = (string)($cfg['prefix'] ?? 'phpbb_');
 
         if ($host === '' || $db === '' || $user === '' || $prefix === '') {
-            return ['ok' => false, 'message' => 'phpBB DB config missing.'];
+            return ['ok' => false, 'message' => 'Account service configuration is missing.'];
         }
 
         $table_users = $prefix . 'users';
@@ -55,7 +55,7 @@ final class IA_Auth_PHPBB {
             ]);
         } catch (Throwable $e) {
             $this->log->error('phpbb_db_connect_failed', ['error' => $e->getMessage()]);
-            return ['ok' => false, 'message' => 'phpBB DB connect failed.'];
+            return ['ok' => false, 'message' => 'Account service connection failed.'];
         }
 
         // Only pull fields we need for bootstrapping + preview.
@@ -72,7 +72,7 @@ final class IA_Auth_PHPBB {
             $rows = $st->fetchAll();
         } catch (Throwable $e) {
             $this->log->error('phpbb_user_list_failed', ['error' => $e->getMessage()]);
-            return ['ok' => false, 'message' => 'phpBB user list query failed.'];
+            return ['ok' => false, 'message' => 'Account lookup failed.'];
         }
 
         return ['ok' => true, 'rows' => is_array($rows) ? $rows : []];
@@ -163,7 +163,7 @@ final class IA_Auth_PHPBB {
         $prefix = (string)($cfg['prefix'] ?? 'phpbb_');
 
         if ($host === '' || $db === '' || $user === '' || $prefix === '') {
-            return ['ok' => false, 'message' => 'phpBB DB config missing.'];
+            return ['ok' => false, 'message' => 'Account service configuration is missing.'];
         }
 
         $table_users = $prefix . 'users';
@@ -185,7 +185,7 @@ final class IA_Auth_PHPBB {
             ]);
         } catch (Throwable $e) {
             $this->log->error('phpbb_db_connect_failed', ['error' => $e->getMessage()]);
-            return ['ok' => false, 'message' => 'phpBB DB connect failed.'];
+            return ['ok' => false, 'message' => 'Account service connection failed.'];
         }
 
         // Uniqueness checks (schema has UNIQUE(username_clean), and KEY(user_email))
@@ -431,7 +431,7 @@ final class IA_Auth_PHPBB {
         if ($phpbb_user_id <= 0) return ['ok' => false, 'message' => 'Bad phpBB user id.'];
         $cfg = $cfg ?: $this->cfg_from_engine();
         $pdo = $this->pdo_from_cfg($cfg);
-        if (!$pdo) return ['ok' => false, 'message' => 'phpBB DB not available.'];
+        if (!$pdo) return ['ok' => false, 'message' => 'Account service is not available.'];
 
         $allowed = ['username', 'username_clean', 'user_email', 'user_password'];
         $set = [];
@@ -462,7 +462,7 @@ final class IA_Auth_PHPBB {
         if ($phpbb_user_id <= 0) return ['ok' => false, 'message' => 'Bad phpBB user id.'];
         $cfg = $cfg ?: $this->cfg_from_engine();
         $pdo = $this->pdo_from_cfg($cfg);
-        if (!$pdo) return ['ok' => false, 'message' => 'phpBB DB not available.'];
+        if (!$pdo) return ['ok' => false, 'message' => 'Account service is not available.'];
 
         try {
             $users = $this->tname($cfg, 'users');
@@ -480,7 +480,7 @@ final class IA_Auth_PHPBB {
         if ($phpbb_user_id <= 0) return ['ok' => false, 'message' => 'Bad phpBB user id.'];
         $cfg = $cfg ?: $this->cfg_from_engine();
         $pdo = $this->pdo_from_cfg($cfg);
-        if (!$pdo) return ['ok' => false, 'message' => 'phpBB DB not available.'];
+        if (!$pdo) return ['ok' => false, 'message' => 'Account service is not available.'];
 
         try {
             $users = $this->tname($cfg, 'users');
@@ -520,7 +520,7 @@ final class IA_Auth_PHPBB {
         if ($phpbb_user_id <= 0) return ['ok' => false, 'message' => 'Bad phpBB user id.'];
         $cfg = $cfg ?: $this->cfg_from_engine();
         $pdo = $this->pdo_from_cfg($cfg);
-        if (!$pdo) return ['ok' => false, 'message' => 'phpBB DB not available.'];
+        if (!$pdo) return ['ok' => false, 'message' => 'Account service is not available.'];
 
         $uid = $phpbb_user_id;
         $name = (string)$deleted_name;
@@ -553,7 +553,7 @@ final class IA_Auth_PHPBB {
         if ($phpbb_user_id <= 0) return ['ok' => false, 'message' => 'Bad phpBB user id.'];
         $cfg = $cfg ?: $this->cfg_from_engine();
         $pdo = $this->pdo_from_cfg($cfg);
-        if (!$pdo) return ['ok' => false, 'message' => 'phpBB DB not available.'];
+        if (!$pdo) return ['ok' => false, 'message' => 'Account service is not available.'];
 
         try {
             $pdo->beginTransaction();
