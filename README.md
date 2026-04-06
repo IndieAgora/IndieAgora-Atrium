@@ -1,13 +1,38 @@
-WORDPRESS PLUGIN COORDINATION SYSTEM FOR SOVERIEGN SYSTEMS.
+# Atrium
 
-With this stack of plugins you can connect Peertube instances with a phpBB database (forum software can be used in conjunction or just the full database backup) and works like a social media style website.
+**AGPL-3.0 licensed WordPress plugin coordination system for sovereign platforms.**
 
-There are three tabs - Connect - a typical wall sharing social media type tab, works like an advanced profile
-                       Discuss - a Reddit looking forum type tab (displays your forum posts here)
-                       Stream - Shows your Peertube instance, allows uploading of videos, commenting, rating etc, without visiting the instance. The Peertube instance is required for this to work.
+Atrium is a coordinated WordPress plugin stack designed to unify social publishing, forum content, and video features into a single site experience.
 
-Just install plugins and theme, activate them.
+Using this stack, you can connect a PeerTube instance with a phpBB-backed community data source and present everything through a social-media-style interface inside WordPress. The forum software itself can be used alongside the stack, or the system can work from an imported/full database backup, depending on your setup.
 
-Configure ia-engine to point to the database prefixes you want and the peertube instance you want, put your admin root password in and it generates a token for your instance that automatically refreshes.
+## What it does
 
-That's it.
+Atrium provides three main user-facing areas:
+
+### Connect
+A social profile and wall-style experience for posting, sharing, and viewing user activity.
+
+### Discuss
+A forum-style interface inspired by modern discussion platforms. It surfaces forum content in a cleaner, more integrated format and displays a user’s forum activity within the wider platform.
+
+### Stream
+A built-in PeerTube interface inside your site. Users can browse videos, upload content, comment, rate, and interact with your connected PeerTube instance without needing to leave the main platform. A working PeerTube instance is required for this area.
+
+## Installation
+
+Install the required plugins and theme, then activate them in WordPress.
+
+## Basic setup
+
+Configure `ia-engine` with:
+
+- the database prefixes you want to use
+- the PeerTube instance you want to connect
+- your administrator root password
+
+Once configured, the system generates an authentication token for the PeerTube instance and keeps it refreshed automatically.
+
+## In practice
+
+After installation and configuration, the stack provides a unified platform where social posting, forum discussion, and PeerTube video activity can live together under one site.
