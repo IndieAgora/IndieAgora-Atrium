@@ -88,3 +88,18 @@
 .iad-card-excerpt{ cursor: pointer; }
 .iad-card-title:hover{ text-decoration: underline; }
 
+
+
+.ia-discuss-root[data-iad-theme="black"] .iad-attachpill{
+  border-color:rgba(0,0,0,.16);
+  background:#d7d7d7;
+  color:#111;
+}
+.ia-discuss-root[data-iad-theme="black"] .iad-attachpill:hover{
+  background:#cbcbcb;
+  border-color:rgba(0,0,0,.22);
+}
+.ia-discuss-root[data-iad-theme="black"] .iad-attachpill.is-loading,
+.ia-discuss-root[data-iad-theme="black"] .iad-attachpill.is-error{
+  color:#111;
+}

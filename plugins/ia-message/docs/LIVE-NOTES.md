@@ -1,3 +1,4 @@
+- 2026-04-06 deep-link follow-up: IA Message now honours `ia_msg_thread` + optional `ia_msg_mid` and the `ia_message:open_thread` event can carry `message_id`, so notify clicks can jump to the exact message bubble after the thread loads.
 # Live Notes
 
 ## 2026-03-08
@@ -25,3 +26,16 @@
 - Patched IA Message so display labels pass through `ia_message_user_label` after its normal WP-shadow lookup.
 - This addresses cases where IA Message still showed phpBB usernames even though the wider stack had a better display-name resolver.
 - No authentication or message-authority behaviour changed in this pass.
+
+
+## 2026-04-06 global style follow-up for IA Message
+
+- Added a Connect-style bridge for IA Message so the saved Connect style now skins the Messages panel internals as well as the shared Atrium shell.
+- Black style now switches IA Message from the legacy dark/purple look to the approved black-style palette: light grey shell surfaces, dark header bars, dark text, and neutral controls.
+- Chat bubbles in black style are now flat rather than gradient-based, and alternate between two grey fills to match the wider style direction already approved in Connect/Stream work.
+- Kept the default style unchanged. Only the black-style path was retuned in this patch.
+
+- 2026-04-06: Black style message bubbles now key off sender/recipient side (.mine / data-ia-msg-side) instead of DOM row parity. Incoming bubbles stay light grey with dark text; outgoing bubbles stay dark with white text. This avoids same-person runs alternating colours when consecutive messages are rendered.
+
+
+- 2026-04-06: Added future-theme guidance after Black-style approval. Black is now the baseline reference for later IA Message style ports: shared chrome stays Atrium-owned, IA Message styles only plugin-owned internals, non-default themes generally prefer flat bubbles over gradients, and bubble colours must stay side-based rather than alternating by DOM row.

@@ -1,3 +1,11 @@
+- 2026-04-06 style import reset: Discuss now maps every imported Connect style directly to its matching classic scheme instead of only recognising Black.
+## 0.3.99 Discuss housekeeping
+
+- Removed the Discuss sidebar `AgoraBB Mode` control and forced Discuss back onto the standard Atrium layout so old browser storage can no longer reopen the board-style variant.
+- Removed the Discuss sidebar theme/style controls, including the theme modal entry point and the direct MyBB scheme picker buttons.
+- Cleared legacy `ia_discuss_theme` and `ia_discuss_layout_mode` localStorage keys at shell boot and reapplied the default Discuss baseline (`dark` theme, `atrium` layout) so housekeeping takes effect immediately without requiring users to clear storage manually.
+- Kept the patch narrow to `assets/js/ia-discuss.ui.shell.js`; no feed, topic, API, or phpBB endpoint behaviour was changed.
+
 # Notes: IA Discuss
 
 ## 0.3.60 architecture pass summary
@@ -263,3 +271,28 @@ Edit split JS slices first, rebuild the generated bundles, then update the relev
 - Fixed specific Agora browser titles so the in-Agora feed resolves as `Agora Name | Sort Mode | IndieAgora` instead of falling back to `Latest Posts | IndieAgora`.
 - Agora feed mounts now identify themselves as Agora context, and router title refresh now honours in-Agora state when feed events fire.
 - Matched the sort label text to the actual in-Agora selector labels: `Most recent`, `Oldest first`, `Most replies`, `Least replies`, and `Date created`.
+
+
+## 0.3.101 title ownership guard
+- Fixed Discuss client title syncing so it only writes browser/meta titles while Discuss is the active Atrium surface.
+- This prevents hidden Discuss observers from racing with Connect or Stream in the shared shell.
+- Scope stayed inside `assets/js/ia-discuss.router.js`; no feed/topic/agora routing behaviour changed.
+
+## 0.3.102 title guard ordering fix
+- Follow-up after live failure: stale Connect-style titles could persist because title guards were trusting the old `?tab=` value during shell tab switches.
+- Discuss title ownership now resolves from Atrium's active shell tab first, then URL, then panel visibility as a final fallback.
+- Scope stayed inside `assets/js/ia-discuss.router.js`; no feed/topic/agora behaviour changed.
+
+## 0.3.98 Connect style bridge for Discuss
+- Discuss no longer hard-forces the shell to `dark` only. On boot it now reads the active Connect style from `data-iac-style` and maps Connect `black` to Discuss `black`; all other Connect styles fall back to Discuss `dark`.
+- Added a narrow bridge in `assets/js/ia-discuss.ui.shell.js` so Discuss re-syncs if Connect style changes later in the same SPA session. The bridge listens for the new `ia:connect-style-changed` document event and also watches `data-iac-style` mutations on `html`/`body`.
+- Scope is intentionally narrow: this does not replace Discuss's own theme system or invent new storage. It only lets the confirmed Connect Black style drive the ia-discuss plugin appearance when that Connect style is selected.
+
+- 2026-04-06 Black style follow-up after live Discuss review: improved Discuss attachment pill contrast under the `black` scheme so attachment controls stay visible against the lighter card surfaces introduced by the approved Connect → Discuss Black bridge.
+
+## 2026-04-06 style bridge and ownership notes
+
+- When Connect-selected style is intended to affect the real Discuss tab, bridge into Discuss through its existing theme/state path rather than trying to repaint Discuss from Connect CSS.
+- Discuss continues to own Discuss-specific surfaces: forum/agora rows, topic/reply cards, pills, meta text, and other board/content internals.
+- Under the approved Black reference, attachment pills need stronger contrast than the earlier pale-outline treatment so they stay visible on the lighter card surfaces.
+- Do not move shared-shell fixes back into Discuss CSS; Atrium now owns that layer globally.

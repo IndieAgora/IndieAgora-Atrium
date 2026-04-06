@@ -18,8 +18,10 @@ function ia_notify_url_connect_profile(string $username): string {
   return add_query_arg(['tab' => 'connect', 'ia_profile_name' => $username], ia_notify_url_base());
 }
 
-function ia_notify_url_messages_thread(int $thread_id): string {
-  return add_query_arg(['tab' => 'messages', 'ia_msg_thread' => (int)$thread_id], ia_notify_url_base());
+function ia_notify_url_messages_thread(int $thread_id, int $message_id = 0): string {
+  $args = ['tab' => 'messages', 'ia_msg_thread' => (int)$thread_id];
+  if ($message_id > 0) $args['ia_msg_mid'] = (int)$message_id;
+  return add_query_arg($args, ia_notify_url_base());
 }
 
 function ia_notify_url_messages_invite(int $invite_id): string {
@@ -451,7 +453,7 @@ function ia_notify_on_message_sent(int $message_id, int $thread_id, int $actor_p
       'type' => 'message_received',
       'object_type' => 'message_thread',
       'object_id' => $thread_id,
-      'url' => ia_notify_url_messages_thread($thread_id),
+      'url' => ia_notify_url_messages_thread($thread_id, $message_id),
       'text' => $actor['name'] . ' sent you a message.',
       'meta' => [
         'actor_name' => $actor['name'],

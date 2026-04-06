@@ -57,6 +57,7 @@ if (!function_exists('ia_stream_core_boot')) {
     if (function_exists('ia_stream_security_boot')) ia_stream_security_boot();
     if (function_exists('ia_stream_assets_boot'))   ia_stream_assets_boot();
     if (function_exists('ia_stream_ajax_boot'))     ia_stream_ajax_boot();
+    if (function_exists('ia_stream_meta_boot'))     ia_stream_meta_boot();
 
     // Register panel render hook (Atrium shell calls this).
     add_action('ia_atrium_panel_stream', function () {

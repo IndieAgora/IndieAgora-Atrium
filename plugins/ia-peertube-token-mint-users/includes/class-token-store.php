@@ -57,6 +57,23 @@ class IA_PeerTube_Token_Store {
         return true;
     }
 
+
+
+    public static function get_legacy_row(int $phpbb_user_id): ?array {
+        global $wpdb;
+        if (!isset($wpdb) || !is_object($wpdb) || $phpbb_user_id <= 0) return null;
+
+        $legacy_table = $wpdb->prefix . 'ia_peertube_tokens';
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT access_token_enc, refresh_token_enc, expires_at_utc, updated_at FROM {$legacy_table} WHERE phpbb_user_id=%d LIMIT 1",
+                $phpbb_user_id
+            ),
+            ARRAY_A
+        );
+        return is_array($row) ? $row : null;
+    }
+
     public static function get_all(): array {
         global $wpdb;
         return $wpdb->get_results("SELECT * FROM " . IA_PT_TOKENS_TABLE, ARRAY_A) ?: [];

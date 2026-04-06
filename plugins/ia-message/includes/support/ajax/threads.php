@@ -78,8 +78,27 @@ function ia_message_ajax_thread(): void {
 
   $limit  = isset($_POST['limit']) ? (int)$_POST['limit'] : 15;
   $offset = isset($_POST['offset']) ? (int)$_POST['offset'] : 0;
+  $message_id = isset($_POST['message_id']) ? (int)$_POST['message_id'] : 0;
   $limit  = min(50, max(1, $limit));
   $offset = max(0, $offset);
+
+  if ($message_id > 0) {
+    global $wpdb;
+    $messages_table = ia_message_tbl('ia_msg_messages');
+    $exists = (int) $wpdb->get_var($wpdb->prepare(
+      "SELECT COUNT(1) FROM {$messages_table} WHERE id = %d AND thread_id = %d AND deleted_at IS NULL",
+      $message_id,
+      $thread_id
+    ));
+    if ($exists > 0) {
+      $newer = (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(1) FROM {$messages_table} WHERE thread_id = %d AND deleted_at IS NULL AND id > %d",
+        $thread_id,
+        $message_id
+      ));
+      $offset = max(0, $newer - (int) floor($limit / 2));
+    }
+  }
 
   // Fetch one extra row to determine has_more.
   $rows_all = ia_message_get_messages($thread_id, $limit + 1, $offset);

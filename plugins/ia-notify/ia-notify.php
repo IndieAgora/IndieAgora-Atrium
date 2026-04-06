@@ -2,14 +2,14 @@
 /**
  * Plugin Name: IA Notify
  * Description: In-app notifications for Atrium (bell badge + toast + fullscreen inbox).
- * Version: 0.1.17
+ * Version: 0.1.19
  * Author: IndieAgora
  * Text Domain: ia-notify
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('IA_NOTIFY_VERSION', '0.1.17');
+define('IA_NOTIFY_VERSION', '0.1.19');
 define('IA_NOTIFY_PATH', plugin_dir_path(__FILE__));
 define('IA_NOTIFY_URL', plugin_dir_url(__FILE__));
 
@@ -22,6 +22,8 @@ define('IA_NOTIFY_PREFS_META', 'ia_notify_prefs');
 require_once IA_NOTIFY_PATH . 'includes/db.php';
 require_once IA_NOTIFY_PATH . 'includes/identity.php';
 require_once IA_NOTIFY_PATH . 'includes/prefs.php';
+require_once IA_NOTIFY_PATH . 'includes/enrich.php';
+require_once IA_NOTIFY_PATH . 'includes/peertube.php';
 require_once IA_NOTIFY_PATH . 'includes/email-gate.php';
 require_once IA_NOTIFY_PATH . 'includes/hooks.php';
 require_once IA_NOTIFY_PATH . 'includes/ajax.php';

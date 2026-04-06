@@ -2,43 +2,98 @@
 
 .ia-stream-channels {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--ia-gap);
 }
 
+.ia-stream-channels--compact {
+  grid-template-columns: 1fr;
+}
+
 .ia-stream-channel-card {
-  background: var(--ia-card);
+  background: linear-gradient(180deg, rgba(18,26,39,0.9), rgba(13,18,29,0.96));
   border: 1px solid var(--ia-border);
-  border-radius: var(--ia-radius);
+  border-radius: 18px;
   overflow: hidden;
 }
 
 .ia-stream-channel-cover {
-  height: 80px;
+  height: 92px;
   background: #222;
 }
 
 .ia-stream-channel-body {
-  padding: 10px;
+  padding: 12px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 
 .ia-stream-channel-avatar {
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: #333;
   flex-shrink: 0;
 }
 
+.ia-stream-channel-copy {
+  min-width: 0;
+}
+
 .ia-stream-channel-name {
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 0.98rem;
+  font-weight: 700;
 }
 
 .ia-stream-channel-meta {
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   color: var(--ia-muted);
+  margin-top: 4px;
+}
+
+@media (min-width: 720px) {
+  .ia-stream-channels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .ia-stream-channels {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .ia-stream-channels--compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ia-stream-channel-open {
+  appearance: none;
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ia-stream-channel-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.ia-stream-channel-links a {
+  color: var(--ia-muted);
+  text-decoration: none;
+  font-size: 0.84rem;
+}
+
+.ia-stream-channel-links a:hover {
+  color: var(--ia-text);
+  text-decoration: underline;
 }

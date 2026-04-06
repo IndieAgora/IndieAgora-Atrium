@@ -24,6 +24,25 @@ class IA_PeerTube_Token_Admin_Page {
         );
     }
 
+
+    private function has_legacy_row(int $phpbb_id): bool {
+        if ($phpbb_id <= 0 || !class_exists('IA_PeerTube_Token_Store') || !method_exists('IA_PeerTube_Token_Store', 'get_legacy_row')) {
+            return false;
+        }
+        $legacy = IA_PeerTube_Token_Store::get_legacy_row($phpbb_id);
+        return is_array($legacy) && trim((string)($legacy['access_token_enc'] ?? '')) !== '';
+    }
+
+    private function derive_state(?array $ident, ?array $trow): string {
+        if (!$ident) return 'identity_missing';
+        if (!$trow) return 'missing_user_token';
+        if (!empty($trow['last_mint_error'])) return 'mint_error';
+        if (!empty($trow['access_token_enc']) && !empty($trow['refresh_token_enc'])) return 'token+refresh';
+        if (!empty($trow['access_token_enc'])) return 'token_only';
+        if (!empty($trow['refresh_token_enc'])) return 'refresh_only';
+        return 'missing_user_token';
+    }
+
     public function render() {
         if (isset($_GET['ia_pt_notice']) && is_string($_GET['ia_pt_notice'])) {
             $msg = sanitize_text_field(wp_unslash($_GET['ia_pt_notice']));
@@ -36,7 +55,7 @@ class IA_PeerTube_Token_Admin_Page {
         $token_rows = IA_PeerTube_Token_Store::get_all_indexed_by_phpbb();
 
         echo '<div class="wrap"><h1>PeerTube User Tokens</h1>';
-        echo '<p>Token rows are keyed by phpBB user id (wp_ia_identity_map).</p>';
+        echo '<p>Canonical token rows are keyed by phpBB user id (wp_ia_identity_map). Legacy login-era rows are shown as observation-only so you can spot split authority during PeerTube upgrade/debug work.</p>';
 
         echo '<div style="margin:12px 0; padding:12px; background:#fff; border:1px solid #ccd0d4; border-radius:6px;">';
         echo '<h2 style="margin-top:0;">Manual maintenance</h2>';
@@ -59,7 +78,7 @@ class IA_PeerTube_Token_Admin_Page {
         echo '</div>';
 
         echo '<table class="widefat striped"><thead><tr>';
-        echo '<th>User</th><th>WP ID</th><th>phpBB ID</th><th>Identity Status</th><th>Has Access</th><th>Has Refresh</th><th>Expires</th><th>Identity error</th><th>Token mint error</th><th>Last mint</th><th>Actions</th>';
+        echo '<th>User</th><th>WP ID</th><th>phpBB ID</th><th>Identity Status</th><th>Derived state</th><th>Legacy row</th><th>Has Access</th><th>Has Refresh</th><th>Expires</th><th>Last refresh</th><th>Identity error</th><th>Token mint error</th><th>Last mint</th><th>Actions</th>';
         echo '</tr></thead><tbody>';
 
         foreach ($users as $u) {
@@ -70,9 +89,12 @@ class IA_PeerTube_Token_Admin_Page {
             $ident_err = $ident ? ($ident['last_error'] ?? '') : '';
 
             $trow = ($phpbb_id && isset($token_rows[$phpbb_id])) ? $token_rows[$phpbb_id] : null;
+            $derived_state = $this->derive_state($ident, $trow);
+            $legacy_row = $this->has_legacy_row($phpbb_id) ? 'Yes' : 'No';
             $has = ($trow && !empty($trow['access_token_enc'])) ? 'Yes' : 'No';
             $hasRefresh = ($trow && !empty($trow['refresh_token_enc'])) ? 'Yes' : 'No';
             $exp = ($trow && !empty($trow['expires_at'])) ? esc_html($trow['expires_at']) : '—';
+            $last_refresh = ($trow && !empty($trow['last_refresh_at'])) ? esc_html($trow['last_refresh_at']) : '—';
             $mint_err = ($trow && !empty($trow['last_mint_error'])) ? $trow['last_mint_error'] : '';
             $mint_at = ($trow && !empty($trow['last_mint_at'])) ? esc_html($trow['last_mint_at']) : '—';
 
@@ -104,9 +126,12 @@ class IA_PeerTube_Token_Admin_Page {
             echo '<td>' . esc_html($wp_id) . '</td>';
             echo '<td>' . esc_html($phpbb_id ?: '—') . '</td>';
             echo '<td>' . esc_html($status ?: '—') . '</td>';
+            echo '<td>' . esc_html($derived_state) . '</td>';
+            echo '<td>' . esc_html($legacy_row) . '</td>';
             echo '<td>' . esc_html($has) . '</td>';
             echo '<td>' . esc_html($hasRefresh) . '</td>';
             echo '<td>' . $exp . '</td>';
+            echo '<td>' . $last_refresh . '</td>';
             echo '<td>' . esc_html($ident_err ?: '—') . '</td>';
             echo '<td>' . esc_html($mint_err ?: '—') . '</td>';
             echo '<td>' . $mint_at . '</td>';

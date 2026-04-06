@@ -50,14 +50,14 @@ class IA_Connect_Module_Panel {
     $settings = ia_connect_get_settings();
 
     ?>
-    <div class="iac-top-search">
+    <div class="iac-top-search" data-iac-style="<?php echo esc_attr(ia_connect_get_user_style($me)); ?>">
       <div class="iac-search">
         <input type="text" class="iac-search-input" placeholder="Search users, posts, comments" autocomplete="off" />
         <div class="iac-search-results" hidden></div>
       </div>
     </div>
 
-    <div class="iac-profile" data-iac-profile data-wall-wp="<?php echo (int)$target_wp; ?>" data-wall-phpbb="<?php echo (int)$target_phpbb; ?>">
+    <div class="iac-profile" data-iac-profile data-iac-style="<?php echo esc_attr(ia_connect_get_user_style($me)); ?>" data-wall-wp="<?php echo (int)$target_wp; ?>" data-wall-phpbb="<?php echo (int)$target_phpbb; ?>">
       <div class="iac-cover" data-iac-view="<?php echo esc_attr($cover ?: $profile); ?>">
         <?php if ($cover): ?>
           <img class="iac-cover-img" src="<?php echo esc_url($cover); ?>" alt="Cover" />
@@ -331,6 +331,39 @@ class IA_Connect_Module_Panel {
               <div class="iac-setting-hint" data-iac-signature-status></div>
             </div>
 
+            <div class="iac-setting" data-iac-settings-section="homepage">
+              <div class="iac-setting-title">Homepage</div>
+              <div class="iac-setting-sub">Choose which Atrium surface opens first when you enter IndieAgora without a deep link.</div>
+              <select class="iac-input" data-iac-home-tab-input>
+                <option value="connect">Connect</option>
+                <option value="discuss">Discuss</option>
+                <option value="stream">Stream</option>
+              </select>
+              <div class="iac-setting-hint">This only affects plain homepage entry. Direct links to profiles, topics, videos, or other deep routes still open where they point.</div>
+              <button type="button" class="iac-post" data-iac-home-tab-save>Save homepage</button>
+              <div class="iac-setting-hint" data-iac-home-tab-status></div>
+            </div>
+
+            <div class="iac-setting" data-iac-settings-section="style">
+              <div class="iac-setting-title">Style</div>
+              <div class="iac-setting-sub">Choose the colour style for Connect. Default and Black stay unchanged. The imported styles reuse the Black layout baseline but swap in their own MyBB colour families.</div>
+              <select class="iac-input" data-iac-style-input>
+                <option value="default">Default</option>
+                <option value="black">Black</option>
+                <option value="calm">Calm</option>
+                <option value="dawn">Dawn</option>
+                <option value="earth">Earth</option>
+                <option value="flame">Flame</option>
+                <option value="leaf">Leaf</option>
+                <option value="night">Night</option>
+                <option value="sun">Sun</option>
+                <option value="twilight">Twilight</option>
+                <option value="water">Water</option>
+              </select>
+              <div class="iac-setting-hint">Default and Black are left as-is. The imported styles only recolour the Black-style surfaces.</div>
+              <button type="button" class="iac-post" data-iac-style-save>Save style</button>
+              <div class="iac-setting-hint" data-iac-style-status></div>
+            </div>
 
             <div class="iac-setting" data-iac-settings-section="reset">
               <div class="iac-setting-title">Reset password</div>

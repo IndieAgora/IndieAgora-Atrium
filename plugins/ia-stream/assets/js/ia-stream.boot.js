@@ -28,11 +28,12 @@
       const vid = u.searchParams.get('video') || u.searchParams.get('v') || '';
       if (tab !== 'stream' || !vid) return;
 
-      // optional focus (e.g. focus=comments)
       const focus = u.searchParams.get('focus') || '';
-      const opts = focus ? { focus: focus } : {};
+      const highlightCommentId = u.searchParams.get('stream_comment') || u.searchParams.get('stream_reply') || '';
+      const opts = {};
+      if (focus) opts.focus = focus;
+      if (highlightCommentId) opts.highlightCommentId = String(highlightCommentId);
 
-      // Delay slightly so the shell is rendered before the modal.
       setTimeout(function () {
         try { NS.ui.video.open(String(vid), opts); } catch (e) {}
       }, 50);
@@ -46,20 +47,34 @@
 
     NS.state.booted = true;
 
-    // init tabs + restore state
     NS.ui.shell.boot();
 
-    // initial load
-    const t = NS.state.activeTab || "feed";
-    if (t === "channels") {
-      Promise.resolve(NS.ui.channels.load()).then(openFromUrlIfPresent);
+    const t = NS.state.activeTab || "discover";
+    if (t === "browse" || t === "search" || t === "subscriptions") {
+      Promise.resolve(NS.ui.feed.load(t)).then(openFromUrlIfPresent);
     } else {
-      Promise.resolve(NS.ui.feed.load()).then(openFromUrlIfPresent);
+      Promise.resolve(NS.ui.feed.load('discover')).then(openFromUrlIfPresent);
     }
+
+    try {
+      window.addEventListener('ia_atrium:tabChanged', function (e) {
+        const tab = e && e.detail ? String(e.detail.tab || '') : '';
+        if (tab !== 'stream') return;
+        const routeSearch = !!(NS.state && NS.state.route && NS.state.route.search);
+        const hasVideo = !!(NS.state.route && NS.state.route.video);
+        const hasChannel = !!String(NS.state.channelHandle || '').trim();
+        const subs = !!(NS.state.route && NS.state.route.subscriptions);
+        if (routeSearch || hasVideo || hasChannel || subs) {
+          if (NS.ui.shell && typeof NS.ui.shell.setTab === 'function') NS.ui.shell.setTab(routeSearch ? 'search' : (subs ? 'subscriptions' : 'browse'));
+          return;
+        }
+        if (NS.ui.shell && typeof NS.ui.shell.setTab === 'function') NS.ui.shell.setTab('discover');
+      });
+    } catch (e) {}
   }
 
   function start(retries) {
-    retries = (typeof retries === "number") ? retries : 40; // ~2s at 50ms
+    retries = (typeof retries === "number") ? retries : 40;
 
     if (!depsReady()) {
       if (retries <= 0) return;

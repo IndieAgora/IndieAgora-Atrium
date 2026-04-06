@@ -2,7 +2,7 @@
 /**
  * Plugin Name: IA PeerTube Token Mint Users
  * Description: Mints, stores, refreshes, and reports per-user PeerTube OAuth tokens.
- * Version: 0.1.12
+ * Version: 0.1.13
  * Author: IndieAgora
  */
 
@@ -30,7 +30,7 @@ if (!function_exists('ia_pt_trace_log')) {
 }
 
 
-define('IA_PT_TOKENS_VERSION', '0.1.12');
+define('IA_PT_TOKENS_VERSION', '0.1.13');
 define('IA_PT_TOKENS_PATH', plugin_dir_path(__FILE__));
 define('IA_PT_TOKENS_TABLE', $GLOBALS['wpdb']->prefix . 'ia_peertube_user_tokens');
 define('IA_PT_IDENTITY_TABLE', $GLOBALS['wpdb']->prefix . 'ia_identity_map');

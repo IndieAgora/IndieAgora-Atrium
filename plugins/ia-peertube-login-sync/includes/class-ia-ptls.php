@@ -92,6 +92,18 @@ final class IA_PTLS {
             'identifier' => (string)($_POST['identifier'] ?? ''),
             'uri' => (string)($_SERVER['REQUEST_URI'] ?? ''),
         ]);
+
+        // Structural cleanup April 2026: keep ia_ptls_login as a compatibility surface only.
+        // Delegate to the canonical ia_user_login ladder when the clean fallback exists.
+        if (class_exists('IA_User_PeerTube_Fallback_Clean') && method_exists('IA_User_PeerTube_Fallback_Clean', 'ajax_login')) {
+            ia_pt_trace_log('ia-ptls.ajax_login.delegate', [
+                'target' => 'ia_user_login',
+                'ajax_action' => (string)($_REQUEST['action'] ?? ''),
+            ]);
+            IA_User_PeerTube_Fallback_Clean::ajax_login();
+            return;
+        }
+
         check_ajax_referer('ia_ptls_login_nonce', 'nonce');
 
         if (!class_exists('IA_Engine')) {

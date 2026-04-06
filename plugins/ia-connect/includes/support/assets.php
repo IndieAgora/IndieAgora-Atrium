@@ -54,12 +54,10 @@ function ia_connect_enqueue_assets(): void {
   wp_enqueue_script('ia-connect', IA_CONNECT_URL . 'assets/js/ia-connect.js', [], IA_CONNECT_VERSION, true);
   wp_enqueue_style('ia-connect-activity', IA_CONNECT_URL . 'assets/css/ia-connect.activity.css', ['ia-connect'], IA_CONNECT_VERSION);
   // Styling layer for the profile activity tabs and privacy switches.
+  // Keep this as a single enqueue so first paint does not spend time re-processing the same handle twice.
   wp_enqueue_style('ia-connect-fb', IA_CONNECT_URL . 'assets/css/ia-connect.fb.css', ['ia-connect-activity'], IA_CONNECT_VERSION);
+  wp_enqueue_style('ia-connect-theme-mybb', IA_CONNECT_URL . 'assets/css/ia-connect.theme.mybb.css', ['ia-connect-fb'], IA_CONNECT_VERSION);
   wp_enqueue_script('ia-connect-activity', IA_CONNECT_URL . 'assets/js/ia-connect.activity.js', ['ia-connect'], IA_CONNECT_VERSION, true);
-
-  // Styling layer for the profile activity tabs and privacy switches.
-  // Enqueue after the base + activity CSS so it can override cleanly.
-  wp_enqueue_style('ia-connect-fb', IA_CONNECT_URL . 'assets/css/ia-connect.fb.css', ['ia-connect-activity'], IA_CONNECT_VERSION);
 
 
   wp_localize_script('ia-connect', 'IA_CONNECT', [
@@ -75,6 +73,8 @@ function ia_connect_enqueue_assets(): void {
       'is_admin' => (bool) current_user_can('manage_options'),
       'signature' => (string) (is_user_logged_in() ? (string) get_user_meta(get_current_user_id(), IA_CONNECT_META_SIGNATURE, true) : ''),
       'signature_show_discuss' => (int) (is_user_logged_in() ? (int) get_user_meta(get_current_user_id(), IA_CONNECT_META_SIGNATURE_SHOW_DISCUSS, true) : 0),
+      'home_tab' => (string) (is_user_logged_in() ? ia_connect_get_user_home_tab(get_current_user_id()) : 'connect'),
+      'style' => (string) (is_user_logged_in() ? ia_connect_get_user_style(get_current_user_id()) : 'default'),
     ],
     'nonces' => [
       'profile_photo' => ia_connect_nonce('profile_photo'),
@@ -94,6 +94,8 @@ function ia_connect_enqueue_assets(): void {
       'mention_suggest' => ia_connect_nonce('mention_suggest'),
       'display_name_update' => ia_connect_nonce('display_name_update'),
       'signature_update' => ia_connect_nonce('signature_update'),
+      'home_tab_update' => ia_connect_nonce('home_tab_update'),
+      'style_update' => ia_connect_nonce('style_update'),
       'wall_search' => ia_connect_nonce('wall_search'),
       'settings_update' => ia_connect_nonce('settings_update'),
       'privacy_get' => ia_connect_nonce('privacy_get'),

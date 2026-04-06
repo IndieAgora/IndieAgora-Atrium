@@ -1,16 +1,27 @@
 <?php if (!defined('ABSPATH')) exit; ?>
 
+<?php
+  $me = (int) get_current_user_id();
+  $connect_style = ($me > 0 && function_exists('ia_connect_get_user_style')) ? (string) ia_connect_get_user_style($me) : 'default';
+?>
+<script>
+(function(){
+  try{ document.documentElement.setAttribute('data-iac-style', <?php echo wp_json_encode($connect_style); ?>); }catch(e){}
+  try{ if (document.body) document.body.setAttribute('data-iac-style', <?php echo wp_json_encode($connect_style); ?>); }catch(e){}
+})();
+</script>
+
 <div id="ia-atrium-shell"
      class="ia-atrium-shell"
      data-default-tab="<?php echo esc_attr($data['default_tab']); ?>"
-     data-logged-in="<?php echo is_user_logged_in() ? '1' : '0'; ?>">
+     data-logged-in="<?php echo is_user_logged_in() ? '1' : '0'; ?>"
+     data-iac-style="<?php echo esc_attr($connect_style); ?>">
 
   <?php do_action('ia_atrium_shell_before'); ?>
 
   <?php
     $site_icon = function_exists('get_site_icon_url') ? (string) get_site_icon_url(64) : '';
     $site_name = function_exists('get_bloginfo') ? (string) get_bloginfo('name') : '';
-    $me = (int) get_current_user_id();
     // Prefer the IA Connect profile photo if available; fall back to the WP avatar (e.g. Gravatar).
     if ($me > 0 && function_exists('ia_connect_avatar_url')) {
       $me_avatar = (string) ia_connect_avatar_url($me, 48);

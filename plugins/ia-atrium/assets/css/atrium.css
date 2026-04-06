@@ -325,6 +325,90 @@
   padding: 8px 2px;
 }
 
+.ia-atrium-search-snippet {
+  white-space: normal !important;
+  line-height: 1.45;
+}
+
+.ia-atrium-search-hit {
+  background: rgba(255, 122, 61, 0.22);
+  color: #fff;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+
+.ia-atrium-search-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+
+.ia-atrium-search-history-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ia-atrium-search-history-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  overflow: hidden;
+}
+
+.ia-atrium-search-history-run,
+.ia-atrium-search-history-delete,
+.ia-atrium-search-history-clear {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  color: #e8e8e8;
+  cursor: pointer;
+  font: inherit;
+}
+
+.ia-atrium-search-history-run {
+  padding: 8px 12px;
+}
+
+.ia-atrium-search-history-run:hover,
+.ia-atrium-search-history-delete:hover,
+.ia-atrium-search-history-clear:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.ia-atrium-search-history-text {
+  display: block;
+  max-width: 220px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ia-atrium-search-history-delete {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid rgba(255,255,255,0.10);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.ia-atrium-search-history-clear {
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+}
+
 /* Hide Connect/Discuss in-panel search bars when Atrium provides global search */
 .ia-atrium-shell .iac-top-search,
 .ia-atrium-shell .iad-search {
@@ -697,4 +781,144 @@ html, body {
     padding: 8px 10px;
     font-size: 13px;
   }
+}
+
+
+/* Connect Black style bridge for Atrium shell chrome */
+html[data-iac-style="black"] #ia-atrium-shell,
+body[data-iac-style="black"] #ia-atrium-shell,
+#ia-atrium-shell[data-iac-style="black"]{
+  background:#dcdcdc;
+  color:#111;
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-atrium-main,
+body[data-iac-style="black"] #ia-atrium-shell .ia-atrium-main,
+#ia-atrium-shell[data-iac-style="black"] .ia-atrium-main,
+html[data-iac-style="black"] #ia-atrium-shell .ia-panel,
+body[data-iac-style="black"] #ia-atrium-shell .ia-panel,
+#ia-atrium-shell[data-iac-style="black"] .ia-panel,
+html[data-iac-style="black"] #ia-atrium-shell .ia-slot,
+body[data-iac-style="black"] #ia-atrium-shell .ia-slot,
+#ia-atrium-shell[data-iac-style="black"] .ia-slot{
+  background:#dcdcdc;
+  color:#111;
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-panel-inner,
+body[data-iac-style="black"] #ia-atrium-shell .ia-panel-inner,
+#ia-atrium-shell[data-iac-style="black"] .ia-panel-inner{
+  background:#dcdcdc;
+  color:#111;
+  border-color:rgba(0,0,0,.14);
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-atrium-topbar,
+body[data-iac-style="black"] #ia-atrium-shell .ia-atrium-topbar,
+#ia-atrium-shell[data-iac-style="black"] .ia-atrium-topbar{
+  background:#dcdcdc;
+  border-bottom:1px solid rgba(0,0,0,.12);
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-atrium-brand,
+body[data-iac-style="black"] #ia-atrium-shell .ia-atrium-brand,
+#ia-atrium-shell[data-iac-style="black"] .ia-atrium-brand{
+  background:#202121;
+  border-radius:18px;
+  padding:8px 12px;
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-atrium-brand-text,
+body[data-iac-style="black"] #ia-atrium-shell .ia-atrium-brand-text,
+#ia-atrium-shell[data-iac-style="black"] .ia-atrium-brand-text{
+  color:#ff6a2a;
+  text-shadow:none;
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-atrium-tabmenu-toggle,
+body[data-iac-style="black"] #ia-atrium-shell .ia-atrium-tabmenu-toggle,
+#ia-atrium-shell[data-iac-style="black"] .ia-atrium-tabmenu-toggle{
+  background:#efefef;
+  color:#111;
+  border-color:rgba(0,0,0,.14);
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-atrium-tabmenu,
+body[data-iac-style="black"] #ia-atrium-shell .ia-atrium-tabmenu,
+#ia-atrium-shell[data-iac-style="black"] .ia-atrium-tabmenu,
+html[data-iac-style="black"] #ia-atrium-shell .ia-profile-menu,
+body[data-iac-style="black"] #ia-atrium-shell .ia-profile-menu,
+#ia-atrium-shell[data-iac-style="black"] .ia-profile-menu{
+  background:#efefef;
+  border-color:rgba(0,0,0,.14);
+  box-shadow:0 10px 30px rgba(0,0,0,.18);
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-atrium-tabmenu-item,
+body[data-iac-style="black"] #ia-atrium-shell .ia-atrium-tabmenu-item,
+#ia-atrium-shell[data-iac-style="black"] .ia-atrium-tabmenu-item,
+html[data-iac-style="black"] #ia-atrium-shell .ia-menu-item,
+body[data-iac-style="black"] #ia-atrium-shell .ia-menu-item,
+#ia-atrium-shell[data-iac-style="black"] .ia-menu-item{
+  color:#111;
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-atrium-tabmenu-item:hover,
+body[data-iac-style="black"] #ia-atrium-shell .ia-atrium-tabmenu-item:hover,
+#ia-atrium-shell[data-iac-style="black"] .ia-atrium-tabmenu-item:hover,
+html[data-iac-style="black"] #ia-atrium-shell .ia-menu-item:hover,
+body[data-iac-style="black"] #ia-atrium-shell .ia-menu-item:hover,
+#ia-atrium-shell[data-iac-style="black"] .ia-menu-item:hover{
+  background:#e4e4e4;
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-atrium-search-btn,
+body[data-iac-style="black"] #ia-atrium-shell .ia-atrium-search-btn,
+#ia-atrium-shell[data-iac-style="black"] .ia-atrium-search-btn{
+  color:#111;
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-atrium-search-btn:hover,
+body[data-iac-style="black"] #ia-atrium-shell .ia-atrium-search-btn:hover,
+#ia-atrium-shell[data-iac-style="black"] .ia-atrium-search-btn:hover{
+  background:#efefef;
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-bottom-nav,
+body[data-iac-style="black"] #ia-atrium-shell .ia-bottom-nav,
+#ia-atrium-shell[data-iac-style="black"] .ia-bottom-nav{
+  background:#dcdcdc;
+  border-top:1px solid rgba(0,0,0,.12);
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-bottom-item,
+body[data-iac-style="black"] #ia-atrium-shell .ia-bottom-item,
+#ia-atrium-shell[data-iac-style="black"] .ia-bottom-item,
+html[data-iac-style="black"] #ia-atrium-shell .ia-bottom-item-wrap > .ia-bottom-item,
+body[data-iac-style="black"] #ia-atrium-shell .ia-bottom-item-wrap > .ia-bottom-item,
+#ia-atrium-shell[data-iac-style="black"] .ia-bottom-item-wrap > .ia-bottom-item{
+  color:#111;
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-bottom-avatar,
+body[data-iac-style="black"] #ia-atrium-shell .ia-bottom-avatar,
+#ia-atrium-shell[data-iac-style="black"] .ia-bottom-avatar{
+  border-color:rgba(0,0,0,.16);
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-modal-card,
+body[data-iac-style="black"] #ia-atrium-shell .ia-modal-card,
+#ia-atrium-shell[data-iac-style="black"] .ia-modal-card,
+html[data-iac-style="black"] #ia-atrium-shell .ia-modal-header,
+body[data-iac-style="black"] #ia-atrium-shell .ia-modal-header,
+#ia-atrium-shell[data-iac-style="black"] .ia-modal-header,
+html[data-iac-style="black"] #ia-atrium-shell .ia-modal-body,
+body[data-iac-style="black"] #ia-atrium-shell .ia-modal-body,
+#ia-atrium-shell[data-iac-style="black"] .ia-modal-body,
+html[data-iac-style="black"] #ia-atrium-shell .ia-modal-footer,
+body[data-iac-style="black"] #ia-atrium-shell .ia-modal-footer,
+#ia-atrium-shell[data-iac-style="black"] .ia-modal-footer{
+  background:#dcdcdc;
+  color:#111;
+  border-color:rgba(0,0,0,.14);
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-icon-btn,
+body[data-iac-style="black"] #ia-atrium-shell .ia-icon-btn,
+#ia-atrium-shell[data-iac-style="black"] .ia-icon-btn,
+html[data-iac-style="black"] #ia-atrium-shell .ia-btn,
+body[data-iac-style="black"] #ia-atrium-shell .ia-btn,
+#ia-atrium-shell[data-iac-style="black"] .ia-btn{
+  background:#efefef;
+  color:#111;
+  border-color:rgba(0,0,0,.16);
+}
+html[data-iac-style="black"] #ia-atrium-shell .ia-composer-placeholder,
+body[data-iac-style="black"] #ia-atrium-shell .ia-composer-placeholder,
+#ia-atrium-shell[data-iac-style="black"] .ia-composer-placeholder{
+  color:#111;
 }

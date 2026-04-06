@@ -8,12 +8,14 @@ final class IA_Post_Assets {
     if (!self::atrium_present()) return;
 
     wp_enqueue_style('ia-post', IA_POST_URL . 'assets/css/ia-post.css', [], IA_POST_VERSION);
+    wp_enqueue_style('ia-post-theme-mybb', IA_POST_URL . 'assets/css/ia-post.theme.mybb.css', ['ia-post'], IA_POST_VERSION);
     wp_enqueue_script('ia-post', IA_POST_URL . 'assets/js/ia-post.js', [], IA_POST_VERSION, true);
 
     wp_localize_script('ia-post', 'IA_POST', [
       'version' => IA_POST_VERSION,
       'ajaxUrl' => admin_url('admin-ajax.php'),
       'loggedIn' => is_user_logged_in() ? '1' : '0',
+      'nonce' => wp_create_nonce('ia_post_nonce'),
       'me' => [
         'wp' => (int) get_current_user_id(),
         'login' => (string) (is_user_logged_in() ? wp_get_current_user()->user_login : ''),

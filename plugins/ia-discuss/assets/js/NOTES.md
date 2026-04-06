@@ -1,3 +1,8 @@
+## 0.3.99 sidebar housekeeping
+
+- `ia-discuss.ui.shell.js` no longer exposes the `AgoraBB Mode` toggle, Discuss theme modal button, or direct sidebar scheme buttons.
+- Shell boot now clears the old per-browser theme/layout keys and reapplies the baseline `dark` theme with `atrium` layout so previous local selections do not survive this housekeeping pass.
+
 # Notes: assets / js
 
 ## What changed in the 0.3.59 architecture pass

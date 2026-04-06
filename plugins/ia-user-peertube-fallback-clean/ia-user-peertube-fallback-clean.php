@@ -68,6 +68,7 @@ final class IA_User_PeerTube_Fallback_Clean {
         $actions[] = 'ia_auth_nonce';
         $actions[] = 'ia_nonce';
         $actions[] = 'ia_user_login';
+        $actions[] = 'ia_ptls_login_nonce';
 
         if (class_exists('IA_User')) {
             try {

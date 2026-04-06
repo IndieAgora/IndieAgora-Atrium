@@ -25,6 +25,8 @@ function ia_connect_ajax_boot(): void {
   add_action('wp_ajax_ia_connect_settings_update', 'ia_connect_ajax_settings_update');
 add_action('wp_ajax_ia_connect_display_name_update', 'ia_connect_ajax_display_name_update');
   add_action('wp_ajax_ia_connect_signature_update', 'ia_connect_ajax_signature_update');
+  add_action('wp_ajax_ia_connect_home_tab_update', 'ia_connect_ajax_home_tab_update');
+  add_action('wp_ajax_ia_connect_style_update', 'ia_connect_ajax_style_update');
 
   // Privacy + read-only activity
   add_action('wp_ajax_ia_connect_privacy_get', 'ia_connect_ajax_privacy_get');
@@ -231,10 +233,6 @@ $display = $uname;
 $phpbb = (int) get_user_meta($uid, 'ia_phpbb_user_id', true);
       if ($phpbb <= 0) $phpbb = (int) get_user_meta($uid, 'phpbb_user_id', true);
 
-      $k = ($wp_id > 0) ? ('wp:' . (int)$wp_id) : ('phpbb:' . (int)$phpbb_id);
-      if (isset($seen[$k])) continue;
-      $seen[$k] = 1;
-
       $k = 'wp:' . (int)$uid;
       if (isset($seen[$k])) continue;
       $seen[$k] = 1;
@@ -392,6 +390,17 @@ function ia_connect_ajax_discuss_activity(): void {
   $has_more = false;
   $offset = ($page - 1) * $per;
   $limit = $per + 1;
+  $is_self_stream = ($target_wp === $me);
+  $access_token = $is_self_stream ? ia_connect_stream_user_access_token($phpbb_id) : '';
+  if ($is_self_stream && $access_token === '' && class_exists('IA_PeerTube_Token_Helper') && method_exists('IA_PeerTube_Token_Helper', 'get_token_status_for_current_user')) {
+    try {
+      $token_status = IA_PeerTube_Token_Helper::get_token_status_for_current_user();
+      error_log('[ia-connect][stream_activity] self stream token unavailable: ' . (string)($token_status['code'] ?? 'unknown'));
+    } catch (Throwable $e) {
+      // ignore
+    }
+  }
+  $account_name = ia_connect_stream_account_name($target_wp, $phpbb_id, $access_token);
 
   try {
     if ($type === 'agoras_created') {
@@ -722,6 +731,504 @@ function ia_connect_ajax_discuss_activity(): void {
   wp_send_json_success(['items' => $items, 'has_more' => $has_more]);
 }
 
+
+function ia_connect_pg_limit_offset_sql(int $offset, int $limit): string {
+  $offset = max(0, $offset);
+  $limit = max(1, $limit);
+  // PeerTube runs on PostgreSQL, so do not use MySQL's LIMIT offset,count form here.
+  return ' LIMIT ' . (int)$limit . ' OFFSET ' . (int)$offset;
+}
+
+
+function ia_connect_pg_search_condition(string $term, array $columns, string $prefix, array &$params): string {
+  $term = trim($term);
+  if ($term === '' || empty($columns)) {
+    return '1=1';
+  }
+
+  $parts = [];
+  foreach (array_values($columns) as $idx => $column) {
+    $key = ':' . $prefix . '_' . $idx;
+    $parts[] = $column . ' ILIKE ' . $key;
+    $params[$key] = '%' . $term . '%';
+  }
+
+  return '(' . implode(' OR ', $parts) . ')';
+}
+
+function ia_connect_stream_resolve_identity_ids(\PDO $pdo, array $row): array {
+  $ids = [
+    'pt_user' => (int)($row['peertube_user_id'] ?? 0),
+    'pt_account' => (int)($row['peertube_account_id'] ?? 0),
+    'pt_actor' => (int)($row['peertube_actor_id'] ?? 0),
+  ];
+
+  try {
+    if ($ids['pt_user'] > 0 && ($ids['pt_account'] <= 0 || $ids['pt_actor'] <= 0)) {
+      $st = $pdo->prepare('SELECT id, "actorId" FROM public.account WHERE "userId" = :uid LIMIT 1');
+      $st->execute([':uid' => $ids['pt_user']]);
+      $acct = $st->fetch();
+      if (is_array($acct) && !empty($acct)) {
+        if ($ids['pt_account'] <= 0) $ids['pt_account'] = (int)($acct['id'] ?? 0);
+        if ($ids['pt_actor'] <= 0) $ids['pt_actor'] = (int)($acct['actorId'] ?? 0);
+      }
+    }
+
+    if ($ids['pt_account'] > 0 && ($ids['pt_user'] <= 0 || $ids['pt_actor'] <= 0)) {
+      $st = $pdo->prepare('SELECT "userId", "actorId" FROM public.account WHERE id = :acct LIMIT 1');
+      $st->execute([':acct' => $ids['pt_account']]);
+      $acct = $st->fetch();
+      if (is_array($acct) && !empty($acct)) {
+        if ($ids['pt_user'] <= 0) $ids['pt_user'] = (int)($acct['userId'] ?? 0);
+        if ($ids['pt_actor'] <= 0) $ids['pt_actor'] = (int)($acct['actorId'] ?? 0);
+      }
+    }
+
+    if ($ids['pt_actor'] > 0 && ($ids['pt_account'] <= 0 || $ids['pt_user'] <= 0)) {
+      $st = $pdo->prepare('SELECT id, "userId" FROM public.account WHERE "actorId" = :actor LIMIT 1');
+      $st->execute([':actor' => $ids['pt_actor']]);
+      $acct = $st->fetch();
+      if (is_array($acct) && !empty($acct)) {
+        if ($ids['pt_account'] <= 0) $ids['pt_account'] = (int)($acct['id'] ?? 0);
+        if ($ids['pt_user'] <= 0) $ids['pt_user'] = (int)($acct['userId'] ?? 0);
+      }
+    }
+  } catch (Throwable $e) {
+    // Keep profile activity read-only and fail-soft.
+  }
+
+  return $ids;
+}
+
+
+function ia_connect_stream_user_access_token(int $phpbb_user_id): string {
+  if ($phpbb_user_id <= 0) return '';
+
+  if (is_user_logged_in() && class_exists('IA_PeerTube_Token_Helper') && method_exists('IA_PeerTube_Token_Helper', 'get_token_status_for_current_user')) {
+    try {
+      $status = IA_PeerTube_Token_Helper::get_token_status_for_current_user();
+      if (is_array($status) && (int)($status['phpbb_user_id'] ?? 0) === $phpbb_user_id && !empty($status['ok'])) {
+        $token = trim((string)($status['token'] ?? ''));
+        if ($token !== '') return $token;
+      }
+    } catch (Throwable $e) {
+      // Fall back to legacy IA_Auth storage below.
+    }
+  }
+
+  if (!class_exists('IA_Auth') || !method_exists('IA_Auth', 'instance')) return '';
+
+  try {
+    $ia = IA_Auth::instance();
+    if (!is_object($ia) || !isset($ia->db) || !is_object($ia->db) || !method_exists($ia->db, 'get_tokens_by_phpbb_user_id')) return '';
+    if (!isset($ia->crypto) || !is_object($ia->crypto) || !method_exists($ia->crypto, 'decrypt')) return '';
+
+    $tok = $ia->db->get_tokens_by_phpbb_user_id($phpbb_user_id);
+    if (!is_array($tok) || empty($tok['access_token_enc'])) return '';
+
+    return (string)$ia->crypto->decrypt((string)$tok['access_token_enc']);
+  } catch (Throwable $e) {
+    return '';
+  }
+}
+
+function ia_connect_stream_api_get(string $path, array $query = [], string $access_token = ''): array {
+  $base = untrailingslashit(ia_connect_peertube_public_url());
+  if ($base === '') {
+    return ['ok' => false, 'status' => 0, 'message' => 'Missing PeerTube base URL.', 'json' => null];
+  }
+
+  $url = $base . $path;
+  if (!empty($query)) {
+    $url = add_query_arg(array_filter($query, static function ($value) {
+      return $value !== null && $value !== '';
+    }), $url);
+  }
+
+  $headers = [ 'Accept' => 'application/json' ];
+  if ($access_token !== '') {
+    $headers['Authorization'] = 'Bearer ' . $access_token;
+  }
+
+  $res = wp_remote_get($url, [
+    'timeout' => 20,
+    'redirection' => 3,
+    'headers' => $headers,
+  ]);
+
+  if (is_wp_error($res)) {
+    return ['ok' => false, 'status' => 0, 'message' => $res->get_error_message(), 'json' => null];
+  }
+
+  $code = (int) wp_remote_retrieve_response_code($res);
+  $body = (string) wp_remote_retrieve_body($res);
+  $json = json_decode($body, true);
+
+  if ($code < 200 || $code >= 300) {
+    $msg = is_array($json) ? (string)($json['detail'] ?? $json['message'] ?? '') : '';
+    if ($msg === '') $msg = 'HTTP ' . $code;
+    return ['ok' => false, 'status' => $code, 'message' => $msg, 'json' => is_array($json) ? $json : null];
+  }
+
+  return ['ok' => true, 'status' => $code, 'message' => '', 'json' => is_array($json) ? $json : []];
+}
+
+function ia_connect_stream_account_name(int $target_wp, int $phpbb_id, string $access_token = ''): string {
+  if ($access_token !== '') {
+    $me = ia_connect_stream_api_get('/api/v1/users/me', [], $access_token);
+    if (!empty($me['ok'])) {
+      $json = $me['json'];
+      if (is_array($json) && isset($json[0]) && is_array($json[0])) $json = $json[0];
+      $name = (string)($json['account']['name'] ?? '');
+      if ($name !== '') return $name;
+    }
+  }
+
+  global $wpdb;
+  $imap = $wpdb->prefix . 'ia_identity_map';
+  $row = $wpdb->get_row($wpdb->prepare("SELECT phpbb_username_clean FROM {$imap} WHERE phpbb_user_id=%d LIMIT 1", $phpbb_id), ARRAY_A);
+  $name = (string)($row['phpbb_username_clean'] ?? '');
+  if ($name !== '') return $name;
+
+  $user = get_userdata($target_wp);
+  if ($user && !empty($user->user_login)) return (string)$user->user_login;
+
+  return '';
+}
+
+function ia_connect_stream_video_meta_map(\PDO $pdo, array $video_ids): array {
+  $video_ids = array_values(array_unique(array_filter(array_map('intval', $video_ids))));
+  if (empty($video_ids)) return [];
+
+  $placeholders = implode(',', array_fill(0, count($video_ids), '?'));
+  $sql = 'SELECT v.id, v.url, v.description, th."fileUrl" AS thumb_url, th.filename AS thumb_filename
+          FROM public.video v
+          LEFT JOIN LATERAL (
+            SELECT t."fileUrl", t.filename
+            FROM public.thumbnail t
+            WHERE t."videoId" = v.id
+            ORDER BY (t."fileUrl" IS NULL) ASC, t.type ASC, t.height DESC NULLS LAST
+            LIMIT 1
+          ) th ON TRUE
+          WHERE v.id IN ({$placeholders})';
+  $st = $pdo->prepare($sql);
+  $st->execute($video_ids);
+  $rows = $st->fetchAll();
+  $out = [];
+  foreach (($rows ?: []) as $r) {
+    $out[(int)$r['id']] = $r;
+  }
+  return $out;
+}
+
+function ia_connect_stream_playlist_meta_map(\PDO $pdo, array $playlist_ids): array {
+  $playlist_ids = array_values(array_unique(array_filter(array_map('intval', $playlist_ids))));
+  if (empty($playlist_ids)) return [];
+
+  $placeholders = implode(',', array_fill(0, count($playlist_ids), '?'));
+  $sql = 'SELECT vp.id, vp.url, vp.description, th."fileUrl" AS thumb_url, th.filename AS thumb_filename
+          FROM public."videoPlaylist" vp
+          LEFT JOIN LATERAL (
+            SELECT t."fileUrl", t.filename
+            FROM public.thumbnail t
+            WHERE t."videoPlaylistId" = vp.id
+            ORDER BY (t."fileUrl" IS NULL) ASC, t.type ASC, t.height DESC NULLS LAST
+            LIMIT 1
+          ) th ON TRUE
+          WHERE vp.id IN ({$placeholders})';
+  $st = $pdo->prepare($sql);
+  $st->execute($playlist_ids);
+  $rows = $st->fetchAll();
+  $out = [];
+  foreach (($rows ?: []) as $r) {
+    $out[(int)$r['id']] = $r;
+  }
+  return $out;
+}
+
+function ia_connect_stream_thumb_payload(string $base, string $thumb_url = '', string $thumb_filename = '', array $api_thumbnails = [], string $api_thumbnail_path = '', string $api_preview_path = ''): array {
+  $thumb = $thumb_url !== '' ? ia_connect_join_url($base, $thumb_url) : '';
+  $fallbacks = [];
+
+  if ($thumb_filename !== '') {
+    $fallbacks[] = ia_connect_join_url($base, '/static/thumbnails/' . ltrim($thumb_filename, '/'));
+    $fallbacks[] = ia_connect_join_url($base, '/lazy-static/thumbnails/' . ltrim($thumb_filename, '/'));
+    $fallbacks[] = ia_connect_join_url($base, '/lazy-static/previews/' . ltrim($thumb_filename, '/'));
+    $fallbacks[] = ia_connect_join_url($base, '/' . ltrim($thumb_filename, '/'));
+  }
+
+  foreach ($api_thumbnails as $t) {
+    if (!is_array($t)) continue;
+    $path = (string)($t['path'] ?? $t['url'] ?? '');
+    if ($path !== '') $fallbacks[] = ia_connect_join_url($base, $path);
+  }
+  if ($api_thumbnail_path !== '') $fallbacks[] = ia_connect_join_url($base, $api_thumbnail_path);
+  if ($api_preview_path !== '') $fallbacks[] = ia_connect_join_url($base, $api_preview_path);
+
+  $fallbacks = array_values(array_unique(array_filter($fallbacks)));
+  if ($thumb === '' && !empty($fallbacks)) $thumb = $fallbacks[0];
+
+  return ['thumb' => $thumb, 'thumb_fallbacks' => $fallbacks];
+}
+
+
+function ia_connect_stream_api_rows(array $response): array {
+  if (empty($response['ok']) || !is_array($response['json'])) return [];
+  $json = $response['json'];
+  if (isset($json['data']) && is_array($json['data'])) return $json['data'];
+  if (isset($json['items']) && is_array($json['items'])) return $json['items'];
+  if (array_keys($json) === range(0, count($json) - 1)) return $json;
+  return [];
+}
+
+function ia_connect_stream_map_video_item_from_api(array $video, string $base, string $fallback_excerpt = ''): array {
+  $thumb_payload = ia_connect_stream_thumb_payload(
+    $base,
+    '',
+    '',
+    (array)($video['thumbnails'] ?? []),
+    (string)($video['thumbnailPath'] ?? ''),
+    (string)($video['previewPath'] ?? '')
+  );
+
+  $url = '';
+  if (!empty($video['url'])) {
+    $url = ia_connect_join_url($base, (string)$video['url']);
+  } elseif (!empty($video['embedPath'])) {
+    $url = ia_connect_join_url($base, (string)$video['embedPath']);
+  } elseif (!empty($video['shortUUID'])) {
+    $url = ia_connect_join_url($base, '/w/' . rawurlencode((string)$video['shortUUID']));
+  } elseif (!empty($video['uuid'])) {
+    $url = ia_connect_join_url($base, '/w/' . rawurlencode((string)$video['uuid']));
+  }
+
+  $excerpt = (string)($video['truncatedDescription'] ?? $video['description'] ?? $fallback_excerpt);
+
+  return [
+    'title' => (string)($video['name'] ?? ''),
+    'excerpt' => ia_connect_excerpt_text($excerpt),
+    'url' => $url,
+    'thumb' => $thumb_payload['thumb'],
+    'thumb_fallbacks' => $thumb_payload['thumb_fallbacks'],
+  ];
+}
+
+function ia_connect_stream_map_playlist_item_from_api(array $playlist, string $base): array {
+  $thumb_payload = ia_connect_stream_thumb_payload(
+    $base,
+    '',
+    '',
+    (array)($playlist['thumbnails'] ?? []),
+    (string)($playlist['thumbnailPath'] ?? ''),
+    ''
+  );
+
+  $url = '';
+  if (!empty($playlist['url'])) {
+    $url = ia_connect_join_url($base, (string)$playlist['url']);
+  } elseif (!empty($playlist['shortUUID'])) {
+    $url = ia_connect_join_url($base, '/w/p/' . rawurlencode((string)$playlist['shortUUID']));
+  } elseif (!empty($playlist['uuid'])) {
+    $url = ia_connect_join_url($base, '/w/p/' . rawurlencode((string)$playlist['uuid']));
+  }
+
+  return [
+    'title' => (string)($playlist['displayName'] ?? $playlist['name'] ?? ''),
+    'excerpt' => ia_connect_excerpt_text((string)($playlist['description'] ?? '')),
+    'url' => $url,
+    'thumb' => $thumb_payload['thumb'],
+    'thumb_fallbacks' => $thumb_payload['thumb_fallbacks'],
+  ];
+}
+
+function ia_connect_stream_map_subscription_item_from_api(array $channel, string $base): array {
+  $avatars = [];
+  if (!empty($channel['avatars']) && is_array($channel['avatars'])) {
+    $avatars = (array) $channel['avatars'];
+  } elseif (!empty($channel['avatar']) && is_array($channel['avatar'])) {
+    $avatars = [ (array) $channel['avatar'] ];
+  }
+
+  $thumb_payload = ia_connect_stream_thumb_payload(
+    $base,
+    '',
+    '',
+    $avatars,
+    (string)($channel['avatarPath'] ?? ''),
+    ''
+  );
+
+  $url = '';
+  if (!empty($channel['url'])) {
+    $url = ia_connect_join_url($base, (string)$channel['url']);
+  } elseif (!empty($channel['name'])) {
+    $url = ia_connect_join_url($base, '/c/' . rawurlencode((string)$channel['name']) . '/videos');
+  }
+
+  $owner = '';
+  if (!empty($channel['ownerAccount']['displayName'])) {
+    $owner = (string) $channel['ownerAccount']['displayName'];
+  } elseif (!empty($channel['ownerAccount']['name'])) {
+    $owner = (string) $channel['ownerAccount']['name'];
+  }
+
+  $excerpt = (string)($channel['description'] ?? '');
+  if ($excerpt === '') {
+    $excerpt = $owner !== '' ? ('Subscribed channel' . ' · ' . $owner) : 'Subscribed channel';
+  }
+
+  return [
+    'title' => (string)($channel['displayName'] ?? $channel['name'] ?? ''),
+    'excerpt' => ia_connect_excerpt_text($excerpt),
+    'url' => $url,
+    'thumb' => $thumb_payload['thumb'],
+    'thumb_fallbacks' => $thumb_payload['thumb_fallbacks'],
+  ];
+}
+
+function ia_connect_stream_map_comment_item_from_feed(array $item, string $base): array {
+  $url = (string)($item['url'] ?? $item['external_url'] ?? '');
+  $title = (string)($item['title'] ?? 'Comment');
+  $excerpt = (string)($item['content_text'] ?? $item['summary'] ?? '');
+  if ($excerpt === '' && !empty($item['content_html'])) {
+    $excerpt = wp_strip_all_tags((string)$item['content_html']);
+  }
+
+  return [
+    'title' => $title,
+    'excerpt' => ia_connect_excerpt_text($excerpt),
+    'url' => ia_connect_join_url($base, $url),
+    'thumb' => '',
+    'thumb_fallbacks' => [],
+  ];
+}
+
+function ia_connect_stream_comment_like_items(\PDO $pdo, int $phpbb_user_id, string $base, string $q = '', int $offset = 0, int $limit = 0): array {
+  global $wpdb;
+  if ($phpbb_user_id <= 0 || !($wpdb instanceof wpdb)) return [];
+
+  $table = $wpdb->prefix . 'ia_stream_comment_votes';
+  $has_table = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
+  if (!$has_table) return [];
+
+  $vote_rows = $wpdb->get_results($wpdb->prepare(
+    "SELECT comment_id, updated_at FROM {$table} WHERE phpbb_user_id=%d AND rating=1 ORDER BY updated_at DESC, id DESC",
+    $phpbb_user_id
+  ), ARRAY_A);
+  if (!is_array($vote_rows) || empty($vote_rows)) return [];
+
+  $comment_ids = [];
+  $liked_at = [];
+  foreach ($vote_rows as $row) {
+    $comment_id = trim((string)($row['comment_id'] ?? ''));
+    if ($comment_id === '' || isset($liked_at[$comment_id])) continue;
+    $comment_ids[] = $comment_id;
+    $liked_at[$comment_id] = (string)($row['updated_at'] ?? '');
+  }
+  if (empty($comment_ids)) return [];
+
+  $placeholders = implode(',', array_fill(0, count($comment_ids), '?'));
+  $sql = "SELECT vc.id, vc.text, v.name AS video_name, v.url AS video_url
+          FROM public.\"videoComment\" vc
+          JOIN public.video v ON v.id = vc.\"videoId\"
+          WHERE vc.id IN ({$placeholders})";
+  $st = $pdo->prepare($sql);
+  $st->execute($comment_ids);
+  $rows = $st->fetchAll();
+  if (!is_array($rows) || empty($rows)) return [];
+
+  $meta = [];
+  foreach ($rows as $row) {
+    $meta[(string)($row['id'] ?? '')] = $row;
+  }
+
+  $items = [];
+  foreach ($comment_ids as $comment_id) {
+    if (!isset($meta[$comment_id])) continue;
+    $row = $meta[$comment_id];
+    $title = trim((string)($row['video_name'] ?? ''));
+    if ($title === '') $title = 'Liked comment';
+    else $title .= ' - liked comment';
+
+    $excerpt = ia_connect_excerpt_text((string)($row['text'] ?? ''));
+    if ($excerpt === '') $excerpt = 'Liked comment';
+
+    if ($q !== '') {
+      $hay = strtolower($title . ' ' . $excerpt);
+      if (strpos($hay, strtolower($q)) === false) continue;
+    }
+
+    $items[] = [
+      'title' => $title,
+      'excerpt' => $excerpt,
+      'url' => ia_connect_join_url($base, (string)($row['video_url'] ?? '')),
+      'thumb' => '',
+      'thumb_fallbacks' => [],
+      '_liked_at' => $liked_at[$comment_id] ?? '',
+    ];
+  }
+
+  usort($items, static function (array $a, array $b): int {
+    return strcmp((string)($b['_liked_at'] ?? ''), (string)($a['_liked_at'] ?? ''));
+  });
+
+  if ($offset > 0) $items = array_slice($items, $offset);
+  if ($limit > 0) $items = array_slice($items, 0, $limit);
+
+  foreach ($items as &$item) {
+    unset($item['_liked_at']);
+  }
+  unset($item);
+
+  return $items;
+}
+function ia_connect_stream_map_video_item(array $video, array $meta, string $base, string $fallback_excerpt = ''): array {
+  $thumb_payload = ia_connect_stream_thumb_payload(
+    $base,
+    (string)($meta['thumb_url'] ?? ''),
+    (string)($meta['thumb_filename'] ?? ''),
+    (array)($video['thumbnails'] ?? []),
+    (string)($video['thumbnailPath'] ?? ''),
+    (string)($video['previewPath'] ?? '')
+  );
+
+  $url = (string)($meta['url'] ?? '');
+  if ($url === '' && !empty($video['embedPath'])) {
+    $url = ia_connect_join_url($base, (string)$video['embedPath']);
+  } else {
+    $url = ia_connect_join_url($base, $url);
+  }
+
+  $excerpt = (string)($video['truncatedDescription'] ?? $video['description'] ?? $meta['description'] ?? $fallback_excerpt);
+
+  return [
+    'title' => (string)($video['name'] ?? ''),
+    'excerpt' => ia_connect_excerpt_text($excerpt),
+    'url' => $url,
+    'thumb' => $thumb_payload['thumb'],
+    'thumb_fallbacks' => $thumb_payload['thumb_fallbacks'],
+  ];
+}
+
+function ia_connect_stream_map_playlist_item(array $playlist, array $meta, string $base): array {
+  $thumb_payload = ia_connect_stream_thumb_payload(
+    $base,
+    (string)($meta['thumb_url'] ?? ''),
+    (string)($meta['thumb_filename'] ?? ''),
+    (array)($playlist['thumbnails'] ?? []),
+    (string)($playlist['thumbnailPath'] ?? ''),
+    ''
+  );
+
+  return [
+    'title' => (string)($playlist['displayName'] ?? ''),
+    'excerpt' => ia_connect_excerpt_text((string)($playlist['description'] ?? $meta['description'] ?? '')),
+    'url' => ia_connect_join_url($base, (string)($meta['url'] ?? '')),
+    'thumb' => $thumb_payload['thumb'],
+    'thumb_fallbacks' => $thumb_payload['thumb_fallbacks'],
+  ];
+}
+
 function ia_connect_ajax_stream_activity(): void {
   // This endpoint must ALWAYS return JSON.
   // Any PHP fatals will surface to the browser as HTML, which the front-end reports as "Non-JSON response".
@@ -784,38 +1291,33 @@ function ia_connect_ajax_stream_activity(): void {
 
   $pdo = ia_connect_peertube_pdo();
   $base = ia_connect_peertube_public_url();
-  if (!$pdo || $base === '') {
-    wp_send_json_error(['message' => 'PeerTube DB unavailable.'], 500);
+  if ($base === '') {
+    wp_send_json_error(['message' => 'PeerTube base URL unavailable.'], 500);
   }
 
-  // If the identity map does not yet have account/actor ids, derive them deterministically from PeerTube DB.
-  // PeerTube guarantees 1 user -> 1 account -> 1 actor.
-  if ($pt_user > 0 && ($pt_account <= 0 || $pt_actor <= 0)) {
-    try {
-      $st = $pdo->prepare('SELECT id, "actorId" FROM public.account WHERE "userId" = :uid LIMIT 1');
-      $st->execute([':uid' => $pt_user]);
-      $acct = $st->fetch();
-      if (is_array($acct) && !empty($acct)) {
-        $derived_account = (int)($acct['id'] ?? 0);
-        $derived_actor = (int)($acct['actorId'] ?? 0);
-        if ($pt_account <= 0 && $derived_account > 0) $pt_account = $derived_account;
-        if ($pt_actor <= 0 && $derived_actor > 0) $pt_actor = $derived_actor;
+  if ($pdo) {
+    // PeerTube profile activity keys can be partially populated in older identity rows.
+    // Resolve all three ids from whichever one we have, then persist the repaired values.
+    $resolved_ids = ia_connect_stream_resolve_identity_ids($pdo, [
+      'peertube_user_id' => $pt_user,
+      'peertube_account_id' => $pt_account,
+      'peertube_actor_id' => $pt_actor,
+    ]);
+    $pt_user = (int)($resolved_ids['pt_user'] ?? 0);
+    $pt_account = (int)($resolved_ids['pt_account'] ?? 0);
+    $pt_actor = (int)($resolved_ids['pt_actor'] ?? 0);
 
-        // Persist derived ids back to identity map to avoid future misses.
-        if ($derived_account > 0 || $derived_actor > 0) {
-          $wpdb->update(
-            $imap,
-            [
-              'peertube_account_id' => ($pt_account > 0 ? $pt_account : null),
-              'peertube_actor_id'   => ($pt_actor > 0 ? $pt_actor : null),
-              'updated_at'          => gmdate('Y-m-d H:i:s'),
-            ],
-            ['phpbb_user_id' => $phpbb_id]
-          );
-        }
-      }
-    } catch (Throwable $e) {
-      // If derivation fails, we'll just return empty results rather than fatal.
+    if ($pt_user > 0 || $pt_account > 0 || $pt_actor > 0) {
+      $wpdb->update(
+        $imap,
+        [
+          'peertube_user_id'    => ($pt_user > 0 ? $pt_user : null),
+          'peertube_account_id' => ($pt_account > 0 ? $pt_account : null),
+          'peertube_actor_id'   => ($pt_actor > 0 ? $pt_actor : null),
+          'updated_at'          => gmdate('Y-m-d H:i:s'),
+        ],
+        ['phpbb_user_id' => $phpbb_id]
+      );
     }
   }
 
@@ -823,227 +1325,264 @@ function ia_connect_ajax_stream_activity(): void {
   $has_more = false;
   $offset = ($page - 1) * $per;
   $limit = $per + 1;
+  $is_self_stream = ($target_wp === $me);
+  $access_token = $is_self_stream ? ia_connect_stream_user_access_token($phpbb_id) : '';
+  if ($is_self_stream && $access_token === '' && class_exists('IA_PeerTube_Token_Helper') && method_exists('IA_PeerTube_Token_Helper', 'get_token_status_for_current_user')) {
+    try {
+      $token_status = IA_PeerTube_Token_Helper::get_token_status_for_current_user();
+      error_log('[ia-connect][stream_activity] self stream token unavailable: ' . (string)($token_status['code'] ?? 'unknown'));
+    } catch (Throwable $e) {
+      // ignore
+    }
+  }
+  $account_name = ia_connect_stream_account_name($target_wp, $phpbb_id, $access_token);
 
   try {
     if ($type === 'videos') {
-      if ($pt_account <= 0) wp_send_json_success(['items' => [], 'has_more' => false]);
-      // video rows key off channelId -> videoChannel.accountId
-      $sql = "SELECT v.id, v.uuid, v.name, v.url, v.description, th.\"fileUrl\" AS thumb_url, th.filename AS thumb_filename
-              FROM public.video v
-              JOIN public.\"videoChannel\" ch ON ch.id = v.\"channelId\"
-              LEFT JOIN LATERAL (
-                SELECT t.\"fileUrl\", t.filename
-                FROM public.thumbnail t
-                WHERE t.\"videoId\" = v.id
-                ORDER BY (t.\"fileUrl\" IS NULL) ASC, t.type ASC, t.height DESC NULLS LAST
-                LIMIT 1
-              ) th ON TRUE
-              WHERE ch.\"accountId\" = :acct
-                AND (:q = '' OR v.name ILIKE :q OR v.description ILIKE :q)
-              ORDER BY v.\"publishedAt\" DESC
-              LIMIT {$offset}, {$limit}";
-      $st = $pdo->prepare($sql);
-      $st->execute([':acct' => $pt_account, ':q' => $q_like]);
-      $rows = $st->fetchAll();
-      foreach (($rows ?: []) as $r) {
-        $thumb_url = (string)($r['thumb_url'] ?? '');
-        $thumb_filename = (string)($r['thumb_filename'] ?? '');
+      $api_rows = null;
+      if ($is_self_stream && $access_token !== '') {
+        $api = ia_connect_stream_api_get('/api/v1/users/me/videos', [
+          'start' => $offset,
+          'count' => $limit,
+          'search' => $q,
+          'sort' => '-publishedAt',
+        ], $access_token);
+        $api_rows = ia_connect_stream_api_rows($api);
+      }
+      if ((!is_array($api_rows) || empty($api_rows)) && $account_name !== '') {
+        $api = ia_connect_stream_api_get('/api/v1/accounts/' . rawurlencode($account_name) . '/videos', [
+          'start' => $offset,
+          'count' => $limit,
+          'search' => $q,
+          'sort' => '-publishedAt',
+        ]);
+        $api_rows = ia_connect_stream_api_rows($api);
+      }
 
-        // PeerTube may leave thumbnail.fileUrl NULL depending on version/config.
-        // If so, fall back to common static routes using filename.
-        $thumb = $thumb_url !== '' ? ia_connect_join_url($base, $thumb_url) : '';
-        $thumb_fallbacks = [];
-        if ($thumb === '' && $thumb_filename !== '') {
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/static/thumbnails/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/lazy-static/thumbnails/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/lazy-static/previews/' . ltrim($thumb_filename, '/'));
-          // As a last resort, try the same filename at root.
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/' . ltrim($thumb_filename, '/'));
-          $thumb = $thumb_fallbacks[0];
+      if (is_array($api_rows)) {
+        foreach ($api_rows as $row) {
+          $items[] = ia_connect_stream_map_video_item_from_api($row, $base);
         }
-        $items[] = [
-          'title' => (string)($r['name'] ?? ''),
-          'excerpt' => ia_connect_excerpt_text((string)($r['description'] ?? '')),
-          'url' => ia_connect_join_url($base, (string)($r['url'] ?? '')),
-          'thumb' => $thumb,
-          'thumb_fallbacks' => $thumb_fallbacks,
-        ];
+      } else {
+        if ($pt_account <= 0) wp_send_json_success(['items' => [], 'has_more' => false]);
+        $params = [':acct' => $pt_account];
+        $search_sql = ia_connect_pg_search_condition($q, ['v.name', 'v.description'], 'videos_q', $params);
+        $sql = "SELECT v.id, v.uuid, v.name, v.url, v.description, th.\"fileUrl\" AS thumb_url, th.filename AS thumb_filename
+                FROM public.video v
+                JOIN public.\"videoChannel\" ch ON ch.id = v.\"channelId\"
+                LEFT JOIN LATERAL (
+                  SELECT t.\"fileUrl\", t.filename
+                  FROM public.thumbnail t
+                  WHERE t.\"videoId\" = v.id
+                  ORDER BY (t.\"fileUrl\" IS NULL) ASC, t.type ASC, t.height DESC NULLS LAST
+                  LIMIT 1
+                ) th ON TRUE
+                WHERE ch.\"accountId\" = :acct
+                  AND " . $search_sql . "
+                ORDER BY v.\"publishedAt\" DESC
+                " . ia_connect_pg_limit_offset_sql($offset, $limit) . "";
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+        $rows = $st->fetchAll();
+        foreach (($rows ?: []) as $r) {
+          $thumb_payload = ia_connect_stream_thumb_payload($base, (string)($r['thumb_url'] ?? ''), (string)($r['thumb_filename'] ?? ''));
+          $items[] = [
+            'title' => (string)($r['name'] ?? ''),
+            'excerpt' => ia_connect_excerpt_text((string)($r['description'] ?? '')),
+            'url' => ia_connect_join_url($base, (string)($r['url'] ?? '')),
+            'thumb' => $thumb_payload['thumb'],
+            'thumb_fallbacks' => $thumb_payload['thumb_fallbacks'],
+          ];
+        }
       }
     } elseif ($type === 'comments') {
-      if ($pt_account <= 0) wp_send_json_success(['items' => [], 'has_more' => false]);
-      $sql = "SELECT vc.url, vc.text, v.name AS video_name, th.\"fileUrl\" AS thumb_url, th.filename AS thumb_filename
-              FROM public.\"videoComment\" vc
-              JOIN public.video v ON v.id = vc.\"videoId\"
-              LEFT JOIN LATERAL (
-                SELECT t.\"fileUrl\", t.filename
-                FROM public.thumbnail t
-                WHERE t.\"videoId\" = v.id
-                ORDER BY (t.\"fileUrl\" IS NULL) ASC, t.type ASC, t.height DESC NULLS LAST
-                LIMIT 1
-              ) th ON TRUE
-              WHERE vc.\"accountId\" = :acct
-                AND (:q = '' OR vc.text ILIKE :q OR v.name ILIKE :q)
-              ORDER BY vc.\"createdAt\" DESC
-              LIMIT {$offset}, {$limit}";
-      $st = $pdo->prepare($sql);
-      $st->execute([':acct' => $pt_account, ':q' => $q_like]);
-      $rows = $st->fetchAll();
-      foreach (($rows ?: []) as $r) {
-        $thumb_url = (string)($r['thumb_url'] ?? '');
-        $thumb_filename = (string)($r['thumb_filename'] ?? '');
-        $thumb = $thumb_url !== '' ? ia_connect_join_url($base, $thumb_url) : '';
-        $thumb_fallbacks = [];
-        if ($thumb === '' && $thumb_filename !== '') {
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/static/thumbnails/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/lazy-static/thumbnails/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/lazy-static/previews/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/' . ltrim($thumb_filename, '/'));
-          $thumb = $thumb_fallbacks[0];
-        }
-        $items[] = [
-          'title' => (string)($r['video_name'] ?? 'Comment'),
-          'excerpt' => ia_connect_excerpt_text((string)($r['text'] ?? '')),
-          'url' => ia_connect_join_url($base, (string)($r['url'] ?? '')),
-          'thumb' => $thumb,
-          'thumb_fallbacks' => $thumb_fallbacks,
-        ];
+      if ($account_name === '') wp_send_json_success(['items' => [], 'has_more' => false]);
+      $feed = ia_connect_stream_api_get('/feeds/video-comments.json', [
+        'accountName' => $account_name,
+      ], $access_token);
+      $feed_rows = ia_connect_stream_api_rows($feed);
+      if ($q !== '') {
+        $feed_rows = array_values(array_filter($feed_rows, static function ($row) use ($q) {
+          $hay = strtolower((string)($row['title'] ?? '') . ' ' . (string)($row['content_text'] ?? '') . ' ' . (string)($row['summary'] ?? ''));
+          return strpos($hay, strtolower($q)) !== false;
+        }));
+      }
+      $feed_rows = array_slice($feed_rows, $offset, $limit);
+      foreach ($feed_rows as $row) {
+        $items[] = ia_connect_stream_map_comment_item_from_feed($row, $base);
       }
     } elseif ($type === 'likes') {
-      if ($pt_account <= 0) wp_send_json_success(['items' => [], 'has_more' => false]);
-      $sql = "SELECT v.id, v.name, v.url, th.\"fileUrl\" AS thumb_url, th.filename AS thumb_filename
-              FROM public.\"accountVideoRate\" avr
-              JOIN public.video v ON v.id = avr.\"videoId\"
-              LEFT JOIN LATERAL (
-                SELECT t.\"fileUrl\", t.filename
-                FROM public.thumbnail t
-                WHERE t.\"videoId\" = v.id
-                ORDER BY (t.\"fileUrl\" IS NULL) ASC, t.type ASC, t.height DESC NULLS LAST
-                LIMIT 1
-              ) th ON TRUE
-              WHERE avr.\"accountId\" = :acct
-                AND (:q = '' OR v.name ILIKE :q)
-              ORDER BY avr.\"createdAt\" DESC
-              LIMIT {$offset}, {$limit}";
-      $st = $pdo->prepare($sql);
-      $st->execute([':acct' => $pt_account, ':q' => $q_like]);
-      $rows = $st->fetchAll();
-      foreach (($rows ?: []) as $r) {
-        $thumb_url = (string)($r['thumb_url'] ?? '');
-        $thumb_filename = (string)($r['thumb_filename'] ?? '');
-        $thumb = $thumb_url !== '' ? ia_connect_join_url($base, $thumb_url) : '';
-        $thumb_fallbacks = [];
-        if ($thumb === '' && $thumb_filename !== '') {
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/static/thumbnails/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/lazy-static/thumbnails/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/lazy-static/previews/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/' . ltrim($thumb_filename, '/'));
-          $thumb = $thumb_fallbacks[0];
+      $api_rows = null;
+      if ($account_name !== '') {
+        $api = ia_connect_stream_api_get('/api/v1/accounts/' . rawurlencode($account_name) . '/ratings', [
+          'start' => $offset,
+          'count' => $limit,
+          'rating' => 'like',
+          'sort' => '-createdAt',
+        ], $access_token);
+        $api_rows = ia_connect_stream_api_rows($api);
+      }
+
+      if (is_array($api_rows)) {
+        if ($q !== '') {
+          $api_rows = array_values(array_filter($api_rows, static function ($row) use ($q) {
+            $name = (string)($row['video']['name'] ?? '');
+            return stripos($name, $q) !== false;
+          }));
         }
-        $items[] = [
-          'title' => (string)($r['name'] ?? ''),
-          'excerpt' => 'Liked video',
-          'url' => ia_connect_join_url($base, (string)($r['url'] ?? '')),
-          'thumb' => $thumb,
-          'thumb_fallbacks' => $thumb_fallbacks,
-        ];
+        foreach ($api_rows as $row) {
+          $video = is_array($row['video'] ?? null) ? $row['video'] : [];
+          $items[] = ia_connect_stream_map_video_item_from_api($video, $base, 'Liked video');
+        }
+      } else {
+        if ($pt_account <= 0) wp_send_json_success(['items' => [], 'has_more' => false]);
+        $params = [':acct' => $pt_account];
+        $search_sql = ia_connect_pg_search_condition($q, ['v.name'], 'likes_q', $params);
+        $sql = "SELECT v.id, v.name, v.url, th.\"fileUrl\" AS thumb_url, th.filename AS thumb_filename
+                FROM public.\"accountVideoRate\" avr
+                JOIN public.video v ON v.id = avr.\"videoId\"
+                LEFT JOIN LATERAL (
+                  SELECT t.\"fileUrl\", t.filename
+                  FROM public.thumbnail t
+                  WHERE t.\"videoId\" = v.id
+                  ORDER BY (t.\"fileUrl\" IS NULL) ASC, t.type ASC, t.height DESC NULLS LAST
+                  LIMIT 1
+                ) th ON TRUE
+                WHERE avr.\"accountId\" = :acct
+                  AND " . $search_sql . "
+                ORDER BY avr.\"createdAt\" DESC
+                " . ia_connect_pg_limit_offset_sql($offset, $limit) . "";
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+        $rows = $st->fetchAll();
+        foreach (($rows ?: []) as $r) {
+          $thumb_payload = ia_connect_stream_thumb_payload($base, (string)($r['thumb_url'] ?? ''), (string)($r['thumb_filename'] ?? ''));
+          $items[] = [
+            'title' => (string)($r['name'] ?? ''),
+            'excerpt' => 'Liked video',
+            'url' => ia_connect_join_url($base, (string)($r['url'] ?? '')),
+            'thumb' => $thumb_payload['thumb'],
+            'thumb_fallbacks' => $thumb_payload['thumb_fallbacks'],
+          ];
+        }
       }
     } elseif ($type === 'subscriptions') {
-      if ($pt_actor <= 0) wp_send_json_success(['items' => [], 'has_more' => false]);
-      $sql = "SELECT a.\"preferredUsername\" AS preferred_username, a.url
-              FROM public.\"actorFollow\" af
-              JOIN public.actor a ON a.id = af.\"targetActorId\"
-              WHERE af.\"actorId\" = :actor
-                AND (:q = '' OR a.\"preferredUsername\" ILIKE :q)
-              ORDER BY af.\"createdAt\" DESC
-              LIMIT {$offset}, {$limit}";
-      $st = $pdo->prepare($sql);
-      $st->execute([':actor' => $pt_actor, ':q' => $q_like]);
-      $rows = $st->fetchAll();
-      foreach (($rows ?: []) as $r) {
-        $items[] = [
-          'title' => (string)($r['preferred_username'] ?? 'Subscription'),
-          'excerpt' => 'Subscribed',
-          'url' => ia_connect_join_url($base, (string)($r['url'] ?? '')),
-        ];
+      if ($is_self_stream && $access_token !== '') {
+        $api = ia_connect_stream_api_get('/api/v1/users/me/subscriptions', [
+          'start' => $offset,
+          'count' => $limit,
+          'sort' => '-createdAt',
+        ], $access_token);
+        $subscription_rows = ia_connect_stream_api_rows($api);
+        if ($q !== '') {
+          $subscription_rows = array_values(array_filter($subscription_rows, static function ($row) use ($q) {
+            $hay = strtolower(
+              (string)($row['displayName'] ?? '') . ' ' .
+              (string)($row['name'] ?? '') . ' ' .
+              (string)($row['description'] ?? '') . ' ' .
+              (string)($row['ownerAccount']['displayName'] ?? '') . ' ' .
+              (string)($row['ownerAccount']['name'] ?? '')
+            );
+            return strpos($hay, strtolower($q)) !== false;
+          }));
+        }
+        foreach ($subscription_rows as $row) {
+          $items[] = ia_connect_stream_map_subscription_item_from_api((array)$row, $base);
+        }
       }
     } elseif ($type === 'playlists') {
-      if ($pt_account <= 0) wp_send_json_success(['items' => [], 'has_more' => false]);
-      $sql = "SELECT vp.id, vp.name, vp.url, vp.description, th.\"fileUrl\" AS thumb_url, th.filename AS thumb_filename
-              FROM public.\"videoPlaylist\" vp
-              LEFT JOIN LATERAL (
-                SELECT t.\"fileUrl\", t.filename
-                FROM public.thumbnail t
-                WHERE t.\"videoPlaylistId\" = vp.id
-                ORDER BY (t.\"fileUrl\" IS NULL) ASC, t.type ASC, t.height DESC NULLS LAST
-                LIMIT 1
-              ) th ON TRUE
-              WHERE vp.\"ownerAccountId\" = :acct
-                AND (:q = '' OR vp.name ILIKE :q OR vp.description ILIKE :q)
-              ORDER BY vp.\"createdAt\" DESC
-              LIMIT {$offset}, {$limit}";
-      $st = $pdo->prepare($sql);
-      $st->execute([':acct' => $pt_account, ':q' => $q_like]);
-      $rows = $st->fetchAll();
-      foreach (($rows ?: []) as $r) {
-        $thumb_url = (string)($r['thumb_url'] ?? '');
-        $thumb_filename = (string)($r['thumb_filename'] ?? '');
-        $thumb = $thumb_url !== '' ? ia_connect_join_url($base, $thumb_url) : '';
-        $thumb_fallbacks = [];
-        if ($thumb === '' && $thumb_filename !== '') {
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/static/thumbnails/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/lazy-static/thumbnails/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/lazy-static/previews/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/' . ltrim($thumb_filename, '/'));
+      $api_rows = null;
+      if ($account_name !== '') {
+        $api = ia_connect_stream_api_get('/api/v1/accounts/' . rawurlencode($account_name) . '/video-playlists', [
+          'start' => $offset,
+          'count' => $limit,
+          'search' => $q,
+          'sort' => '-createdAt',
+        ], $access_token);
+        $api_rows = ia_connect_stream_api_rows($api);
+      }
+
+      if (is_array($api_rows)) {
+        foreach ($api_rows as $row) {
+          $items[] = ia_connect_stream_map_playlist_item_from_api($row, $base);
         }
-        $items[] = [
-          'title' => (string)($r['name'] ?? ''),
-          'excerpt' => ia_connect_excerpt_text((string)($r['description'] ?? '')),
-          'url' => ia_connect_join_url($base, (string)($r['url'] ?? '')),
-          'thumb' => $thumb,
-          'thumb_fallbacks' => $thumb_fallbacks,
-        ];
+      } else {
+        if ($pt_account <= 0) wp_send_json_success(['items' => [], 'has_more' => false]);
+        $params = [':acct' => $pt_account];
+        $search_sql = ia_connect_pg_search_condition($q, ['vp.name', 'vp.description'], 'playlists_q', $params);
+        $sql = "SELECT vp.id, vp.name, vp.url, vp.description, th.\"fileUrl\" AS thumb_url, th.filename AS thumb_filename
+                FROM public.\"videoPlaylist\" vp
+                LEFT JOIN LATERAL (
+                  SELECT t.\"fileUrl\", t.filename
+                  FROM public.thumbnail t
+                  WHERE t.\"videoPlaylistId\" = vp.id
+                  ORDER BY (t.\"fileUrl\" IS NULL) ASC, t.type ASC, t.height DESC NULLS LAST
+                  LIMIT 1
+                ) th ON TRUE
+                WHERE vp.\"ownerAccountId\" = :acct
+                  AND " . $search_sql . "
+                ORDER BY vp.\"createdAt\" DESC
+                " . ia_connect_pg_limit_offset_sql($offset, $limit) . "";
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+        $rows = $st->fetchAll();
+        foreach (($rows ?: []) as $r) {
+          $thumb_payload = ia_connect_stream_thumb_payload($base, (string)($r['thumb_url'] ?? ''), (string)($r['thumb_filename'] ?? ''));
+          $items[] = [
+            'title' => (string)($r['name'] ?? ''),
+            'excerpt' => ia_connect_excerpt_text((string)($r['description'] ?? '')),
+            'url' => ia_connect_join_url($base, (string)($r['url'] ?? '')),
+            'thumb' => $thumb_payload['thumb'],
+            'thumb_fallbacks' => $thumb_payload['thumb_fallbacks'],
+          ];
+        }
       }
     } else { // history
-      if ($pt_user <= 0) wp_send_json_success(['items' => [], 'has_more' => false]);
-      $sql = "SELECT v.id, v.name, v.url, th.\"fileUrl\" AS thumb_url, th.filename AS thumb_filename
-              FROM public.\"userVideoHistory\" uvh
-              JOIN public.video v ON v.id = uvh.\"videoId\"
-              LEFT JOIN LATERAL (
-                SELECT t.\"fileUrl\", t.filename
-                FROM public.thumbnail t
-                WHERE t.\"videoId\" = v.id
-                ORDER BY (t.\"fileUrl\" IS NULL) ASC, t.type ASC, t.height DESC NULLS LAST
-                LIMIT 1
-              ) th ON TRUE
-              WHERE uvh.\"userId\" = :uid
-                AND (:q = '' OR v.name ILIKE :q)
-              ORDER BY uvh.\"updatedAt\" DESC
-              LIMIT {$offset}, {$limit}";
-      $st = $pdo->prepare($sql);
-      $st->execute([':uid' => $pt_user, ':q' => $q_like]);
-      $rows = $st->fetchAll();
-      foreach (($rows ?: []) as $r) {
-        $thumb_url = (string)($r['thumb_url'] ?? '');
-        $thumb_filename = (string)($r['thumb_filename'] ?? '');
-        $thumb = $thumb_url !== '' ? ia_connect_join_url($base, $thumb_url) : '';
-        $thumb_fallbacks = [];
-        if ($thumb === '' && $thumb_filename !== '') {
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/static/thumbnails/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/lazy-static/thumbnails/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/lazy-static/previews/' . ltrim($thumb_filename, '/'));
-          $thumb_fallbacks[] = ia_connect_join_url($base, '/' . ltrim($thumb_filename, '/'));
-          $thumb = $thumb_fallbacks[0];
+      if ($is_self_stream && $access_token !== '') {
+        $api = ia_connect_stream_api_get('/api/v1/users/me/history/videos', [
+          'start' => $offset,
+          'count' => $limit,
+          'search' => $q,
+        ], $access_token);
+        $video_rows = ia_connect_stream_api_rows($api);
+        foreach ($video_rows as $row) {
+          $items[] = ia_connect_stream_map_video_item_from_api($row, $base, 'Watched');
         }
-        $items[] = [
-          'title' => (string)($r['name'] ?? ''),
-          'excerpt' => 'Watched',
-          'url' => ia_connect_join_url($base, (string)($r['url'] ?? '')),
-          'thumb' => $thumb,
-          'thumb_fallbacks' => $thumb_fallbacks,
-        ];
+      } else {
+        if ($pt_user <= 0) wp_send_json_success(['items' => [], 'has_more' => false]);
+        $params = [':uid' => $pt_user];
+        $search_sql = ia_connect_pg_search_condition($q, ['v.name'], 'history_q', $params);
+        $sql = "SELECT v.id, v.name, v.url, th.\"fileUrl\" AS thumb_url, th.filename AS thumb_filename
+                FROM public.\"userVideoHistory\" uvh
+                JOIN public.video v ON v.id = uvh.\"videoId\"
+                LEFT JOIN LATERAL (
+                  SELECT t.\"fileUrl\", t.filename
+                  FROM public.thumbnail t
+                  WHERE t.\"videoId\" = v.id
+                  ORDER BY (t.\"fileUrl\" IS NULL) ASC, t.type ASC, t.height DESC NULLS LAST
+                  LIMIT 1
+                ) th ON TRUE
+                WHERE uvh.\"userId\" = :uid
+                  AND " . $search_sql . "
+                ORDER BY uvh.\"updatedAt\" DESC
+                " . ia_connect_pg_limit_offset_sql($offset, $limit) . "";
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+        $rows = $st->fetchAll();
+        foreach (($rows ?: []) as $r) {
+          $thumb_payload = ia_connect_stream_thumb_payload($base, (string)($r['thumb_url'] ?? ''), (string)($r['thumb_filename'] ?? ''));
+          $items[] = [
+            'title' => (string)($r['name'] ?? ''),
+            'excerpt' => 'Watched',
+            'url' => ia_connect_join_url($base, (string)($r['url'] ?? '')),
+            'thumb' => $thumb_payload['thumb'],
+            'thumb_fallbacks' => $thumb_payload['thumb_fallbacks'],
+          ];
+        }
       }
     }
   } catch (Throwable $e) {
+    error_log('[ia-connect][stream_activity] PeerTube query failed for type ' . $type . ': ' . $e->getMessage());
     wp_send_json_error(['message' => 'PeerTube query failed.'], 500);
   }
 
@@ -1776,18 +2315,42 @@ function ia_connect_ajax_mention_suggest(): void {
   $q = sanitize_text_field($q);
   if ($q === '') wp_send_json_success(['results' => []]);
 
-  // Prefer canonical phpBB users.
   $out = [];
   $seen = [];
+  $q_lc = function_exists('mb_strtolower') ? mb_strtolower($q) : strtolower($q);
+
+  $score_user = static function (string $username, string $display) use ($q_lc): int {
+    $u = function_exists('mb_strtolower') ? mb_strtolower($username) : strtolower($username);
+    $d = function_exists('mb_strtolower') ? mb_strtolower($display) : strtolower($display);
+    $score = 0;
+
+    if ($u === $q_lc) $score += 500;
+    elseif (strpos($u, $q_lc) === 0) $score += 350;
+    elseif (strpos($u, $q_lc) !== false) $score += 220;
+
+    if ($d === $q_lc) $score += 450;
+    elseif (strpos($d, $q_lc) === 0) $score += 300;
+    elseif (strpos($d, $q_lc) !== false) $score += 180;
+
+    if ($u !== '' && $d !== '' && $u === $d) $score -= 10;
+
+    return $score;
+  };
 
   $phpbb_db = ia_connect_phpbb_db();
   $phpbb_prefix = ia_connect_phpbb_prefix();
   if ($phpbb_db) {
     $users_tbl = $phpbb_prefix . 'users';
     $like = '%' . $phpbb_db->esc_like($q) . '%';
+    $clean = function_exists('utf8_clean_string') ? utf8_clean_string($q) : strtolower($q);
+    $clean_like = $clean !== '' ? ($phpbb_db->esc_like($clean) . '%') : '';
     $rows = $phpbb_db->get_results(
       $phpbb_db->prepare(
-        "SELECT user_id, username FROM {$users_tbl} WHERE username LIKE %s AND user_type <> 2 ORDER BY username_clean ASC LIMIT 8",
+        "SELECT user_id, username FROM {$users_tbl} WHERE (username LIKE %s OR username_clean LIKE %s) AND user_type <> 2 ORDER BY CASE WHEN username_clean = %s THEN 0 WHEN username_clean LIKE %s THEN 1 WHEN username LIKE %s THEN 2 ELSE 3 END, username_clean ASC LIMIT 12",
+        $like,
+        $clean_like,
+        $clean,
+        $clean_like,
         $like
       ),
       ARRAY_A
@@ -1797,12 +2360,18 @@ function ia_connect_ajax_mention_suggest(): void {
       $phpbb_id = (int)($r['user_id'] ?? 0);
       $uname = (string)($r['username'] ?? '');
       if ($phpbb_id <= 0 || $uname === '') continue;
+
       $wp_id = ia_connect_map_phpbb_to_wp_id($phpbb_id);
       $display = $uname;
       if ($wp_id > 0) {
         $wu = get_userdata($wp_id);
         if ($wu) $display = (string)($wu->display_name ?: $wu->user_login);
       }
+
+      if ($wp_id > 0 && $wp_id !== $me && !ia_connect_viewer_is_admin($me) && !ia_connect_user_profile_searchable($wp_id)) {
+        continue;
+      }
+
       $k = ($wp_id > 0) ? ('wp:' . (int)$wp_id) : ('phpbb:' . (int)$phpbb_id);
       if (isset($seen[$k])) continue;
       $seen[$k] = 1;
@@ -1813,41 +2382,59 @@ function ia_connect_ajax_mention_suggest(): void {
         'display'       => $display,
         'phpbb_user_id' => $phpbb_id,
         'avatarUrl'     => $wp_id > 0 ? ia_connect_avatar_url($wp_id, 48) : '',
+        '_score'        => $score_user($uname, $display),
       ];
     }
   }
 
-  // Fallback: WP shadow users.
-  if (empty($out)) {
-    $query = new WP_User_Query([
-      'search'         => '*' . $q . '*',
-      'search_columns' => ['user_login', 'user_nicename', 'display_name'],
-      'number'         => 8,
-      'fields'         => ['ID', 'user_login', 'display_name'],
-    ]);
+  // Also search WP shadow users so full display-name queries still resolve.
+  $query = new WP_User_Query([
+    'search'         => '*' . $q . '*',
+    'search_columns' => ['user_login', 'user_nicename', 'display_name'],
+    'number'         => 12,
+    'fields'         => ['ID', 'user_login', 'display_name'],
+  ]);
 
-    foreach ($query->get_results() as $u) {
-      $uid = (int) $u->ID;
-      $phpbb = (int) get_user_meta($uid, 'ia_phpbb_user_id', true);
-      if ($phpbb <= 0) $phpbb = (int) get_user_meta($uid, 'phpbb_user_id', true);
+  foreach ($query->get_results() as $u) {
+    $uid = (int) $u->ID;
+    if ($uid <= 0) continue;
 
-      $k = ($wp_id > 0) ? ('wp:' . (int)$wp_id) : ('phpbb:' . (int)$phpbb_id);
-      if (isset($seen[$k])) continue;
-      $seen[$k] = 1;
+    if ($uid !== $me && !ia_connect_viewer_is_admin($me) && !ia_connect_user_profile_searchable($uid)) {
+      continue;
+    }
 
-      $k = 'wp:' . (int)$uid;
-      if (isset($seen[$k])) continue;
-      $seen[$k] = 1;
+    $phpbb = (int) get_user_meta($uid, 'ia_phpbb_user_id', true);
+    if ($phpbb <= 0) $phpbb = (int) get_user_meta($uid, 'phpbb_user_id', true);
 
-      $out[] = [
-        'wp_user_id'    => $uid,
-        'username'      => (string) $u->user_login,
-        'display'       => (string) ($u->display_name ?: $u->user_login),
-        'phpbb_user_id' => (int) $phpbb,
+    $k = 'wp:' . (int)$uid;
+    if (isset($seen[$k])) continue;
+    $seen[$k] = 1;
+
+    $display = (string) ($u->display_name ?: $u->user_login);
+    $out[] = [
+      'wp_user_id'    => $uid,
+      'username'      => (string) $u->user_login,
+      'display'       => $display,
+      'phpbb_user_id' => (int) $phpbb,
       'avatarUrl'     => ia_connect_avatar_url($uid, 48),
-      ];
-    }
+      '_score'        => $score_user((string) $u->user_login, $display),
+    ];
   }
+
+  usort($out, static function (array $a, array $b): int {
+    $sa = (int)($a['_score'] ?? 0);
+    $sb = (int)($b['_score'] ?? 0);
+    if ($sa !== $sb) return $sb <=> $sa;
+
+    $ua = (string)($a['username'] ?? '');
+    $ub = (string)($b['username'] ?? '');
+    return strcasecmp($ua, $ub);
+  });
+
+  $out = array_slice(array_map(static function (array $row): array {
+    unset($row['_score']);
+    return $row;
+  }, $out), 0, 8);
 
   wp_send_json_success(['results' => $out]);
 }
@@ -1985,6 +2572,27 @@ function ia_connect_map_phpbb_to_wp_id(int $phpbb_id): int {
   return !empty($r) ? (int)$r[0]->ID : 0;
 }
 
+function ia_connect_search_excerpt(string $text, string $q, int $radius = 90): string {
+  $text = trim(wp_strip_all_tags($text));
+  $text = preg_replace('/\s+/u', ' ', $text);
+  if ($text === '') return '';
+  $q = trim($q);
+  if ($q === '') {
+    return mb_strlen($text) > ($radius * 2) ? mb_substr($text, 0, $radius * 2) . '…' : $text;
+  }
+  $pos = mb_stripos($text, $q);
+  if ($pos === false) {
+    return mb_strlen($text) > ($radius * 2) ? mb_substr($text, 0, $radius * 2) . '…' : $text;
+  }
+  $start = max(0, $pos - $radius);
+  $len = mb_strlen($q) + ($radius * 2);
+  $snippet = mb_substr($text, $start, $len);
+  if ($start > 0) $snippet = '…' . ltrim($snippet);
+  if (($start + $len) < mb_strlen($text)) $snippet = rtrim($snippet) . '…';
+  return $snippet;
+}
+
+
 function ia_connect_ajax_wall_search(): void {
   $me = ia_connect_ajax_require_login();
   ia_connect_ajax_check_nonce('nonce', 'wall_search');
@@ -1993,22 +2601,30 @@ function ia_connect_ajax_wall_search(): void {
   $q = sanitize_text_field($q);
   if ($q === '') wp_send_json_success(['posts' => [], 'comments' => []]);
 
+  $me_phpbb = ia_connect_user_phpbb_id($me);
+
   global $wpdb;
   $posts = $wpdb->prefix . 'ia_connect_posts';
   $comms = $wpdb->prefix . 'ia_connect_comments';
 
   $like = '%' . $wpdb->esc_like($q) . '%';
 
-  $pids = $wpdb->get_col($wpdb->prepare("SELECT id FROM $posts WHERE status='publish' AND (title LIKE %s OR body LIKE %s) ORDER BY id DESC LIMIT 10", $like, $like));
+  $prows = $wpdb->get_results($wpdb->prepare("SELECT id, body FROM $posts WHERE status='publish' AND (title LIKE %s OR body LIKE %s) ORDER BY id DESC LIMIT 10", $like, $like), ARRAY_A);
   $outp = [];
-  foreach ($pids as $id) $outp[] = ia_connect_build_post_payload((int)$id);
+  foreach ($prows as $prow) {
+    $payload = ia_connect_build_post_payload((int)($prow['id'] ?? 0));
+    if (empty($payload)) continue;
+    $payload['snippet'] = ia_connect_search_excerpt((string)($prow['body'] ?? ''), $q);
+    $outp[] = $payload;
+  }
 
   $crows = $wpdb->get_results($wpdb->prepare("SELECT id, post_id, author_wp_id, body, created_at FROM $comms WHERE is_deleted=0 AND body LIKE %s ORDER BY id DESC LIMIT 10", $like), ARRAY_A);
   $outc = [];
-  // Filter out blocked comment authors.
   $blocked_commenters = $me_phpbb > 0 ? array_fill_keys(ia_user_rel_blocked_ids_for($me_phpbb), true) : [];
   foreach ($crows as $c) {
     $awp = (int)$c['author_wp_id'];
+    $author_phpbb = $awp > 0 ? ia_connect_user_phpbb_id($awp) : 0;
+    if ($author_phpbb > 0 && !empty($blocked_commenters[$author_phpbb])) continue;
     $u = $awp>0 ? get_userdata($awp) : null;
     $outc[] = [
       'id' => (int)$c['id'],
@@ -2016,6 +2632,7 @@ function ia_connect_ajax_wall_search(): void {
       'author' => $u ? ($u->display_name ?: $u->user_login) : 'User',
       'author_avatar' => $awp>0 ? ia_connect_avatar_url($awp, 48) : '',
       'body' => (string)$c['body'],
+      'snippet' => ia_connect_search_excerpt((string)$c['body'], $q),
       'created_at' => (string)$c['created_at'],
     ];
   }
@@ -2076,6 +2693,32 @@ function ia_connect_ajax_display_name_update(): void {
   wp_send_json_success(['display' => $dn]);
 }
 
+
+function ia_connect_ajax_home_tab_update(): void {
+  if (!is_user_logged_in()) wp_send_json_error(['message' => 'Login required.'], 401);
+  ia_connect_ajax_check_nonce('nonce', 'home_tab_update');
+
+  $wp_user_id = get_current_user_id();
+  $tab = isset($_POST['home_tab']) ? (string) wp_unslash($_POST['home_tab']) : 'connect';
+  $saved = ia_connect_set_user_home_tab((int) $wp_user_id, $tab);
+
+  wp_send_json_success([
+    'home_tab' => $saved,
+  ]);
+}
+
+function ia_connect_ajax_style_update(): void {
+  if (!is_user_logged_in()) wp_send_json_error(['message' => 'Login required.'], 401);
+  ia_connect_ajax_check_nonce('nonce', 'style_update');
+
+  $wp_user_id = get_current_user_id();
+  $style = isset($_POST['style']) ? (string) wp_unslash($_POST['style']) : 'default';
+  $saved = ia_connect_set_user_style((int) $wp_user_id, $style);
+
+  wp_send_json_success([
+    'style' => $saved,
+  ]);
+}
 
 function ia_connect_ajax_signature_update(): void {
   $me = ia_connect_ajax_require_login();

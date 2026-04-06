@@ -8,12 +8,15 @@ require_once IA_SEO_PATH . 'includes/support/admin.php';
 // Services
 require_once IA_SEO_PATH . 'includes/services/phpbb.php';
 require_once IA_SEO_PATH . 'includes/services/connect.php';
+require_once IA_SEO_PATH . 'includes/services/stream.php';
 require_once IA_SEO_PATH . 'includes/services/sitemap.php';
+require_once IA_SEO_PATH . 'includes/services/metadata.php';
 
 if (!function_exists('ia_seo_core_boot')) {
   function ia_seo_core_boot(): void {
     if (function_exists('ia_seo_rewrite_boot')) ia_seo_rewrite_boot();
     if (function_exists('ia_seo_admin_boot')) ia_seo_admin_boot();
+    if (function_exists('ia_seo_metadata_boot')) ia_seo_metadata_boot();
 
     // Disable WordPress core sitemaps (wp-sitemap.xml) by default.
     // This plugin is intended to generate an Atrium-only sitemap.

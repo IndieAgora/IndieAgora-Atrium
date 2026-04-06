@@ -2,14 +2,14 @@
 /**
  * Plugin Name: IA Stream
  * Description: Atrium Stream panel (PeerTube-backed) with mobile-first video feed + channels + modal video view + PeerTube comments.
- * Version: 0.1.3
+ * Version: 0.1.11
  * Author: IndieAgora
  * Text Domain: ia-stream
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('IA_STREAM_VERSION', '0.1.3');
+define('IA_STREAM_VERSION', '0.1.9');
 define('IA_STREAM_PATH', plugin_dir_path(__FILE__));
 define('IA_STREAM_URL', plugin_dir_url(__FILE__));
 

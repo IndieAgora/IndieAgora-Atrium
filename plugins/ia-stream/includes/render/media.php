@@ -100,9 +100,20 @@ function ia_stream_norm_channel(array $ch, string $base = ''): array {
   if (isset($ch['followersCount'])) $followers = (int)$ch['followersCount'];
   if (isset($ch['followers_count'])) $followers = (int)$ch['followers_count'];
 
+  $handle = $name;
+  if ($handle === '' && $url !== '') {
+    $path = (string) wp_parse_url($url, PHP_URL_PATH);
+    $path = trim($path, '/');
+    if ($path !== '') {
+      $bits = explode('/', $path);
+      $handle = (string) end($bits);
+    }
+  }
+
   return [
     'id'           => $id,
     'name'         => $name,
+    'handle'       => $handle,
     'display_name' => $display,
     'url'          => $url,
     'avatar'       => ia_stream_abs_url($base, $avatarPath),
@@ -164,6 +175,30 @@ function ia_stream_norm_video(array $v, string $base = ''): array {
     elseif (isset($v['totalComments'])) $comments = (int)$v['totalComments'];
   }
 
+  $tags = [];
+  if (isset($v['tags']) && is_array($v['tags'])) {
+    foreach ($v['tags'] as $tag) {
+      if (is_string($tag) && trim($tag) !== '') $tags[] = trim($tag);
+      elseif (is_array($tag)) {
+        $tag_name = ia_stream_first_str(
+          isset($tag['label']) ? (string)$tag['label'] : '',
+          isset($tag['name']) ? (string)$tag['name'] : ''
+        );
+        if ($tag_name !== '') $tags[] = $tag_name;
+      }
+    }
+  }
+
+  $category = '';
+  if (isset($v['category']) && is_array($v['category'])) {
+    $category = ia_stream_first_str(
+      isset($v['category']['label']) ? (string)$v['category']['label'] : '',
+      isset($v['category']['name']) ? (string)$v['category']['name'] : ''
+    );
+  } elseif (isset($v['categoryLabel'])) {
+    $category = (string) $v['categoryLabel'];
+  }
+
   // publish
   $publishedAt = ia_stream_first_str(
     isset($v['publishedAt']) ? (string)$v['publishedAt'] : '',
@@ -191,6 +226,8 @@ function ia_stream_norm_video(array $v, string $base = ''): array {
     'preview'     => ia_stream_abs_url($base, $prevPath),
     'excerpt'     => ia_stream_excerpt($desc, 240),
     'support'     => $support,
+    'category'    => $category,
+    'tags'        => array_values(array_unique($tags)),
     'published_at'=> $publishedAt,
     'published_ago'=> ia_stream_time_ago($publishedAt),
     'channel'     => $channel,

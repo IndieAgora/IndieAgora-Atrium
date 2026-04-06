@@ -39,7 +39,29 @@
       const json = NS.util.safeJson(txt, null);
       if (!json) return { ok: false, error: "Non-JSON response", raw: txt };
 
-      return json;
+      // Normalize common WP AJAX error shapes so Stream UI can treat
+      // recoverable token states consistently across all write surfaces.
+      try {
+        const out = (json && typeof json === 'object') ? Object.assign({}, json) : json;
+        const nested = out && typeof out === 'object' ? (out.data && typeof out.data === 'object' ? out.data : (out.error && typeof out.error === 'object' ? out.error : null)) : null;
+        const topCode = out && typeof out.code === 'string' ? out.code : '';
+        const nestedCode = nested && typeof nested.code === 'string' ? nested.code : '';
+        const topError = out && typeof out.error === 'string' ? out.error : '';
+        const nestedError = nested && typeof nested.error === 'string' ? nested.error : (nested && typeof nested.message === 'string' ? nested.message : '');
+        if (out && typeof out === 'object') {
+          if (!out.code && nestedCode) out.code = nestedCode;
+          if ((!out.error || typeof out.error !== 'string') && nestedError) out.error = nestedError;
+          if (!out.message && typeof out.error === 'string') out.message = out.error;
+          if (out.ok === undefined && out.success === false) out.ok = false;
+          if (out.ok === undefined && out.success === true) out.ok = true;
+          if (out.ok === false && !out.code && topError && (topError === 'missing_user_token' || topError === 'password_required')) {
+            out.code = topError;
+          }
+        }
+        return out;
+      } catch (e) {
+        return json;
+      }
     } catch (e) {
       return { ok: false, error: e && e.message ? e.message : "Network error" };
     }

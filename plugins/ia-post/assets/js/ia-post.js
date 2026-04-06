@@ -162,18 +162,47 @@ function activeAtriumTab(){
       forumName: '',
       forumBanned: 0,
       joinedList: [],
+    },
+    stream: {
+      picked: null,
+      bootstrap: null,
     }
   };
 
+
+  const DRAFT_KEYS = {
+    connect: 'ia_post_connect_draft_v1',
+    discuss: 'ia_post_discuss_draft_v1'
+  };
+
+  function draftLoad(key){
+    if (!key || typeof window === 'undefined' || !window.localStorage) return null;
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (_){ return null; }
+  }
+
+  function draftSave(key, data){
+    if (!key || typeof window === 'undefined' || !window.localStorage) return;
+    try { localStorage.setItem(key, JSON.stringify(data || {})); } catch (_){ }
+  }
+
+  function draftClear(key){
+    if (!key || typeof window === 'undefined' || !window.localStorage) return;
+    try { localStorage.removeItem(key); } catch (_){ }
+  }
+
   function renderTop(root){
     const tab = currentMode;
-    const dest = (tab === 'connect') ? (state.connect.wallLabel||'') : (state.discuss.forumName ? ('Agora: ' + state.discuss.forumName) : 'Choose an Agora');
+    const dest = (tab === 'connect') ? (state.connect.wallLabel||'') : (tab === 'discuss' ? (state.discuss.forumName ? ('Agora: ' + state.discuss.forumName) : 'Choose an Agora') : 'Upload to Stream');
 
     root.insertAdjacentHTML('afterbegin',
       '<div class="ia-post-top">'
         + '<div class="ia-post-switch">'
           + '<button type="button" class="ia-post-pill ' + (tab==='connect'?'is-active':'') + '" data-ia-post-mode="connect">Connect</button>'
           + '<button type="button" class="ia-post-pill ' + (tab==='discuss'?'is-active':'') + '" data-ia-post-mode="discuss">Discuss</button>'
+          + '<button type="button" class="ia-post-pill ' + (tab==='stream'?'is-active':'') + '" data-ia-post-mode="stream">Stream</button>'
         + '</div>'
         + '<div class="ia-post-dest" title="' + esc(dest) + '">' + esc(dest) + '</div>'
       + '</div>'
@@ -329,6 +358,23 @@ function activeAtriumTab(){
 
     attachMention(bodyEl);
 
+    const connectDraftKey = DRAFT_KEYS.connect;
+    const restoredConnectDraft = draftLoad(connectDraftKey) || {};
+
+    function saveConnectDraft(){
+      draftSave(connectDraftKey, {
+        title: titleEl ? (titleEl.value || '') : '',
+        body: bodyEl ? (bodyEl.value || '') : ''
+      });
+    }
+
+    if (titleEl && restoredConnectDraft.title) titleEl.value = String(restoredConnectDraft.title || '');
+    if (bodyEl && restoredConnectDraft.body) bodyEl.value = String(restoredConnectDraft.body || '');
+
+    if (titleEl) { titleEl.addEventListener('input', saveConnectDraft); titleEl.addEventListener('change', saveConnectDraft); }
+    if (bodyEl) { bodyEl.addEventListener('input', saveConnectDraft); bodyEl.addEventListener('change', saveConnectDraft); }
+    saveConnectDraft();
+
     function refreshPreview(){
       if (!metaEl || !prevEl) return;
       metaEl.textContent = s.picked.length ? (s.picked.length + ' file' + (s.picked.length>1?'s':'') + ' selected') : '';
@@ -408,6 +454,7 @@ function activeAtriumTab(){
           // reset
           if (titleEl) titleEl.value = '';
           if (bodyEl) bodyEl.value = '';
+          draftClear(DRAFT_KEYS.connect);
           s.picked = [];
           if (filesEl) filesEl.value = '';
           refreshPreview();
@@ -457,6 +504,204 @@ function activeAtriumTab(){
     state.connect.wallWp = wallWp;
     state.connect.wallPhpbb = wallPhpbb;
     state.connect.wallLabel = label;
+  }
+
+
+
+  async function ensureStreamBootstrap(){
+    if (state.stream.bootstrap) return state.stream.bootstrap;
+    const nonce = (window.IA_POST && IA_POST.nonce) ? IA_POST.nonce : '';
+    const r = await postForm('ia_post_stream_bootstrap', { nonce });
+    if (!r || !r.success) throw new Error((r && r.data && r.data.message) ? r.data.message : 'Stream bootstrap failed');
+    state.stream.bootstrap = r.data || {};
+    return state.stream.bootstrap;
+  }
+
+  function streamDefaults(file, boot){
+    const bare = String((file && file.name) || '');
+    const title = bare.replace(/\.[^.]+$/, '').replace(/[\-_]+/g, ' ').trim();
+    const channels = Array.isArray(boot && boot.channels) ? boot.channels : [];
+    const privs = Array.isArray(boot && boot.privacies) ? boot.privacies : [];
+    const privacyDefault = privs.find(x=> String(x.label||'').toLowerCase()==='public') || privs[0] || null;
+    return {
+      name: title || 'Untitled video',
+      channel_id: channels.length ? String(channels[0].id || '') : '',
+      description: '',
+      tags: '',
+      playlist_id: '',
+      privacy: privacyDefault ? String(privacyDefault.id || '') : '1',
+      category_id: '',
+      licence_id: '',
+      language_id: '',
+      comments_policy: '1',
+      nsfw: false,
+      nsfw_summary: '',
+      download_enabled: true,
+      wait_transcoding: false,
+      support: '',
+      video_password: ''
+    };
+  }
+
+  function optionHtml(items, selected, placeholder){
+    const arr = Array.isArray(items) ? items : [];
+    let html = '<option value="">' + esc(placeholder || 'Select') + '</option>';
+    arr.forEach(it=>{
+      const val = String(it.id != null ? it.id : '');
+      html += '<option value="' + esc(val) + '"' + (String(selected||'')===val?' selected':'') + '>' + esc(it.label || it.name || val) + '</option>';
+    });
+    return html;
+  }
+
+  function showStreamUploadModal(file){
+    ensureStreamBootstrap().then((boot)=>{
+      let modal = qs('[data-ia-post-stream-modal]');
+      if (modal) modal.remove();
+      const data = streamDefaults(file, boot);
+      const channels = (boot.channels||[]).map(x=>({id:x.id,label:x.name || x.handle || ('Channel #' + x.id)}));
+      const playlists = (boot.playlists||[]).map(x=>({id:x.id,label:x.name || ('Playlist #' + x.id)}));
+      const categories = boot.categories||[];
+      const licences = boot.licences||[];
+      const languages = boot.languages||[];
+      const privacies = boot.privacies||[];
+      const commentPolicies = boot.commentPolicies||[];
+
+      const wrap = document.createElement('div');
+      wrap.className = 'ia-post-stream-modal';
+      wrap.setAttribute('data-ia-post-stream-modal','1');
+      wrap.innerHTML =
+        '<div class="ia-post-stream-backdrop" data-ia-post-stream-close></div>' +
+        '<div class="ia-post-stream-panel">' +
+          '<div class="ia-post-stream-head">' +
+            '<div><div class="ia-post-stream-title">Upload video</div><div class="ia-post-stream-file">' + esc(file.name || 'video') + '</div></div>' +
+            '<button type="button" class="ia-post-stream-x" data-ia-post-stream-close>×</button>' +
+          '</div>' +
+          '<div class="ia-post-stream-progress" hidden data-ia-post-stream-progress-wrap><div class="ia-post-stream-progress-bar" data-ia-post-stream-progress></div></div>' +
+          '<div class="ia-post-stream-status" data-ia-post-stream-status>Select settings and upload.</div>' +
+          '<div class="ia-post-stream-grid">' +
+            '<label class="ia-post-stream-field ia-post-stream-span-2"><span>Title</span><input type="text" data-f="name" value="' + esc(data.name) + '" /></label>' +
+            '<label class="ia-post-stream-field"><span>Channel</span><select data-f="channel_id">' + optionHtml(channels, data.channel_id, 'Choose a channel') + '</select></label>' +
+            '<label class="ia-post-stream-field"><span>Playlist</span><select data-f="playlist_id">' + optionHtml(playlists, data.playlist_id, 'No playlist') + '</select></label>' +
+            '<label class="ia-post-stream-field"><span>Privacy</span><select data-f="privacy">' + optionHtml(privacies, data.privacy, 'Choose privacy') + '</select></label>' +
+            '<label class="ia-post-stream-field"><span>Comments</span><select data-f="comments_policy">' + optionHtml(commentPolicies, data.comments_policy, 'Comments') + '</select></label>' +
+            '<label class="ia-post-stream-field"><span>Category</span><select data-f="category_id">' + optionHtml(categories, data.category_id, 'No category') + '</select></label>' +
+            '<label class="ia-post-stream-field"><span>Licence</span><select data-f="licence_id">' + optionHtml(licences, data.licence_id, 'Default licence') + '</select></label>' +
+            '<label class="ia-post-stream-field"><span>Language</span><select data-f="language_id">' + optionHtml(languages, data.language_id, 'No language') + '</select></label>' +
+            '<label class="ia-post-stream-field ia-post-stream-span-2"><span>Description</span><textarea data-f="description" rows="5"></textarea></label>' +
+            '<label class="ia-post-stream-field ia-post-stream-span-2"><span>Tags</span><input type="text" data-f="tags" placeholder="tag one, tag two, tag three" /></label>' +
+            '<label class="ia-post-stream-field ia-post-stream-span-2"><span>Support / links</span><textarea data-f="support" rows="3"></textarea></label>' +
+            '<label class="ia-post-stream-field ia-post-stream-span-2"><span>Thumbnail</span><input type="file" accept="image/*" data-f="thumbnailfile" /></label>' +
+            '<label class="ia-post-stream-check"><input type="checkbox" data-f="nsfw" /> <span>Sensitive content</span></label>' +
+            '<label class="ia-post-stream-check"><input type="checkbox" data-f="download_enabled" checked /> <span>Allow download</span></label>' +
+            '<label class="ia-post-stream-check"><input type="checkbox" data-f="wait_transcoding" /> <span>Wait transcoding before publish</span></label>' +
+            '<label class="ia-post-stream-field ia-post-stream-span-2"><span>Sensitive content note</span><input type="text" data-f="nsfw_summary" placeholder="Optional explanation" /></label>' +
+            '<label class="ia-post-stream-field ia-post-stream-span-2"><span>Password (only for password protected privacy)</span><input type="text" data-f="video_password" /></label>' +
+          '</div>' +
+          '<div class="ia-post-stream-actions">' +
+            '<button type="button" class="ia-post-stream-btn ia-post-stream-btn-secondary" data-ia-post-stream-close>Cancel</button>' +
+            '<button type="button" class="ia-post-stream-btn" data-ia-post-stream-submit>Upload</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(wrap);
+
+      const close = ()=>{ try{ wrap.remove(); }catch(_){ } };
+      qsa('[data-ia-post-stream-close]', wrap).forEach(el=> el.addEventListener('click', close));
+      const submit = qs('[data-ia-post-stream-submit]', wrap);
+      const statusEl = qs('[data-ia-post-stream-status]', wrap);
+      const progWrap = qs('[data-ia-post-stream-progress-wrap]', wrap);
+      const prog = qs('[data-ia-post-stream-progress]', wrap);
+
+      submit.addEventListener('click', ()=>{
+        const fd = new FormData();
+        fd.append('action', 'ia_post_stream_upload');
+        fd.append('nonce', (window.IA_POST && IA_POST.nonce) ? IA_POST.nonce : '');
+        fd.append('videofile', file);
+        qsa('[data-f]', wrap).forEach(el=>{
+          const key = el.getAttribute('data-f');
+          if (!key) return;
+          if (key === 'thumbnailfile') {
+            if (el.files && el.files[0]) fd.append('thumbnailfile', el.files[0]);
+            return;
+          }
+          if (el.type === 'checkbox') fd.append(key, el.checked ? '1' : '0');
+          else fd.append(key, el.value || '');
+        });
+
+        submit.disabled = true;
+        progWrap.hidden = false;
+        statusEl.textContent = 'Uploading video…';
+        prog.style.width = '0%';
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', (window.IA_POST && IA_POST.ajaxUrl) ? IA_POST.ajaxUrl : '/wp-admin/admin-ajax.php', true);
+        xhr.withCredentials = true;
+        xhr.upload.onprogress = (ev)=>{
+          if (!ev.lengthComputable) return;
+          const pct = Math.max(1, Math.min(95, Math.round((ev.loaded / ev.total) * 95)));
+          prog.style.width = pct + '%';
+          statusEl.textContent = 'Uploading video… ' + pct + '%';
+        };
+        xhr.onerror = ()=>{ submit.disabled = false; statusEl.textContent = 'Upload failed.'; };
+        xhr.onload = ()=>{
+          let res = null;
+          try{ res = JSON.parse(xhr.responseText || '{}'); }catch(_){ }
+          if (!res || !res.success){
+            submit.disabled = false;
+            statusEl.textContent = (res && res.data && res.data.message) ? res.data.message : 'Upload failed.';
+            return;
+          }
+          prog.style.width = '100%';
+          statusEl.textContent = 'Upload complete.';
+          const vid = res.data && res.data.video ? res.data.video : {};
+          const actions = document.createElement('div');
+          actions.className = 'ia-post-stream-done';
+          actions.innerHTML = '<button type="button" class="ia-post-stream-btn" data-open-stream-video>Open in Stream</button>' + (vid.url ? '<a class="ia-post-stream-link" href="' + esc(vid.url) + '" target="_blank" rel="noopener">Open on PeerTube</a>' : '');
+          qs('.ia-post-stream-actions', wrap).innerHTML = '';
+          qs('.ia-post-stream-actions', wrap).appendChild(actions);
+          const openBtn = qs('[data-open-stream-video]', wrap);
+          if (openBtn){
+            openBtn.addEventListener('click', ()=>{
+              try{ window.dispatchEvent(new CustomEvent('ia_atrium:closeComposer')); }catch(_){ }
+              try{ window.dispatchEvent(new CustomEvent('ia_atrium:navigate', { detail: { tab: 'stream', params: { video: String(vid.uuid || '') } } })); }catch(_){ }
+              setTimeout(()=>{ try{ if (window.IA_STREAM && IA_STREAM.ui && IA_STREAM.ui.video && typeof IA_STREAM.ui.video.open === 'function' && vid.uuid){ IA_STREAM.ui.video.open(String(vid.uuid)); } }catch(_){ } }, 250);
+              close();
+            });
+          }
+        };
+        xhr.send(fd);
+      });
+    }).catch((err)=>{
+      alert((err && err.message) ? err.message : 'Stream upload is unavailable.');
+    });
+  }
+
+  function renderStream(root){
+    const s = state.stream;
+    root.insertAdjacentHTML('beforeend',
+      '<div class="ia-post-section" data-ia-post-section="stream">' +
+        '<div class="ia-post-stream-card">' +
+          '<div class="ia-post-stream-copy">Upload a video to Stream. You can choose the channel, description, tags, privacy, playlist and sensitive-content settings before upload starts.</div>' +
+          '<div class="ia-post-stream-inline">' +
+            '<label class="iac-attach-btn">' +
+              '<input type="file" accept="video/*" data-ia-post-sfile />Choose video' +
+            '</label>' +
+            '<div class="ia-post-stream-picked" data-ia-post-smeta>No video selected</div>' +
+            '<button type="button" class="iac-post" data-ia-post-sopen disabled>Upload</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+    const fileEl = qs('[data-ia-post-sfile]', root);
+    const metaEl = qs('[data-ia-post-smeta]', root);
+    const openEl = qs('[data-ia-post-sopen]', root);
+    function sync(){
+      const f = s.picked;
+      metaEl.textContent = f ? (String(f.name || 'video') + ' · ' + Math.max(1, Math.round((f.size || 0) / 1048576)) + ' MB') : 'No video selected';
+      openEl.disabled = !f;
+    }
+    fileEl.addEventListener('change', ()=>{ s.picked = fileEl.files && fileEl.files[0] ? fileEl.files[0] : null; sync(); });
+    openEl.addEventListener('click', ()=>{ if (s.picked) showStreamUploadModal(s.picked); });
+    sync();
   }
 
   function renderDiscuss(root){
@@ -517,6 +762,7 @@ function activeAtriumTab(){
           }
           const topicId = res.data && res.data.topic_id ? parseInt(res.data.topic_id,10) : 0;
           ui.clear();
+          draftClear(DRAFT_KEYS.discuss);
           window.dispatchEvent(new CustomEvent('ia_atrium:closeComposer'));
           if (topicId){
             try{
@@ -531,6 +777,37 @@ function activeAtriumTab(){
         });
       }
     });
+
+    const discussDraftKey = DRAFT_KEYS.discuss;
+    const discussTitleEl = qs('[data-iad-title]', mount);
+    const discussBodyEl = qs('[data-iad-bodytext]', mount);
+    const discussNotifyEl = qs('[data-iad-notify]', mount);
+    const restoredDiscussDraft = draftLoad(discussDraftKey) || {};
+
+    function saveDiscussDraft(){
+      draftSave(discussDraftKey, {
+        title: discussTitleEl ? (discussTitleEl.value || '') : '',
+        body: discussBodyEl ? (discussBodyEl.value || '') : '',
+        notify: discussNotifyEl ? !!discussNotifyEl.checked : true,
+        forumId: parseInt(state.discuss.forumId || 0, 10) || 0,
+        forumName: state.discuss.forumName || '',
+        forumBanned: parseInt(state.discuss.forumBanned || 0, 10) || 0
+      });
+    }
+
+    if (discussTitleEl && restoredDiscussDraft.title) discussTitleEl.value = String(restoredDiscussDraft.title || '');
+    if (discussBodyEl && restoredDiscussDraft.body) discussBodyEl.value = String(restoredDiscussDraft.body || '');
+    if (discussNotifyEl && restoredDiscussDraft.notify != null) discussNotifyEl.checked = !!restoredDiscussDraft.notify;
+    if (!state.discuss.forumId && restoredDiscussDraft.forumId) {
+      state.discuss.forumId = parseInt(restoredDiscussDraft.forumId || 0, 10) || 0;
+      state.discuss.forumName = String(restoredDiscussDraft.forumName || '');
+      state.discuss.forumBanned = parseInt(restoredDiscussDraft.forumBanned || 0, 10) || 0;
+    }
+
+    if (discussTitleEl) { discussTitleEl.addEventListener('input', saveDiscussDraft); discussTitleEl.addEventListener('change', saveDiscussDraft); }
+    if (discussBodyEl) { discussBodyEl.addEventListener('input', saveDiscussDraft); discussBodyEl.addEventListener('change', saveDiscussDraft); }
+    if (discussNotifyEl) { discussNotifyEl.addEventListener('change', saveDiscussDraft); }
+    saveDiscussDraft();
 
     hydrateAgoraPicker(root);
   }
@@ -572,6 +849,10 @@ function hydrateAgoraPicker(root){
           state.discuss.forumId = 0;
           state.discuss.forumName = '';
           state.discuss.forumBanned = 0;
+          try {
+            const current = draftLoad(DRAFT_KEYS.discuss) || {};
+            draftSave(DRAFT_KEYS.discuss, Object.assign({}, current, { forumId: 0, forumName: '', forumBanned: 0 }));
+          } catch (_){ }
           renderSelected();
           if (q) q.focus();
         });
@@ -793,6 +1074,8 @@ function hydrateAgoraPicker(root){
 
     if (currentMode === 'discuss'){
       renderDiscuss(root);
+    } else if (currentMode === 'stream') {
+      renderStream(root);
     } else {
       renderConnect(root);
     }
@@ -805,7 +1088,7 @@ function hydrateAgoraPicker(root){
     if (!root) return;
 
     const tab = activeAtriumTab();
-    currentMode = (tab === 'discuss') ? 'discuss' : 'connect';
+    currentMode = (tab === 'discuss') ? 'discuss' : (tab === 'stream' ? 'stream' : 'connect');
 
     renderAll(root);
   }

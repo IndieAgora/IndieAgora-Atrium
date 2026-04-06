@@ -74,8 +74,17 @@ class IA_Atrium {
             'notify'  => array('label' => 'Notifications', 'icon' => 'dashicons-bell'),
         ));
 
+        $default_tab = sanitize_key($atts['default']);
+        if (!in_array($default_tab, array('connect', 'discuss', 'stream'), true)) {
+            $default_tab = 'connect';
+        }
+        $default_tab = (string) apply_filters('ia_atrium_default_tab', $default_tab);
+        if (!in_array($default_tab, array('connect', 'discuss', 'stream'), true)) {
+            $default_tab = 'connect';
+        }
+
         $data = array(
-            'default_tab'  => sanitize_key($atts['default']),
+            'default_tab'  => $default_tab,
             'tabs'         => $tabs,
             'bottom_items' => $bottom_items,
         );

@@ -1,0 +1,10 @@
+# AJAX handlers for ia-reset-modal-fix
+
+Confirmed AJAX-related locations in this plugin:
+
+- `.`
+- `assets/js`
+
+No explicit `add_action('wp_ajax_*', ...)` registration was found in this plugin. Some files still talk to `admin-ajax.php` or act as shared support for another plugin.
+
+This file is inventory only. It should be updated whenever AJAX handlers are added, moved, renamed, or removed.

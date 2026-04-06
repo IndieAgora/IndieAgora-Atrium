@@ -154,6 +154,50 @@ final class IA_Stream_Service_PeerTube_API {
     return $this->request('GET', $path, $params);
   }
 
+  public function get_channel_videos(string $handle, array $q): array {
+    if (!$this->is_configured()) return $this->not_configured();
+
+    $handle = trim((string)$handle);
+    if ($handle === '') return ['ok' => false, 'error' => 'Missing channel handle'];
+
+    $page = max(1, (int)($q['page'] ?? 1));
+    $per  = min(50, max(1, (int)($q['per_page'] ?? 20)));
+    $start = ($page - 1) * $per;
+
+    $params = [
+      'start' => $start,
+      'count' => $per,
+    ];
+
+    if (!empty($q['sort']))   $params['sort'] = (string)$q['sort'];
+    if (!empty($q['search'])) $params['search'] = (string)$q['search'];
+    if (!empty($q['nsfw']))   $params['nsfw'] = (string)$q['nsfw'];
+
+    $path = '/api/v1/video-channels/' . rawurlencode($handle) . '/videos';
+    return $this->request('GET', $path, $params);
+  }
+
+  public function get_subscription_videos(array $q): array {
+    if (!$this->is_configured()) return $this->not_configured();
+    if ($this->token === '') return ['ok' => false, 'error' => 'Missing user token'];
+
+    $page = max(1, (int)($q['page'] ?? 1));
+    $per  = min(50, max(1, (int)($q['per_page'] ?? 20)));
+    $start = ($page - 1) * $per;
+
+    $params = [
+      'start' => $start,
+      'count' => $per,
+    ];
+
+    if (!empty($q['sort']))   $params['sort'] = (string)$q['sort'];
+    if (!empty($q['search'])) $params['search'] = (string)$q['search'];
+    if (!empty($q['nsfw']))   $params['nsfw'] = (string)$q['nsfw'];
+
+    $path = '/api/v1/users/me/subscriptions/videos';
+    return $this->request('GET', $path, $params);
+  }
+
   public function get_video(string $uuid): array {
     if (!$this->is_configured()) return $this->not_configured();
 
@@ -272,9 +316,144 @@ final class IA_Stream_Service_PeerTube_API {
     return $r;
   }
 
+  public function get_me(): array {
+    if (!$this->is_configured()) return $this->not_configured();
+    if ($this->token === '') return ['ok' => false, 'error' => 'Missing user token'];
+    return $this->request('GET', '/api/v1/users/me');
+  }
+
+  public function get_account_channels(string $account_name, array $q = []): array {
+    if (!$this->is_configured()) return $this->not_configured();
+    $account_name = trim((string) $account_name);
+    if ($account_name === '') return ['ok' => false, 'error' => 'Missing account name'];
+
+    $params = [
+      'start' => max(0, (int) ($q['start'] ?? 0)),
+      'count' => min(100, max(1, (int) ($q['count'] ?? 100))),
+      'sort'  => (string) ($q['sort'] ?? 'name'),
+    ];
+    if (isset($q['includeCollaborations'])) $params['includeCollaborations'] = !empty($q['includeCollaborations']) ? 'true' : 'false';
+    if (!empty($q['search'])) $params['search'] = (string) $q['search'];
+
+    return $this->request('GET', '/api/v1/accounts/' . rawurlencode($account_name) . '/video-channels', $params);
+  }
+
+  public function get_account_playlists(string $account_name, array $q = []): array {
+    if (!$this->is_configured()) return $this->not_configured();
+    $account_name = trim((string) $account_name);
+    if ($account_name === '') return ['ok' => false, 'error' => 'Missing account name'];
+
+    $params = [
+      'start' => max(0, (int) ($q['start'] ?? 0)),
+      'count' => min(100, max(1, (int) ($q['count'] ?? 100))),
+      'sort'  => (string) ($q['sort'] ?? '-createdAt'),
+      'playlistType' => (int) ($q['playlistType'] ?? 1),
+    ];
+    if (isset($q['includeCollaborations'])) $params['includeCollaborations'] = !empty($q['includeCollaborations']) ? 'true' : 'false';
+    if (!empty($q['search'])) $params['search'] = (string) $q['search'];
+    if (!empty($q['channelNameOneOf'])) $params['channelNameOneOf'] = (string) $q['channelNameOneOf'];
+
+    return $this->request('GET', '/api/v1/accounts/' . rawurlencode($account_name) . '/video-playlists', $params);
+  }
+
+  public function get_video_categories(): array {
+    if (!$this->is_configured()) return $this->not_configured();
+    return $this->request('GET', '/api/v1/videos/categories');
+  }
+
+  public function get_video_licences(): array {
+    if (!$this->is_configured()) return $this->not_configured();
+    return $this->request('GET', '/api/v1/videos/licences');
+  }
+
+  public function get_video_languages(): array {
+    if (!$this->is_configured()) return $this->not_configured();
+    return $this->request('GET', '/api/v1/videos/languages');
+  }
+
+  public function get_video_privacies(): array {
+    if (!$this->is_configured()) return $this->not_configured();
+    return $this->request('GET', '/api/v1/videos/privacies');
+  }
+
+  public function upload_video(array $fields, string $tmp_path, string $filename, string $mime_type = ''): array {
+    if (!$this->is_configured()) return $this->not_configured();
+    if ($this->token === '') return ['ok' => false, 'error' => 'Missing user token'];
+    if ($tmp_path === '' || !file_exists($tmp_path)) return ['ok' => false, 'error' => 'Missing upload file'];
+
+    $multipart = $fields;
+    if (class_exists('CURLFile')) {
+      $multipart['videofile'] = new CURLFile($tmp_path, $mime_type ?: 'application/octet-stream', $filename ?: basename($tmp_path));
+    } else {
+      $multipart['videofile'] = '@' . $tmp_path;
+    }
+
+    return $this->request_multipart('POST', '/api/v1/videos/upload', $multipart);
+  }
+
+  public function add_video_to_playlist(int $playlist_id, $video_id): array {
+    if (!$this->is_configured()) return $this->not_configured();
+    if ($this->token === '') return ['ok' => false, 'error' => 'Missing user token'];
+    if ($playlist_id <= 0) return ['ok' => false, 'error' => 'Missing playlist id'];
+    if ($video_id === null || $video_id === '') return ['ok' => false, 'error' => 'Missing video id'];
+
+    return $this->request('POST', '/api/v1/video-playlists/' . rawurlencode((string) $playlist_id) . '/videos', [], [
+      'videoId' => is_numeric($video_id) ? (int) $video_id : (string) $video_id,
+    ]);
+  }
+
   /* ---------------------------
    * HTTP
    * ------------------------- */
+
+  private function request_multipart(string $method, string $path, array $fields = [], array $query = []): array {
+    $method = strtoupper(trim((string) $method));
+    $path   = '/' . ltrim((string) $path, '/');
+
+    $base = $this->internal_base !== '' ? $this->internal_base : $this->public_base;
+    if ($base === '') return $this->not_configured();
+    if (!function_exists('curl_init')) {
+      return ['ok' => false, 'error' => 'cURL is not available for multipart upload'];
+    }
+
+    $url = rtrim($base, '/') . $path;
+    if (!empty($query)) {
+      $qs = http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+      $url .= (strpos($url, '?') === false ? '?' : '&') . $qs;
+    }
+
+    $ch = curl_init($url);
+    if ($ch === false) return ['ok' => false, 'error' => 'Unable to initialize cURL'];
+
+    $headers = ['Accept: application/json'];
+    if ($this->token !== '') $headers[] = 'Authorization: Bearer ' . $this->token;
+
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 900);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $fields);
+
+    $txt = curl_exec($ch);
+    if ($txt === false) {
+      $err = curl_error($ch);
+      curl_close($ch);
+      return ['ok' => false, 'error' => $err ?: 'cURL multipart request failed'];
+    }
+
+    $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+
+    $json = json_decode((string) $txt, true);
+    if ($code < 200 || $code >= 300) {
+      return ['ok' => false, 'error' => 'PeerTube HTTP ' . $code, 'body' => is_array($json) ? $json : $txt];
+    }
+    if ($json === null && $txt !== '' && $txt !== 'null') {
+      return ['ok' => false, 'error' => 'Invalid JSON from PeerTube', 'body' => $txt];
+    }
+
+    return ['ok' => true, 'data' => $json];
+  }
 
   private function not_configured(): array {
     return [

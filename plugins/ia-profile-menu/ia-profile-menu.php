@@ -2,7 +2,7 @@
 /**
  * Plugin Name: IA Profile Menu
  * Description: Replaces Atrium's Profile dropdown items (zero-touch: no changes to ia-atrium).
- * Version: 0.1.3
+ * Version: 0.1.4
  * Author: IndieAgora
  */
 
@@ -30,7 +30,7 @@ final class IA_Profile_Menu {
       'ia-profile-menu',
       plugins_url('assets/js/ia-profile-menu.js', __FILE__),
       ['ia-atrium'],
-      '0.1.3',
+      '0.1.4',
       true
     );
 
@@ -38,7 +38,14 @@ final class IA_Profile_Menu {
       'ia-profile-menu',
       plugins_url('assets/css/ia-profile-menu.css', __FILE__),
       [],
-      '0.1.3'
+      '0.1.4'
+    );
+
+    wp_enqueue_style(
+      'ia-profile-menu-theme-mybb',
+      plugins_url('assets/css/ia-profile-menu.theme.mybb.css', __FILE__),
+      ['ia-profile-menu'],
+      '0.1.4'
     );
 
     // Pass admin capability + admin URL to JS (no ia-atrium changes).

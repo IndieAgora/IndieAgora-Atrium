@@ -38,16 +38,23 @@ class IA_PeerTube_Token_Helper {
         // Canonical read path: per-user token store only.
         $row = IA_PeerTube_Token_Store::get($phpbb_user_id);
         if (!$row) {
-            $row = self::maybe_adopt_legacy_row($phpbb_user_id);
+            self::observe_legacy_row($phpbb_user_id);
+            ia_pt_trace_log('ia-pt-token-helper.canonical_miss', ['phpbb_user_id' => $phpbb_user_id]);
+        } else {
+            ia_pt_trace_log('ia-pt-token-helper.canonical_hit', ['phpbb_user_id' => $phpbb_user_id]);
         }
         if ($row && !empty($row['access_token_enc'])) {
             if (class_exists('IA_PeerTube_Token_Refresh') && method_exists('IA_PeerTube_Token_Refresh', 'maybe_refresh')) {
                 $r = IA_PeerTube_Token_Refresh::maybe_refresh($phpbb_user_id, $row, 120);
 
                 if (is_array($r) && empty($r['ok']) && (($r['code'] ?? '') === 'invalid_grant')) {
-                    $res = IA_PT_PeerTube_Mint::try_mint($wp_user_id, $phpbb_user_id);
+                    ia_pt_trace_log('ia-pt-token-helper.refresh_invalid_grant', ['phpbb_user_id' => $phpbb_user_id]);
+                    ia_pt_trace_log('ia-pt-token-helper.lazy_mint_begin', ['phpbb_user_id' => $phpbb_user_id]);
+        $res = IA_PT_PeerTube_Mint::try_mint($wp_user_id, $phpbb_user_id);
                     if (!empty($res['ok'])) {
-                        IA_PeerTube_Token_Store::save_token_row(
+                        ia_pt_trace_log('ia-pt-token-helper.mint_recovery_ok', ['phpbb_user_id' => $phpbb_user_id]);
+                        ia_pt_trace_log('ia-pt-token-helper.lazy_mint_ok', ['phpbb_user_id' => $phpbb_user_id]);
+        IA_PeerTube_Token_Store::save_token_row(
                             $phpbb_user_id,
                             $res['access_enc'],
                             $res['refresh_enc'] ?? null,
@@ -65,22 +72,27 @@ class IA_PeerTube_Token_Helper {
 
                 $row2 = IA_PeerTube_Token_Store::get($phpbb_user_id);
                 if ($row2 && !empty($row2['access_token_enc'])) {
+                    ia_pt_trace_log('ia-pt-token-helper.refreshed_token_ready', ['phpbb_user_id' => $phpbb_user_id]);
                     return self::status('valid_token', self::decrypt($row2['access_token_enc']), $phpbb_user_id, '', true);
                 }
             }
+            ia_pt_trace_log('ia-pt-token-helper.cached_token_ready', ['phpbb_user_id' => $phpbb_user_id]);
             return self::status('valid_token', self::decrypt($row['access_token_enc']), $phpbb_user_id, '', true);
         }
 
         // Lazy mint
+        ia_pt_trace_log('ia-pt-token-helper.lazy_mint_begin', ['phpbb_user_id' => $phpbb_user_id]);
         $res = IA_PT_PeerTube_Mint::try_mint($wp_user_id, $phpbb_user_id);
         if (empty($res['ok'])) {
             $err = (string)($res['error'] ?? 'Unable to mint PeerTube user token.');
+            ia_pt_trace_log('ia-pt-token-helper.lazy_mint_fail', ['phpbb_user_id' => $phpbb_user_id, 'reason' => $err]);
             self::set_identity_error($wp_user_id, $err);
             IA_PeerTube_Token_Store::touch_mint_error($phpbb_user_id, $err);
             $code = self::status_code_from_mint_error($err, 'mint_failed');
             return self::status($code, '', $phpbb_user_id, $err, false);
         }
 
+        ia_pt_trace_log('ia-pt-token-helper.lazy_mint_ok', ['phpbb_user_id' => $phpbb_user_id]);
         IA_PeerTube_Token_Store::save_token_row(
             $phpbb_user_id,
             $res['access_enc'],
@@ -92,35 +104,19 @@ class IA_PeerTube_Token_Helper {
     }
 
 
-    private static function maybe_adopt_legacy_row(int $phpbb_user_id): ?array {
-        global $wpdb;
-        if (!isset($wpdb) || !is_object($wpdb) || $phpbb_user_id <= 0) return null;
+    private static function observe_legacy_row(int $phpbb_user_id): void {
+        if ($phpbb_user_id <= 0) return;
 
-        $legacy_table = $wpdb->prefix . 'ia_peertube_tokens';
-        $legacy = $wpdb->get_row(
-            $wpdb->prepare(
-                "SELECT access_token_enc, refresh_token_enc, expires_at_utc FROM {$legacy_table} WHERE phpbb_user_id=%d LIMIT 1",
-                $phpbb_user_id
-            ),
-            ARRAY_A
-        );
-
+        $legacy = IA_PeerTube_Token_Store::get_legacy_row($phpbb_user_id);
         if (!is_array($legacy) || trim((string)($legacy['access_token_enc'] ?? '')) === '') {
-            return null;
+            return;
         }
 
-        if (!IA_PeerTube_Token_Store::import_legacy_row($phpbb_user_id, $legacy)) {
-            return null;
-        }
-
-        if (function_exists('ia_pt_trace_log')) {
-            ia_pt_trace_log('ia-pt-token-helper.legacy_row_adopted', [
-                'phpbb_user_id' => $phpbb_user_id,
-                'source' => 'ia_peertube_tokens',
-            ]);
-        }
-
-        return IA_PeerTube_Token_Store::get($phpbb_user_id);
+        ia_pt_trace_log('ia-pt-token-helper.legacy_row_observed', [
+            'phpbb_user_id' => $phpbb_user_id,
+            'source' => 'ia_peertube_tokens',
+            'legacy_updated_at' => (string)($legacy['updated_at'] ?? ''),
+        ]);
     }
 
     private static function status(string $code, string $token, int $phpbb_user_id, string $error, bool $ok): array {

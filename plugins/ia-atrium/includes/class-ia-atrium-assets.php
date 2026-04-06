@@ -13,6 +13,13 @@ class IA_Atrium_Assets {
             $ver
         );
 
+        wp_enqueue_style(
+            'ia-atrium-theme-mybb',
+            IA_ATRIUM_URL . 'assets/css/atrium.theme.mybb.css',
+            array('ia-atrium'),
+            $ver
+        );
+
         wp_enqueue_script(
             'ia-atrium',
             IA_ATRIUM_URL . 'assets/js/atrium.js',
@@ -34,6 +41,7 @@ class IA_Atrium_Assets {
             'nonces'       => array(
               'connect_user_search' => function_exists('ia_connect_nonce') ? ia_connect_nonce('user_search') : wp_create_nonce('ia_connect:user_search'),
               'connect_wall_search' => function_exists('ia_connect_nonce') ? ia_connect_nonce('wall_search') : wp_create_nonce('ia_connect:wall_search'),
+              'stream' => function_exists('ia_stream_create_nonce') ? ia_stream_create_nonce() : '',
             ),
             'loginPostUrl' => site_url('wp-login.php', 'login_post'),
             'registerUrl'  => wp_registration_url(),

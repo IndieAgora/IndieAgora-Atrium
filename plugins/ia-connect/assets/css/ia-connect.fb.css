@@ -123,8 +123,8 @@
 .iac-setting-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px;}
 .iac-setting-row .iac-input{flex:1;min-width:180px;}
 .iac-setting-hint{margin-top:8px;font-size:13px;color:var(--iac-muted);}
-.iac-post.iac-danger{border:1px solid rgba(255,70,70,.55);background:rgba(255,70,70,.12);}
-.iac-post.iac-danger:disabled{opacity:.55;cursor:not-allowed;}
+.iac-post.iac-danger{border:1px solid rgba(255,70,70,.55);background:rgba(120,18,18,.28);color:#ffd1d1;text-shadow:none;}
+.iac-post.iac-danger:disabled{opacity:1;cursor:not-allowed;color:#ffb3b3;border-color:rgba(255,90,90,.38);background:rgba(90,10,10,.22);}
 
 /* Confirm modal (replaces browser confirm/prompt) */
 .iac-confirm[hidden]{ display:none !important; }
@@ -193,5 +193,315 @@
 .iac-setting-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px;}
 .iac-setting-row .iac-input{flex:1;min-width:180px;}
 .iac-setting-hint{margin-top:8px;font-size:13px;color:var(--iac-muted);}
-.iac-post.iac-danger{border:1px solid rgba(255,70,70,.55);background:rgba(255,70,70,.12);}
-.iac-post.iac-danger:disabled{opacity:.55;cursor:not-allowed;}
+.iac-post.iac-danger{border:1px solid rgba(255,70,70,.55);background:rgba(120,18,18,.28);color:#ffd1d1;text-shadow:none;}
+.iac-post.iac-danger:disabled{opacity:1;cursor:not-allowed;color:#ffb3b3;border-color:rgba(255,90,90,.38);background:rgba(90,10,10,.22);}
+
+
+/* 2026-04-05 tidy-only connect pass
+   Scope: settings presentation, switch alignment, and cleaner Connect card containers.
+   No cross-surface theme work here. */
+.iac-composer,
+.iac-feed,
+.iac-activity,
+.iac-settings,
+.iac-card{
+  box-shadow: 0 14px 42px rgba(0,0,0,0.22);
+}
+
+.iac-composer,
+.iac-feed,
+.iac-activity,
+.iac-settings{
+  overflow: visible;
+}
+
+.iac-composer{
+  padding: 16px;
+}
+
+.iac-composer-title{
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.iac-input,
+.iac-textarea,
+.iac-setting select,
+.iac-setting input,
+.iac-setting textarea{
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.iac-input,
+.iac-textarea{
+  background: rgba(0,0,0,0.22);
+}
+
+.iac-textarea{
+  line-height: 1.45;
+}
+
+.iac-feed-inner{
+  gap: 16px;
+}
+
+.iac-card{
+  border-radius: 18px;
+}
+
+.iac-card-head{
+  padding: 14px 14px 10px 14px;
+}
+
+.iac-card-body{
+  padding: 14px 14px 14px 14px;
+}
+
+.iac-card-actions{
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.02);
+}
+
+.iac-settings{
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.iac-setting{
+  margin-bottom: 0;
+  padding: 14px;
+}
+
+.iac-setting-title{
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.iac-setting-sub{
+  margin-top: 6px;
+  line-height: 1.45;
+  opacity: 0.9;
+}
+
+.iac-setting > .iac-input,
+.iac-setting > .iac-textarea,
+.iac-setting > select,
+.iac-setting > input[type="password"],
+.iac-setting > .iac-post,
+.iac-setting > .iac-switch,
+.iac-setting > .iac-setting-hint{
+  margin-top: 12px;
+}
+
+.iac-setting .iac-post{
+  min-height: 42px;
+}
+
+.iac-switch{
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 0;
+  min-height: 26px;
+}
+
+.iac-switch span{
+  display: inline-grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  line-height: 1.35;
+}
+
+.iac-switch span::before{
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.iac-switch span::after{
+  grid-column: 1;
+  grid-row: 1;
+  left: 2px;
+}
+
+.iac-switch input:checked + span::after{
+  transform: translateX(18px);
+}
+
+.iac-setting-hint{
+  line-height: 1.4;
+}
+
+@media (max-width: 720px){
+  .iac-composer,
+  .iac-activity,
+  .iac-settings{
+    padding: 14px;
+  }
+
+  .iac-card-head,
+  .iac-card-body,
+  .iac-card-actions{
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .iac-setting{
+    padding: 12px;
+  }
+}
+
+
+/* Imported light-style confirm modal readability */
+html[data-iac-style="calm"] .iac-confirm-sheet,
+html[data-iac-style="dawn"] .iac-confirm-sheet,
+html[data-iac-style="earth"] .iac-confirm-sheet,
+html[data-iac-style="flame"] .iac-confirm-sheet,
+html[data-iac-style="leaf"] .iac-confirm-sheet,
+html[data-iac-style="night"] .iac-confirm-sheet,
+html[data-iac-style="sun"] .iac-confirm-sheet,
+html[data-iac-style="twilight"] .iac-confirm-sheet,
+html[data-iac-style="water"] .iac-confirm-sheet,
+body[data-iac-style="calm"] .iac-confirm-sheet,
+body[data-iac-style="dawn"] .iac-confirm-sheet,
+body[data-iac-style="earth"] .iac-confirm-sheet,
+body[data-iac-style="flame"] .iac-confirm-sheet,
+body[data-iac-style="leaf"] .iac-confirm-sheet,
+body[data-iac-style="night"] .iac-confirm-sheet,
+body[data-iac-style="sun"] .iac-confirm-sheet,
+body[data-iac-style="twilight"] .iac-confirm-sheet,
+body[data-iac-style="water"] .iac-confirm-sheet{
+  background: var(--ia-mybb-surface-2);
+  border: 1px solid var(--ia-mybb-border);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.28);
+  color: var(--ia-mybb-text);
+}
+html[data-iac-style="calm"] .iac-confirm-title,
+html[data-iac-style="dawn"] .iac-confirm-title,
+html[data-iac-style="earth"] .iac-confirm-title,
+html[data-iac-style="flame"] .iac-confirm-title,
+html[data-iac-style="leaf"] .iac-confirm-title,
+html[data-iac-style="night"] .iac-confirm-title,
+html[data-iac-style="sun"] .iac-confirm-title,
+html[data-iac-style="twilight"] .iac-confirm-title,
+html[data-iac-style="water"] .iac-confirm-title,
+body[data-iac-style="calm"] .iac-confirm-title,
+body[data-iac-style="dawn"] .iac-confirm-title,
+body[data-iac-style="earth"] .iac-confirm-title,
+body[data-iac-style="flame"] .iac-confirm-title,
+body[data-iac-style="leaf"] .iac-confirm-title,
+body[data-iac-style="night"] .iac-confirm-title,
+body[data-iac-style="sun"] .iac-confirm-title,
+body[data-iac-style="twilight"] .iac-confirm-title,
+body[data-iac-style="water"] .iac-confirm-title{
+  color: var(--ia-mybb-text);
+}
+html[data-iac-style="calm"] .iac-confirm-msg,
+html[data-iac-style="dawn"] .iac-confirm-msg,
+html[data-iac-style="earth"] .iac-confirm-msg,
+html[data-iac-style="flame"] .iac-confirm-msg,
+html[data-iac-style="leaf"] .iac-confirm-msg,
+html[data-iac-style="night"] .iac-confirm-msg,
+html[data-iac-style="sun"] .iac-confirm-msg,
+html[data-iac-style="twilight"] .iac-confirm-msg,
+html[data-iac-style="water"] .iac-confirm-msg,
+body[data-iac-style="calm"] .iac-confirm-msg,
+body[data-iac-style="dawn"] .iac-confirm-msg,
+body[data-iac-style="earth"] .iac-confirm-msg,
+body[data-iac-style="flame"] .iac-confirm-msg,
+body[data-iac-style="leaf"] .iac-confirm-msg,
+body[data-iac-style="night"] .iac-confirm-msg,
+body[data-iac-style="sun"] .iac-confirm-msg,
+body[data-iac-style="twilight"] .iac-confirm-msg,
+body[data-iac-style="water"] .iac-confirm-msg{
+  color: var(--ia-mybb-text);
+  opacity: 1;
+}
+html[data-iac-style="calm"] .iac-confirm-btn,
+html[data-iac-style="dawn"] .iac-confirm-btn,
+html[data-iac-style="earth"] .iac-confirm-btn,
+html[data-iac-style="flame"] .iac-confirm-btn,
+html[data-iac-style="leaf"] .iac-confirm-btn,
+html[data-iac-style="night"] .iac-confirm-btn,
+html[data-iac-style="sun"] .iac-confirm-btn,
+html[data-iac-style="twilight"] .iac-confirm-btn,
+html[data-iac-style="water"] .iac-confirm-btn,
+body[data-iac-style="calm"] .iac-confirm-btn,
+body[data-iac-style="dawn"] .iac-confirm-btn,
+body[data-iac-style="earth"] .iac-confirm-btn,
+body[data-iac-style="flame"] .iac-confirm-btn,
+body[data-iac-style="leaf"] .iac-confirm-btn,
+body[data-iac-style="night"] .iac-confirm-btn,
+body[data-iac-style="sun"] .iac-confirm-btn,
+body[data-iac-style="twilight"] .iac-confirm-btn,
+body[data-iac-style="water"] .iac-confirm-btn{
+  background: var(--ia-mybb-surface);
+  border-color: var(--ia-mybb-border);
+  color: var(--ia-mybb-text);
+}
+html[data-iac-style="calm"] .iac-confirm-btn:hover,
+html[data-iac-style="dawn"] .iac-confirm-btn:hover,
+html[data-iac-style="earth"] .iac-confirm-btn:hover,
+html[data-iac-style="flame"] .iac-confirm-btn:hover,
+html[data-iac-style="leaf"] .iac-confirm-btn:hover,
+html[data-iac-style="night"] .iac-confirm-btn:hover,
+html[data-iac-style="sun"] .iac-confirm-btn:hover,
+html[data-iac-style="twilight"] .iac-confirm-btn:hover,
+html[data-iac-style="water"] .iac-confirm-btn:hover,
+body[data-iac-style="calm"] .iac-confirm-btn:hover,
+body[data-iac-style="dawn"] .iac-confirm-btn:hover,
+body[data-iac-style="earth"] .iac-confirm-btn:hover,
+body[data-iac-style="flame"] .iac-confirm-btn:hover,
+body[data-iac-style="leaf"] .iac-confirm-btn:hover,
+body[data-iac-style="night"] .iac-confirm-btn:hover,
+body[data-iac-style="sun"] .iac-confirm-btn:hover,
+body[data-iac-style="twilight"] .iac-confirm-btn:hover,
+body[data-iac-style="water"] .iac-confirm-btn:hover{
+  background: var(--ia-mybb-panel);
+}
+html[data-iac-style="calm"] .iac-confirm-ok,
+html[data-iac-style="dawn"] .iac-confirm-ok,
+html[data-iac-style="earth"] .iac-confirm-ok,
+html[data-iac-style="flame"] .iac-confirm-ok,
+html[data-iac-style="leaf"] .iac-confirm-ok,
+html[data-iac-style="night"] .iac-confirm-ok,
+html[data-iac-style="sun"] .iac-confirm-ok,
+html[data-iac-style="twilight"] .iac-confirm-ok,
+html[data-iac-style="water"] .iac-confirm-ok,
+body[data-iac-style="calm"] .iac-confirm-ok,
+body[data-iac-style="dawn"] .iac-confirm-ok,
+body[data-iac-style="earth"] .iac-confirm-ok,
+body[data-iac-style="flame"] .iac-confirm-ok,
+body[data-iac-style="leaf"] .iac-confirm-ok,
+body[data-iac-style="night"] .iac-confirm-ok,
+body[data-iac-style="sun"] .iac-confirm-ok,
+body[data-iac-style="twilight"] .iac-confirm-ok,
+body[data-iac-style="water"] .iac-confirm-ok{
+  background: var(--ia-mybb-active-bg);
+  border-color: var(--ia-mybb-active-bg);
+  color: var(--ia-mybb-active-text);
+}
+html[data-iac-style="calm"] .iac-confirm-ok:hover,
+html[data-iac-style="dawn"] .iac-confirm-ok:hover,
+html[data-iac-style="earth"] .iac-confirm-ok:hover,
+html[data-iac-style="flame"] .iac-confirm-ok:hover,
+html[data-iac-style="leaf"] .iac-confirm-ok:hover,
+html[data-iac-style="night"] .iac-confirm-ok:hover,
+html[data-iac-style="sun"] .iac-confirm-ok:hover,
+html[data-iac-style="twilight"] .iac-confirm-ok:hover,
+html[data-iac-style="water"] .iac-confirm-ok:hover,
+body[data-iac-style="calm"] .iac-confirm-ok:hover,
+body[data-iac-style="dawn"] .iac-confirm-ok:hover,
+body[data-iac-style="earth"] .iac-confirm-ok:hover,
+body[data-iac-style="flame"] .iac-confirm-ok:hover,
+body[data-iac-style="leaf"] .iac-confirm-ok:hover,
+body[data-iac-style="night"] .iac-confirm-ok:hover,
+body[data-iac-style="sun"] .iac-confirm-ok:hover,
+body[data-iac-style="twilight"] .iac-confirm-ok:hover,
+body[data-iac-style="water"] .iac-confirm-ok:hover{
+  filter: brightness(.96);
+}

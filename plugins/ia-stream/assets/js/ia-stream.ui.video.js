@@ -137,6 +137,31 @@
     return true;
   }
 
+
+
+  function getRecoverableTokenCode(res) {
+    if (!res || typeof res !== 'object') return '';
+    const candidates = [
+      res.code,
+      res.error,
+      res.message,
+      res.data && res.data.code,
+      res.data && res.data.error,
+      res.data && res.data.message,
+      res.error && typeof res.error === 'object' ? res.error.code : '',
+      res.error && typeof res.error === 'object' ? res.error.message : ''
+    ];
+    for (const raw of candidates) {
+      const code = String(raw || '').trim();
+      if (code === 'missing_user_token' || code === 'password_required') return code;
+    }
+    return '';
+  }
+
+  function isRecoverableTokenState(res) {
+    return getRecoverableTokenCode(res) !== '';
+  }
+
   function root() {
     return NS.util.qs("#ia-stream-shell");
   }
@@ -219,7 +244,7 @@
         if (!vid || (rating !== 'like' && rating !== 'dislike')) return;
 
         let out = await NS.api.rateVideo({ id: vid, rating: rating });
-        if (out && out.ok === false && String(out.code || '') === 'missing_user_token') {
+        if (out && out.ok === false && isRecoverableTokenState(out)) {
           const okTok = await ensurePeerTubeUserToken();
           if (okTok) out = await NS.api.rateVideo({ id: vid, rating: rating });
         }
@@ -311,7 +336,7 @@
         if (!vid || (rating !== 'like' && rating !== 'dislike')) return;
 
         let res = await NS.api.rateVideo({ id: vid, rating: rating });
-        if (res && res.ok === false && String(res.code || '') === 'missing_user_token') {
+        if (res && res.ok === false && isRecoverableTokenState(res)) {
           const okTok = await ensurePeerTubeUserToken();
           if (okTok) res = await NS.api.rateVideo({ id: vid, rating: rating });
         }
@@ -338,6 +363,28 @@
     return !!(M && !M.hasAttribute("hidden"));
   }
 
+  function syncAtriumVideoUrl(videoId, commentId, replyId, replace) {
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('tab', 'stream');
+      if (videoId) u.searchParams.set('video', String(videoId || ''));
+      else u.searchParams.delete('video');
+      if (videoId && (commentId || replyId)) u.searchParams.set('focus', 'comments');
+      else if (videoId) u.searchParams.delete('focus');
+      else u.searchParams.delete('focus');
+      if (commentId) u.searchParams.set('stream_comment', String(commentId || ''));
+      else u.searchParams.delete('stream_comment');
+      if (replyId) u.searchParams.set('stream_reply', String(replyId || ''));
+      else u.searchParams.delete('stream_reply');
+      u.hash = '';
+      const next = u.toString();
+      const fn = replace ? 'replaceState' : 'pushState';
+      if (window.history && typeof window.history[fn] === 'function') window.history[fn]({}, '', next);
+      NS.state = NS.state || {};
+      NS.state.currentVideoUrl = next;
+    } catch (e) {}
+  }
+
   function closeModal() {
     const M = NS.util.qs(".ia-stream-modal", document);
     if (!M) return;
@@ -359,6 +406,15 @@
 
     const T = NS.util.qs(".ia-stream-modal-title", M);
     if (T) T.textContent = "";
+
+    try {
+      syncAtriumVideoUrl('', '', '', true);
+    } catch (e) {}
+    try {
+      NS.state = NS.state || {};
+      NS.state.currentVideoTitle = '';
+      if (typeof NS.refreshPageTitle === 'function') NS.refreshPageTitle();
+    } catch (e2) {}
   }
 
   function openModalShell(title) {
@@ -415,6 +471,8 @@
         const u = new URL(window.location.href);
         u.searchParams.set('tab', 'stream');
         u.searchParams.set('video', id);
+        u.searchParams.delete('stream_comment');
+        u.searchParams.delete('stream_reply');
         u.hash = '';
         local = u.toString();
       } catch (e2) {
@@ -423,6 +481,9 @@
       NS.state.currentVideoUrl = local;
       NS.state.currentVideoPeerTubeUrl = url || '';
       NS.state.currentVideoId = id;
+      NS.state.currentVideoTitle = title || 'Video';
+      syncAtriumVideoUrl(id, '', '', true);
+      if (typeof NS.refreshPageTitle === 'function') NS.refreshPageTitle();
     } catch (e) {}
 
     M.setAttribute('data-ia-stream-video', (v && v.id) ? String(v.id) : '');
@@ -478,10 +539,20 @@
       if (C) C.innerHTML = '<div class="ia-stream-placeholder">' + esc((res && res.error) ? res.error : "Video load failed") + '</div>';
       const V = NS.util.qs(".ia-stream-modal-video", M);
       if (V) V.innerHTML = '<div class="ia-stream-player"><div class="ia-stream-player-overlay">Failed to load</div></div>';
+      try {
+        NS.state = NS.state || {};
+        NS.state.currentVideoTitle = 'Video';
+        if (typeof NS.refreshPageTitle === 'function') NS.refreshPageTitle();
+      } catch (e2) {}
       return;
     }
 
     renderVideoIntoModal(M, res.item);
+
+    NS.state = NS.state || {};
+    NS.state.highlightCommentId = (opts && opts.highlightCommentId) ? String(opts.highlightCommentId) : '';
+    NS.state.highlightReplyId = (opts && opts.replyId) ? String(opts.replyId) : '';
+    NS.state.highlightRootCommentId = (opts && opts.commentId) ? String(opts.commentId) : '';
 
     // Load comments after video renders
     if (NS.ui.comments && NS.ui.comments.load) {

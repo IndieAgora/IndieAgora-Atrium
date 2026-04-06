@@ -167,3 +167,71 @@ Boundary preserved
 - The older login-era table still exists.
 - The older table is retained for compatibility and observation, not as authoritative Stream state.
 - No schema was removed in this patch.
+
+
+## 2026-04-04 patch: legacy token table reduced from compatibility import to observation-only
+
+Patch-only hardening applied in `0.1.13`.
+
+What changed
+
+- The helper no longer imports rows from legacy `wp_ia_peertube_tokens` into `wp_ia_peertube_user_tokens`.
+- If the canonical per-user row is missing but a legacy row still exists, the helper now only logs an observation event and continues through the normal prompted mint path.
+- This means the legacy table is no longer part of live Stream token authority or automatic recovery.
+
+New trace points
+
+- `ia-pt-token-helper.canonical_hit`
+- `ia-pt-token-helper.canonical_miss`
+- `ia-pt-token-helper.legacy_row_observed`
+- `ia-pt-token-helper.cached_token_ready`
+- `ia-pt-token-helper.refresh_invalid_grant`
+- `ia-pt-token-helper.refreshed_token_ready`
+- `ia-pt-token-helper.mint_recovery_ok`
+- `ia-pt-token-helper.mint_recovery_fail`
+- `ia-pt-token-helper.lazy_mint_begin`
+- `ia-pt-token-helper.lazy_mint_ok`
+- `ia-pt-token-helper.lazy_mint_fail`
+
+Operational meaning
+
+- `wp_ia_peertube_user_tokens` is now the only live Stream token store.
+- `wp_ia_peertube_tokens` remains for observation and historical inspection only.
+- If a user still relies on legacy token residue, recovery should now be visible through prompt-driven mint rather than silent legacy import.
+
+
+## 2026-04-05 diagnostics table expansion
+
+Patch-only admin visibility improvement:
+
+- Expanded the PeerTube Tokens admin table to show:
+  - derived canonical state
+  - whether a legacy `wp_ia_peertube_tokens` row still exists
+  - last refresh timestamp
+- This is intentionally operator-facing observation, not new token authority.
+- The goal is to make split-authority cases visible during PeerTube upgrade/debug work without mutating rows automatically.
+
+
+## 2026-04-05 live stability confirmation and diagnostics reading
+
+After deployment, the user confirmed the patched stack was working in live use. The expanded admin diagnostics also give a clearer picture of what "stable" means in this architecture.
+
+Observed interpretation from the admin table:
+
+- a small number of actively used accounts show healthy canonical rows such as `token+refresh`
+- many linked accounts show `missing_user_token`
+- many unlinked or incomplete identities show `identity_missing`
+- at least one historic row still shows the older password-capture failure text as a recorded past mint error
+
+Important operational meaning:
+
+- `missing_user_token` for dormant or never-recovered linked users is not, by itself, a live failure
+- canonical per-user rows are expected to exist primarily for users who have logged in recently or completed prompt-driven recovery
+- the admin table is therefore an observation surface, not a requirement that every historical linked user must already have fresh tokens
+- legacy login-era rows should still be treated as observation-only even when present
+
+Stable in this pass therefore means:
+
+- active tested users are obtaining and using canonical per-user tokens correctly
+- Stream and ia-post flows are operating without reintroducing legacy token authority
+- the diagnostics now make dormant-user gaps visible instead of hiding them behind silent fallback behaviour

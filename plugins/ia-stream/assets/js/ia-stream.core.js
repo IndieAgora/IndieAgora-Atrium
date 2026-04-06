@@ -40,7 +40,7 @@
 
   // Basic state bucket
   NS.state = NS.state || {
-    activeTab: "feed",
+    activeTab: "discover",
     booted: false
   };
 

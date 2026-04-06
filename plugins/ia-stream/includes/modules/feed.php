@@ -17,9 +17,26 @@ final class IA_Stream_Module_Feed implements IA_Stream_Module_Interface {
     $per_page = isset($q['per_page']) ? (int)$q['per_page'] : 10;
     $per_page = min(50, max(1, $per_page));
 
+    $search = isset($q['search']) ? trim((string)$q['search']) : '';
+    $search = mb_substr($search, 0, 120);
+
+    $sort = isset($q['sort']) ? trim((string)$q['sort']) : '-publishedAt';
+    $allowed_sort = ['-publishedAt', '-views', '-likes', 'name'];
+    if (!in_array($sort, $allowed_sort, true)) $sort = '-publishedAt';
+
+    $mode = isset($q['mode']) ? trim((string)$q['mode']) : '';
+    if (!in_array($mode, ['subscriptions', 'channel'], true)) $mode = '';
+
+    $channel_handle = isset($q['channel_handle']) ? trim((string)$q['channel_handle']) : '';
+    $channel_handle = mb_substr($channel_handle, 0, 160);
+
     return [
       'page'     => $page,
       'per_page' => $per_page,
+      'search'   => $search,
+      'sort'     => $sort,
+      'mode'     => $mode,
+      'channel_handle' => $channel_handle,
     ];
   }
 
@@ -32,6 +49,8 @@ final class IA_Stream_Module_Feed implements IA_Stream_Module_Interface {
         'meta' => [
           'page' => $q['page'],
           'per_page' => $q['per_page'],
+          'search' => $q['search'],
+          'sort' => $q['sort'],
           'note' => 'PeerTube API service missing',
         ],
         'items' => [],
@@ -46,13 +65,39 @@ final class IA_Stream_Module_Feed implements IA_Stream_Module_Interface {
         'meta' => [
           'page' => $q['page'],
           'per_page' => $q['per_page'],
+          'search' => $q['search'],
+          'sort' => $q['sort'],
           'note' => 'PeerTube not configured (missing base URL)',
         ],
         'items' => [],
       ];
     }
 
-    $raw = $api->get_videos($q);
+    $raw = null;
+
+    if ($q['mode'] === 'subscriptions') {
+      if (class_exists('IA_PeerTube_Token_Helper')) {
+        try {
+          if (method_exists('IA_PeerTube_Token_Helper', 'get_token_status_for_current_user')) {
+            $status = (array) IA_PeerTube_Token_Helper::get_token_status_for_current_user();
+            $tok = trim((string) ($status['token'] ?? ''));
+            if (!empty($status['ok']) && $tok !== '') {
+              $api->set_token($tok);
+            }
+          } elseif (method_exists('IA_PeerTube_Token_Helper', 'get_token_for_current_user')) {
+            $tok = (string) IA_PeerTube_Token_Helper::get_token_for_current_user();
+            if ($tok !== '') $api->set_token($tok);
+          }
+        } catch (Throwable $e) {
+          // Keep browse behaviour stable; subscriptions will simply behave as unauthenticated.
+        }
+      }
+      $raw = $api->get_subscription_videos($q);
+    } elseif ($q['mode'] === 'channel' && $q['channel_handle'] !== '') {
+      $raw = $api->get_channel_videos($q['channel_handle'], $q);
+    } else {
+      $raw = $api->get_videos($q);
+    }
 
     if (!$raw['ok']) {
       return [
@@ -61,6 +106,10 @@ final class IA_Stream_Module_Feed implements IA_Stream_Module_Interface {
         'meta' => [
           'page' => $q['page'],
           'per_page' => $q['per_page'],
+          'search' => $q['search'],
+          'sort' => $q['sort'],
+          'mode' => $q['mode'],
+          'channel_handle' => $q['channel_handle'],
         ],
       ];
     }
@@ -68,13 +117,10 @@ final class IA_Stream_Module_Feed implements IA_Stream_Module_Interface {
     $data = $raw['data'] ?? [];
     $items = [];
 
-    // /api/v1/videos returns { total, data: [...] }
     $list = [];
     if (is_array($data) && isset($data['data']) && is_array($data['data'])) $list = $data['data'];
     elseif (is_array($data)) $list = $data;
 
-    // BUGFIX: Use PeerTube public base from the service (IA Engine config),
-    // not only the legacy IA_PEERTUBE_BASE constant.
     $base = '';
     if (method_exists($api, 'public_base')) {
       $base = rtrim((string)$api->public_base(), '/');
@@ -93,6 +139,10 @@ final class IA_Stream_Module_Feed implements IA_Stream_Module_Interface {
       'meta' => [
         'page' => $q['page'],
         'per_page' => $q['per_page'],
+        'search' => $q['search'],
+        'sort' => $q['sort'],
+        'mode' => $q['mode'],
+        'channel_handle' => $q['channel_handle'],
         'total' => isset($data['total']) ? (int)$data['total'] : null,
       ],
       'items' => $items,

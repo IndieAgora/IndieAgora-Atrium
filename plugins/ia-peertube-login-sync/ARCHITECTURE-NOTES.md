@@ -78,3 +78,32 @@ Pithy rule: another login surface means another potential budget burner.
 
 This plugin still exposes `ia_ptls_login`, but live token-trace debugging showed the successful `atrium` login path was not using this surface.
 Treat this route as legacy/auxiliary for now, not canonical. Do not expand its public role unless a future consolidation pass explicitly decides to keep it.
+
+
+## 2026-04-05 compatibility delegation patch
+
+Patch-only cleanup applied in this stack:
+
+- `ia_ptls_login` now delegates into `IA_User_PeerTube_Fallback_Clean::ajax_login()` when the canonical ladder is available.
+- This keeps the legacy surface callable without letting it behave as a co-equal login authority.
+- The fallback nonce guard was widened to accept `ia_ptls_login_nonce` so old PTLS callers can pass through the canonical ladder without frontend rewiring in this patch.
+
+Operational rule after this patch:
+- treat `ia_ptls_login` as compatibility ingress only
+- treat `ia_user_login` as the effective live ladder
+- do not add new token behaviour to PTLS
+
+
+## 2026-04-05 live stability confirmation
+
+After the compatibility-delegation patch was deployed, the user confirmed the stack was stable in live testing.
+
+Confirmed behaviour:
+
+- normal login still works
+- no regression requiring PTLS-specific frontend rewiring was reported
+- the legacy PTLS surface can remain in place as compatibility ingress without being treated as co-equal auth authority
+
+Operational rule remains unchanged:
+- keep PTLS as compatibility ingress only
+- keep `ia_user_login` as the effective live ladder

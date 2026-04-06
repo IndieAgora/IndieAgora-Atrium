@@ -438,3 +438,68 @@
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+
+/* Connect global style bridge: black */
+html[data-iac-style="black"] .ia-msg-sheet,
+body[data-iac-style="black"] .ia-msg-sheet{
+  background:rgba(0,0,0,0.58);
+}
+html[data-iac-style="black"] .ia-msg-sheet-card,
+body[data-iac-style="black"] .ia-msg-sheet-card,
+html[data-iac-style="black"] .ia-msg-group-browse,
+body[data-iac-style="black"] .ia-msg-group-browse,
+html[data-iac-style="black"] .ia-msg-members-list,
+body[data-iac-style="black"] .ia-msg-members-list,
+html[data-iac-style="black"] .ia-msg-invite-card,
+body[data-iac-style="black"] .ia-msg-invite-card,
+html[data-iac-style="black"] .ia-msg-suggest,
+body[data-iac-style="black"] .ia-msg-suggest{
+  background:#dcdcdc;
+  border-color:rgba(0,0,0,0.18);
+  color:#111;
+  box-shadow:0 20px 40px rgba(0,0,0,0.18);
+}
+html[data-iac-style="black"] .ia-msg-sheet-head,
+body[data-iac-style="black"] .ia-msg-sheet-head,
+html[data-iac-style="black"] .ia-msg-sheet-label,
+body[data-iac-style="black"] .ia-msg-sheet-label,
+html[data-iac-style="black"] .ia-msg-member-name,
+body[data-iac-style="black"] .ia-msg-member-name,
+html[data-iac-style="black"] .ia-msg-suggest-item,
+body[data-iac-style="black"] .ia-msg-suggest-item,
+html[data-iac-style="black"] .ia-msg-suggest-name,
+body[data-iac-style="black"] .ia-msg-suggest-name,
+html[data-iac-style="black"] .ia-msg-suggest-sub,
+body[data-iac-style="black"] .ia-msg-suggest-sub,
+html[data-iac-style="black"] .ia-msg-suggest-username,
+body[data-iac-style="black"] .ia-msg-suggest-username,
+html[data-iac-style="black"] .ia-msg-sheet-hint,
+body[data-iac-style="black"] .ia-msg-sheet-hint,
+html[data-iac-style="black"] .ia-msg-member-badge,
+body[data-iac-style="black"] .ia-msg-member-badge{
+  color:#111;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-sheet-input,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-sheet-input,
+html[data-iac-style="black"] .ia-msg-sheet-card .ia-msg-text,
+body[data-iac-style="black"] .ia-msg-sheet-card .ia-msg-text,
+html[data-iac-style="black"] .ia-msg-tab,
+body[data-iac-style="black"] .ia-msg-tab,
+html[data-iac-style="black"] .ia-msg-chip,
+body[data-iac-style="black"] .ia-msg-chip,
+html[data-iac-style="black"] .ia-msg-chip-x,
+body[data-iac-style="black"] .ia-msg-chip-x,
+html[data-iac-style="black"] .ia-msg-member-row:hover,
+body[data-iac-style="black"] .ia-msg-member-row:hover,
+html[data-iac-style="black"] .ia-msg-suggest-item:hover,
+body[data-iac-style="black"] .ia-msg-suggest-item:hover{
+  background:#efefef;
+  border-color:rgba(0,0,0,0.18);
+  color:#111;
+}
+html[data-iac-style="black"] .ia-msg-tab.is-on,
+body[data-iac-style="black"] .ia-msg-tab.is-on{
+  background:#dadada;
+  border-color:rgba(0,0,0,0.22);
+  box-shadow:none;
+}

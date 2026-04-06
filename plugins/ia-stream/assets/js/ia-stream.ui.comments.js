@@ -77,6 +77,44 @@
     };
   }
 
+  function syncCommentUrl(commentId, replyId, replace) {
+    try {
+      const videoId = String((_videoId || (NS.state && NS.state.currentVideoId) || '')).trim();
+      if (!videoId) return;
+      const u = new URL(window.location.href);
+      u.searchParams.set('tab', 'stream');
+      u.searchParams.set('video', videoId);
+      u.searchParams.set('focus', 'comments');
+      if (commentId) u.searchParams.set('stream_comment', String(commentId || ''));
+      else u.searchParams.delete('stream_comment');
+      if (replyId) u.searchParams.set('stream_reply', String(replyId || ''));
+      else u.searchParams.delete('stream_reply');
+      u.hash = '';
+      const next = u.toString();
+      const fn = replace ? 'replaceState' : 'pushState';
+      if (window.history && typeof window.history[fn] === 'function') window.history[fn]({}, '', next);
+      NS.state = NS.state || {};
+      NS.state.currentVideoUrl = next;
+    } catch (e) {}
+  }
+
+  function commentPermalink(commentId, replyId) {
+    try {
+      const base = String((NS.state && NS.state.currentVideoUrl) || window.location.href || '');
+      const u = new URL(base);
+      u.searchParams.set('tab', 'stream');
+      u.searchParams.set('focus', 'comments');
+      if (commentId) u.searchParams.set('stream_comment', String(commentId || ''));
+      else u.searchParams.delete('stream_comment');
+      if (replyId) u.searchParams.set('stream_reply', String(replyId || ''));
+      else u.searchParams.delete('stream_reply');
+      u.hash = '';
+      return u.toString();
+    } catch (e) {
+      return String((NS.state && NS.state.currentVideoUrl) || window.location.href || '');
+    }
+  }
+
   function renderPlaceholder(msg) {
     const C = commentsMount();
     if (!C) return;
@@ -135,6 +173,30 @@ function showActionError(res, fallback) {
     } catch (e) {
       try { console.error('[IA Stream] action failed', res, e); } catch (e2) {}
     }
+  }
+
+
+  function getRecoverableTokenCode(res) {
+    if (!res || typeof res !== 'object') return '';
+    const candidates = [
+      res.code,
+      res.error,
+      res.message,
+      res.data && res.data.code,
+      res.data && res.data.error,
+      res.data && res.data.message,
+      res.error && typeof res.error === 'object' ? res.error.code : '',
+      res.error && typeof res.error === 'object' ? res.error.message : ''
+    ];
+    for (const raw of candidates) {
+      const code = String(raw || '').trim();
+      if (code === 'missing_user_token' || code === 'password_required') return code;
+    }
+    return '';
+  }
+
+  function isRecoverableTokenState(res) {
+    return getRecoverableTokenCode(res) !== '';
   }
 
   // Atrium uses state-based auth (phpBB canonical). The server often cannot
@@ -245,9 +307,10 @@ function showActionError(res, fallback) {
     _activeInlineReply = '';
   }
 
-  function openInlineReply(commentId, authorName) {
+  function openInlineReply(commentId, authorName, threadId) {
     commentId = String(commentId || '').trim();
-    if (!commentId) return;
+    threadId = String(threadId || commentId || '').trim();
+    if (!commentId || !threadId) return;
 
     const C = commentsMount();
     if (!C) return;
@@ -262,6 +325,7 @@ function showActionError(res, fallback) {
     wrap.className = 'ia-stream-inline-reply';
     wrap.setAttribute('data-video-id', _videoId);
     wrap.setAttribute('data-comment-id', commentId);
+    wrap.setAttribute('data-thread-id', threadId);
     wrap.innerHTML =
       '<div class="ia-stream-inline-reply-meta">Replying to ' + esc(authorName || 'comment') + '</div>' +
       '<textarea class="ia-stream-inline-reply-input" rows="2" placeholder="Write a reply…"></textarea>' +
@@ -277,7 +341,7 @@ function showActionError(res, fallback) {
     try { if (inp) inp.focus(); } catch (e) {}
   }
 
-  function nodeHtml(node, depth) {
+  function nodeHtml(node, depth, threadId) {
     depth = Number(depth || 0);
     const author = node && node.author ? node.author : {};
     const name = author && author.name ? author.name : 'User';
@@ -286,6 +350,7 @@ function showActionError(res, fallback) {
     const time = node && node.created_ago ? node.created_ago : '';
     const text = node && node.text ? node.text : '';
     const id = node && (node.id || node.comment_id) ? (node.id || node.comment_id) : '';
+    const replyThreadId = String(threadId || id || '').trim();
 
     const votes = node && node.votes ? node.votes : {};
     const up = votes && typeof votes.up !== 'undefined' ? Number(votes.up) : 0;
@@ -300,7 +365,7 @@ function showActionError(res, fallback) {
 
     const pad = depth > 0 ? (' style="margin-left:' + Math.min(24, depth * 12) + 'px"') : '';
     return (
-      '<div class="ia-stream-comment" data-ia-stream-comment="' + esc(String(id)) + '"' + pad + '>' +
+      '<div class="ia-stream-comment" data-ia-stream-comment="' + esc(String(id)) + '" data-ia-stream-kind="' + esc(depth > 0 ? 'reply' : 'comment') + '"' + pad + '>' +
         '<div class="ia-stream-comment-header">' +
           '<div class="ia-stream-comment-avatar" style="' + (avatar ? 'background-image:url(' + esc(avatar) + ');background-size:cover;background-position:center;' : '') + '"></div>' +
           '<div class="ia-stream-comment-author">' + esc(name) + '</div>' +
@@ -310,7 +375,7 @@ function showActionError(res, fallback) {
         '<div class="ia-stream-comment-actions">' +
           '<button type="button" class="ia-stream-comment-vote ia-stream-comment-vote--up' + (my === 1 ? ' is-on' : '') + '" data-ia-stream-comment-vote="like" data-ia-stream-comment-id="' + esc(String(id)) + '" aria-label="Like">▲ <span class="ia-stream-vote-count" data-ia-stream-vote-up="' + esc(String(id)) + '">' + esc(String(up)) + '</span></button>' +
           '<button type="button" class="ia-stream-comment-vote ia-stream-comment-vote--down' + (my === -1 ? ' is-on' : '') + '" data-ia-stream-comment-vote="dislike" data-ia-stream-comment-id="' + esc(String(id)) + '" aria-label="Dislike">▼ <span class="ia-stream-vote-count" data-ia-stream-vote-down="' + esc(String(id)) + '">' + esc(String(down)) + '</span></button>' +
-          '<button type="button" class="ia-stream-comment-reply" data-ia-stream-reply="' + esc(String(id)) + '" data-ia-stream-reply-author="' + esc(String(name)) + '">Reply</button>' +
+          '<button type="button" class="ia-stream-comment-reply" data-ia-stream-reply="' + esc(String(id)) + '" data-ia-stream-reply-thread-id="' + esc(String(replyThreadId)) + '" data-ia-stream-reply-author="' + esc(String(name)) + '">Reply</button>' +
           '<button type="button" class="ia-stream-comment-copy" data-ia-stream-copy-comment="' + esc(String(id)) + '" aria-label="Copy link">' + icoCopy() + '</button>' +
           (canDelete ? ('<button type="button" class="ia-stream-comment-del" data-ia-stream-comment-del="' + esc(String(id)) + '" aria-label="Delete">🗑</button>') : '') +
         '</div>' +
@@ -327,6 +392,8 @@ function showActionError(res, fallback) {
     const text = thread && thread.text ? thread.text : '';
     const threadId = thread && thread.id ? thread.id : '';
     const rootCommentId = thread && (thread.comment_id || thread.commentId) ? (thread.comment_id || thread.commentId) : '';
+    // PeerTube reply creation targets the thread identifier here, not the clicked node id.
+    const replyThreadId = String(threadId || rootCommentId || '').trim();
     const replies = thread && thread.replies_count ? parseInt(thread.replies_count, 10) : 0;
 
     const tree = threadId && _threadTrees[threadId] ? _threadTrees[threadId] : null;
@@ -342,7 +409,7 @@ function showActionError(res, fallback) {
 
     return (
       '<div class="ia-stream-thread" data-ia-stream-thread="' + esc(String(threadId)) + '">' +
-        nodeHtml(rootNode, 0) +
+        nodeHtml(rootNode, 0, replyThreadId) +
         (replies > 0 ? (
           '<div class="ia-stream-thread-tools">' +
             '<button type="button" class="ia-stream-thread-toggle" data-ia-stream-thread-open="' + esc(String(threadId)) + '">' +
@@ -352,11 +419,24 @@ function showActionError(res, fallback) {
         ) : '') +
         (children.length ? (
           '<div class="ia-stream-thread-children">' +
-            children.map((ch) => renderNodeTree(ch, 1)).join('') +
+            children.map((ch) => renderNodeTree(ch, 1, replyThreadId)).join('') +
           '</div>'
         ) : '') +
       '</div>'
     );
+  }
+
+  function applyAlternatingCommentRows() {
+    const C = commentsMount();
+    if (!C || !C.querySelectorAll) return;
+    const comments = C.querySelectorAll('.ia-stream-comment');
+    let i = 0;
+    comments.forEach(function (el) {
+      if (!el || !el.classList) return;
+      el.classList.remove('ia-stream-comment--alt');
+      if (i % 2 === 1) el.classList.add('ia-stream-comment--alt');
+      i += 1;
+    });
   }
 
   function renderThreads(items, append) {
@@ -366,6 +446,75 @@ function showActionError(res, fallback) {
     const html = (Array.isArray(items) ? items : []).map(threadHtml).join('');
     if (append) C.insertAdjacentHTML('beforeend', html);
     else C.innerHTML = html;
+    applyAlternatingCommentRows();
+  }
+
+  function scheduleCommentsReload(delayMs) {
+    const wait = Math.max(0, Number(delayMs || 0));
+    window.setTimeout(function () {
+      NS.ui.comments.load(_videoId);
+    }, wait);
+  }
+
+  function appendOptimisticReply(commentId, threadId, text) {
+    const C = commentsMount();
+    if (!C) return;
+
+    commentId = String(commentId || '').trim();
+    threadId = String(threadId || '').trim();
+    text = String(text || '').trim();
+    if (!commentId || !threadId || !text) return;
+
+    const host = NS.util.qs('[data-ia-stream-comment="' + cssEscape(commentId) + '"]', C);
+    if (!host) return;
+
+    const threadEl = host.closest ? host.closest('[data-ia-stream-thread]') : null;
+    if (!threadEl) return;
+
+    let kids = NS.util.qs('.ia-stream-thread-children', threadEl);
+    if (!kids) {
+      kids = document.createElement('div');
+      kids.className = 'ia-stream-thread-children';
+      threadEl.appendChild(kids);
+    }
+
+    const cfg = window.IA_STREAM_CFG || {};
+    const ident = cfg && cfg.identity ? cfg.identity : {};
+    const me = ident && (ident.displayName || ident.username || ident.name) ? (ident.displayName || ident.username || ident.name) : 'You';
+    const pseudoId = 'pending-' + String(Date.now()) + '-' + String(Math.random()).slice(2, 8);
+    kids.insertAdjacentHTML('beforeend', nodeHtml({
+      id: pseudoId,
+      text: text,
+      created_ago: 'Just now',
+      author: { name: me },
+      votes: { up: 0, down: 0, my: 0 }
+    }, 1, threadId));
+
+    const toggle = NS.util.qs('[data-ia-stream-thread-open]', threadEl);
+    if (toggle) toggle.textContent = 'Hide replies';
+    if (threadEl.classList) threadEl.classList.remove('is-collapsed');
+    applyAlternatingCommentRows();
+  }
+
+  function removeCommentFromDom(commentId) {
+    const C = commentsMount();
+    if (!C) return;
+    commentId = String(commentId || '').trim();
+    if (!commentId) return;
+
+    const node = NS.util.qs('[data-ia-stream-comment="' + cssEscape(commentId) + '"]', C);
+    if (!node) return;
+
+    const threadEl = node.closest ? node.closest('[data-ia-stream-thread]') : null;
+    const isRoot = !!(threadEl && threadEl.firstElementChild === node);
+
+    if (isRoot && threadEl && threadEl.parentNode) {
+      threadEl.parentNode.removeChild(threadEl);
+    } else if (node.parentNode) {
+      node.parentNode.removeChild(node);
+    }
+
+    applyAlternatingCommentRows();
   }
 
   async function loadThreads(videoId, page) {
@@ -439,14 +588,46 @@ function showActionError(res, fallback) {
     await Promise.all(workers);
   }
 
-  function renderNodeTree(node, depth) {
+  function renderNodeTree(node, depth, threadRootId) {
     const html = [];
-    html.push(nodeHtml(node, depth));
+    html.push(nodeHtml(node, depth, threadRootId));
     const kids = node && Array.isArray(node.children) ? node.children : [];
     for (const ch of kids) {
-      html.push(renderNodeTree(ch, depth + 1));
+      html.push(renderNodeTree(ch, depth + 1, threadRootId));
     }
     return html.join('');
+  }
+
+
+  function applyRequestedHighlight() {
+    const C = commentsMount();
+    if (!C) return;
+    let cid = '';
+    try {
+      cid = String((NS.state && NS.state.highlightCommentId) || '');
+      if (!cid) {
+        const u = new URL(window.location.href);
+        cid = String(u.searchParams.get('stream_comment') || u.searchParams.get('stream_reply') || '');
+        if (!cid) {
+          const h = String(u.hash || '');
+          if (h.indexOf('#comment-') === 0) cid = decodeURIComponent(h.replace('#comment-', ''));
+        }
+      }
+    } catch (e) {}
+    cid = String(cid || '').trim();
+    if (!cid) return;
+    const el = C.querySelector('[data-ia-stream-comment="' + cssEscape(cid) + '"]');
+    if (!el) return;
+    const kind = String(el.getAttribute('data-ia-stream-kind') || '').toLowerCase();
+    const replyId = kind === 'reply' ? cid : '';
+    const commentId = kind === 'reply' ? String((NS.state && NS.state.highlightRootCommentId) || '') : cid;
+    try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+    el.classList.add('ia-stream-highlight');
+    setTimeout(function () { try { el.classList.remove('ia-stream-highlight'); } catch (e) {} }, 2200);
+    syncCommentUrl(commentId, replyId, true);
+    try { NS.state.highlightCommentId = ''; } catch (e) {}
+    try { NS.state.highlightReplyId = ''; } catch (e) {}
+    try { NS.state.highlightRootCommentId = ''; } catch (e) {}
   }
 
   NS.ui.comments.load = async function (videoId) {
@@ -471,21 +652,7 @@ function showActionError(res, fallback) {
 
     renderThreads(out.items, false);
 
-    // If the page URL includes a comment hash (#comment-...), scroll it into view.
-    try {
-      const h = String(window.location.hash || '');
-      if (h.indexOf('#comment-') === 0) {
-        const cid = decodeURIComponent(h.replace('#comment-', ''));
-        if (cid) {
-          const el = commentsMount().querySelector('[data-ia-stream-comment-node="' + cssEscape(cid) + '"]');
-          if (el && el.scrollIntoView) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('ia-stream-highlight');
-            setTimeout(function () { try { el.classList.remove('ia-stream-highlight'); } catch (e) {} }, 2000);
-          }
-        }
-      }
-    } catch (e) {}
+    applyRequestedHighlight();
     NS.ui.comments._bindOnce();
   };
 
@@ -503,17 +670,9 @@ function showActionError(res, fallback) {
       if (copyBtn) {
         ev.preventDefault();
         const cid = copyBtn.getAttribute('data-ia-stream-copy-comment') || '';
-        const base = (NS.state && NS.state.currentVideoUrl) ? String(NS.state.currentVideoUrl) : '';
-        let link = '';
-        try {
-          const u = new URL(base || window.location.href);
-          u.searchParams.set('tab', 'stream');
-          u.searchParams.set('focus', 'comments');
-          u.hash = 'comment-' + encodeURIComponent(cid);
-          link = u.toString();
-        } catch (e) {
-          link = (base || window.location.href || '').replace(/#.*$/, '') + '#comment-' + encodeURIComponent(cid);
-        }
+        const host = copyBtn.closest ? copyBtn.closest('[data-ia-stream-comment]') : null;
+        const kind = String(host && host.getAttribute('data-ia-stream-kind') || '').toLowerCase();
+        const link = commentPermalink(kind === 'reply' ? '' : cid, kind === 'reply' ? cid : '');
         await copyText(link);
         return;
       }
@@ -563,7 +722,7 @@ function showActionError(res, fallback) {
         try { delBtn.disabled = false; } catch (e) {}
 
         if (!res || res.ok === false) {
-          if (res && String(res.code || '') === 'missing_user_token') {
+          if (res && isRecoverableTokenState(res)) {
             const okTok = await ensurePeerTubeUserToken();
             if (okTok) {
               try { delBtn.disabled = true; } catch (e) {}
@@ -578,8 +737,8 @@ function showActionError(res, fallback) {
           return;
         }
 
-        // Refresh comments to keep tree consistent.
-        await NS.ui.comments.load(_videoId);
+        removeCommentFromDom(cid);
+        scheduleCommentsReload(900);
         return;
       }
 
@@ -589,7 +748,8 @@ function showActionError(res, fallback) {
         ev.preventDefault();
         const id = replyBtn.getAttribute('data-ia-stream-reply') || '';
         const who = replyBtn.getAttribute('data-ia-stream-reply-author') || '';
-        if (id) openInlineReply(id, who);
+        const threadId = replyBtn.getAttribute('data-ia-stream-reply-thread-id') || id;
+        if (id) openInlineReply(id, who, threadId);
         return;
       }
 
@@ -608,25 +768,27 @@ function showActionError(res, fallback) {
           ev.preventDefault();
           const vid = box.getAttribute('data-video-id') || _videoId;
           const cid = box.getAttribute('data-comment-id') || '';
+          const threadId = box.getAttribute('data-thread-id') || cid;
           const inp = NS.util.qs('.ia-stream-inline-reply-input', box);
           const text = String(inp && inp.value ? inp.value : '').trim();
-          if (!vid || !cid || !text) return;
+          if (!vid || !cid || !threadId || !text) return;
 
           try { send.disabled = true; } catch (e) {}
-          let res = await NS.api.replyToComment({ video_id: vid, comment_id: cid, text: text });
+          let res = await NS.api.replyToComment({ video_id: vid, comment_id: threadId, text: text });
           try { send.disabled = false; } catch (e) {}
 
           if (!res || res.ok === false) {
             // If we have no per-user token yet, prompt once to mint then retry.
-            if (res && String(res.code || '') === 'missing_user_token') {
+            if (res && isRecoverableTokenState(res)) {
               const okTok = await ensurePeerTubeUserToken();
               if (okTok) {
                 try { send.disabled = true; } catch (e) {}
-                res = await NS.api.replyToComment({ video_id: vid, comment_id: cid, text: text });
+                res = await NS.api.replyToComment({ video_id: vid, comment_id: threadId, text: text });
                 try { send.disabled = false; } catch (e) {}
                 if (res && res.ok !== false) {
+                  appendOptimisticReply(cid, threadId, text);
                   clearInlineReply();
-                  await NS.ui.comments.load(_videoId);
+                  scheduleCommentsReload(900);
                   return;
                 }
               }
@@ -637,8 +799,9 @@ function showActionError(res, fallback) {
             return;
           }
 
+          appendOptimisticReply(cid, threadId, text);
           clearInlineReply();
-          await NS.ui.comments.load(_videoId);
+          scheduleCommentsReload(900);
           return;
         }
       }
@@ -662,6 +825,7 @@ function showActionError(res, fallback) {
               threadEl.classList.add('is-collapsed');
               openBtn.textContent = 'Show replies';
             }
+            applyAlternatingCommentRows();
             return;
           }
         }
@@ -696,7 +860,7 @@ function showActionError(res, fallback) {
 
     if (!res || res.ok === false) {
       // If we have no per-user token yet, prompt once to mint then retry.
-      if (res && String(res.code || '') === 'missing_user_token') {
+      if (res && isRecoverableTokenState(res)) {
         const okTok = await ensurePeerTubeUserToken();
         if (okTok) {
           try { if (send) send.disabled = true; } catch (e) {}

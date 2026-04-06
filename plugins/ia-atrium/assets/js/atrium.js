@@ -212,6 +212,64 @@
       .replaceAll("'", "&#039;");
   }
 
+  function escapeRegExp(str) {
+    return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function decodeEntities(str) {
+    const value = String(str || '');
+    if (!value) return '';
+    const el = document.createElement('textarea');
+    el.innerHTML = value;
+    return el.value;
+  }
+
+  function cleanSearchText(str) {
+    let text = decodeEntities(str || '');
+    text = text
+      .replace(/<\s*br\s*\/?\s*>/gi, ' ')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\[(?:\/?)[a-z*]+(?:=[^\]]+)?\]/gi, ' ')
+      .replace(/\{[^{}]*\}/g, ' ')
+      .replace(/https?:\/\//gi, '')
+      .replace(/[\/_?#=&.-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return text;
+  }
+
+  function buildSearchSnippet(str, query, maxLen) {
+    const text = cleanSearchText(str || '');
+    const q = String(query || '').trim();
+    const limit = Math.max(80, parseInt(maxLen || 0, 10) || 180);
+    if (!text) return '';
+    if (!q) return text.length > limit ? (text.slice(0, limit - 1).trim() + '…') : text;
+    const lower = text.toLowerCase();
+    const needle = q.toLowerCase();
+    const idx = lower.indexOf(needle);
+    if (idx === -1) return text.length > limit ? (text.slice(0, limit - 1).trim() + '…') : text;
+    const pad = Math.max(24, Math.floor((limit - needle.length) / 2));
+    let start = Math.max(0, idx - pad);
+    let end = Math.min(text.length, idx + needle.length + pad);
+    if ((end - start) < limit) {
+      if (start === 0) end = Math.min(text.length, limit);
+      else if (end === text.length) start = Math.max(0, text.length - limit);
+    }
+    let snippet = text.slice(start, end).trim();
+    if (start > 0) snippet = '…' + snippet;
+    if (end < text.length) snippet = snippet + '…';
+    return snippet;
+  }
+
+  function renderHighlightedText(str, query) {
+    const text = String(str || '');
+    const q = String(query || '').trim();
+    if (!text) return '';
+    if (!q) return escapeHtml(text);
+    const re = new RegExp('(' + escapeRegExp(q) + ')', 'ig');
+    return escapeHtml(text).replace(re, '<mark class="ia-atrium-search-hit">$1</mark>');
+  }
+
   // Topbar: tab dropdown label
   function tabLabelFromKey(shell, key) {
     const item = shell ? qs('.ia-atrium-tabmenu-item[data-target="' + key + '"]', shell) : null;
@@ -601,6 +659,7 @@
       try { overlay.setAttribute('data-scope', t); } catch (e) {}
       if (t === 'discuss') input.setAttribute('placeholder', 'Search Discuss');
       else if (t === 'connect') input.setAttribute('placeholder', 'Search Connect');
+      else if (t === 'stream') input.setAttribute('placeholder', 'Search Stream');
       else input.setAttribute('placeholder', 'Search');
     } catch (e) {}
 
@@ -672,12 +731,22 @@
       if (!tab) return u.toString();
       u.searchParams.set('tab', tab);
 
-      // Clear cross-tab params that could conflict.
-      ['iad_view','iad_q','iad_topic','iad_post','iad_forum','iad_forum_name','ia_profile','ia_profile_name','ia_post','ia_comment','ia_connect_focus'].forEach((k) => {
+      ['iad_view','iad_q','iad_topic','iad_post','iad_forum','iad_forum_name','ia_profile','ia_profile_name','ia_post','ia_comment','ia_connect_focus','stream_view','stream_q','stream_scope','stream_sort','video','focus','stream_comment','stream_reply'].forEach((k) => {
         try { u.searchParams.delete(k); } catch (e) {}
       });
 
-      if (tab === 'connect') {
+      if (tab === 'stream' && streamVideo) {
+      goToStreamSearch(String(it.getAttribute('data-stream-q') || '').trim(), {
+        streamQ: String(it.getAttribute('data-stream-q') || '').trim(),
+        streamScope: String(it.getAttribute('data-stream-scope') || 'all'),
+        streamSort: String(it.getAttribute('data-stream-sort') || '-publishedAt'),
+        streamVideo: streamVideo,
+        streamComment: streamComment
+      });
+      return;
+    }
+
+    if (tab === 'connect') {
         const profile = String(opts.profile || '').trim();
         if (profile) {
           if (profile.startsWith('post:')) {
@@ -700,10 +769,32 @@
         return u.toString();
       }
 
+      if (tab === 'stream') {
+        const sq = String(opts.streamQ || '').trim();
+        const videoId = String(opts.streamVideo || '').trim();
+        const commentId = String(opts.streamComment || '').trim();
+        const replyId = String(opts.streamReply || '').trim();
+        if (sq) {
+          u.searchParams.set('stream_view', 'search');
+          u.searchParams.set('stream_q', sq);
+          u.searchParams.set('stream_scope', String(opts.streamScope || 'all'));
+          u.searchParams.set('stream_sort', String(opts.streamSort || '-publishedAt'));
+        }
+        if (videoId) {
+          u.searchParams.set('video', videoId);
+          u.searchParams.set('focus', 'comments');
+          if (commentId) u.searchParams.set('stream_comment', commentId);
+          else u.searchParams.delete('stream_comment');
+          if (replyId) u.searchParams.set('stream_reply', replyId);
+          else u.searchParams.delete('stream_reply');
+        }
+        return u.toString();
+      }
+
       if (tab === 'discuss') {
         const topicId = parseInt(String(opts.iadTopic || '0'), 10) || 0;
         const q = String(opts.iadQ || '').trim();
-        const fid = parseInt(String(opts.profile || '0'), 10) || 0; // forum_id stored in profile
+        const fid = parseInt(String(opts.profile || '0'), 10) || 0;
 
         if (topicId) {
           u.searchParams.set('iad_topic', String(topicId));
@@ -726,9 +817,76 @@
     }
   }
 
+
+function atriumSearchHistoryKey(scope) {
+  const uid = (window.IA_ATRIUM && IA_ATRIUM.userId) ? String(IA_ATRIUM.userId) : '0';
+  return 'ia_atrium_search_history:' + uid + ':' + String(scope || 'all');
+}
+
+function getSearchHistory(scope) {
+  try {
+    const raw = window.localStorage ? localStorage.getItem(atriumSearchHistoryKey(scope)) : '';
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.filter(Boolean).map(v => String(v)).slice(0, 12) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveSearchHistory(scope, q) {
+  q = String(q || '').trim();
+  if (q.length < 2) return;
+  try {
+    const current = getSearchHistory(scope).filter(v => v.toLowerCase() !== q.toLowerCase());
+    current.unshift(q);
+    if (window.localStorage) localStorage.setItem(atriumSearchHistoryKey(scope), JSON.stringify(current.slice(0, 12)));
+  } catch (e) {}
+}
+
+function deleteSearchHistoryItem(scope, q) {
+  q = String(q || '').trim().toLowerCase();
+  try {
+    const next = getSearchHistory(scope).filter(v => String(v || '').trim().toLowerCase() !== q);
+    if (window.localStorage) localStorage.setItem(atriumSearchHistoryKey(scope), JSON.stringify(next));
+  } catch (e) {}
+}
+
+function clearSearchHistory(scope) {
+  try {
+    if (window.localStorage) localStorage.removeItem(atriumSearchHistoryKey(scope));
+  } catch (e) {}
+}
+
+function renderHistorySection(scope) {
+  const items = getSearchHistory(scope);
+  if (!items.length) return '<div class="ia-atrium-search-empty">No history</div>';
+  return (
+    '<div class="ia-atrium-search-section">' +
+      '<div class="ia-atrium-search-section-title">' +
+        '<span>Recent searches</span>' +
+        '<button type="button" class="ia-atrium-search-history-clear" data-ia-search-clear="1">Clear</button>' +
+      '</div>' +
+      '<div class="ia-atrium-search-history-list">' +
+        items.map(q => (
+          '<div class="ia-atrium-search-history-row">' +
+            '<button type="button" class="ia-atrium-search-history-run" data-ia-search-history="' + escapeHtml(q) + '">' +
+              '<span class="ia-atrium-search-history-text">' + escapeHtml(q) + '</span>' +
+            '</button>' +
+            '<button type="button" class="ia-atrium-search-history-delete" data-ia-search-history-delete="' + escapeHtml(q) + '" aria-label="Delete search">×</button>' +
+          '</div>'
+        )).join('') +
+      '</div>' +
+    '</div>'
+  );
+}
+
   function itemHtml(opts) {
     const img = opts.avatar ? ('<img src="' + escapeHtml(opts.avatar) + '" alt="" />') : '<span style="width:34px;height:34px;display:block"></span>';
     const href = buildHref(opts);
+    const query = String(opts.query || '').trim();
+    const snippet = buildSearchSnippet(opts.snippet || '', query, opts.snippetMax || 180);
+    const primary = cleanSearchText(opts.primary || '') || String(opts.primary || '').trim();
+    const secondary = cleanSearchText(opts.secondary || '') || String(opts.secondary || '').trim();
     return (
       '<a class="ia-atrium-search-item" href="' + escapeHtml(href) + '" ' +
         'data-ia-search-nav="1" ' +
@@ -736,14 +894,163 @@
         'data-iad-q="' + escapeHtml(opts.iadQ || '') + '" ' +
         'data-iad-topic="' + escapeHtml(opts.iadTopic || '') + '" ' +
         'data-ia-profile="' + escapeHtml(opts.profile || '') + '" ' +
+        'data-stream-q="' + escapeHtml(opts.streamQ || '') + '" ' +
+        'data-stream-scope="' + escapeHtml(opts.streamScope || '') + '" ' +
+        'data-stream-sort="' + escapeHtml(opts.streamSort || '') + '" ' +
+        'data-stream-video="' + escapeHtml(opts.streamVideo || '') + '" ' +
+        'data-stream-comment="' + escapeHtml(opts.streamComment || '') + '" ' +
       '>' +
         img +
         '<div class="ia-atrium-search-meta">' +
-          '<div class="ia-atrium-search-primary">' + escapeHtml(opts.primary || '') + '</div>' +
-          (opts.secondary ? '<div class="ia-atrium-search-secondary">' + escapeHtml(opts.secondary) + '</div>' : '') +
+          '<div class="ia-atrium-search-primary">' + escapeHtml(primary || '') + '</div>' +
+          (secondary ? '<div class="ia-atrium-search-secondary">' + escapeHtml(secondary) + '</div>' : '') +
+          (snippet ? '<div class="ia-atrium-search-secondary ia-atrium-search-snippet">' + renderHighlightedText(snippet, query) + '</div>' : '') +
         '</div>' +
       '</a>'
     );
+  }
+
+  function streamNonce() {
+    try {
+      if (window.IA_ATRIUM && IA_ATRIUM.nonces && IA_ATRIUM.nonces.stream) return String(IA_ATRIUM.nonces.stream || '');
+      if (window.IA_STREAM_CFG && IA_STREAM_CFG.nonce) return String(IA_STREAM_CFG.nonce || '');
+    } catch (e) {}
+    return '';
+  }
+
+  function textMatch(hay, q) {
+    return String(hay || '').toLowerCase().indexOf(String(q || '').toLowerCase()) !== -1;
+  }
+
+  function summarizeStreamQuery(q) {
+    return {
+      tab: 'stream',
+      primary: 'Search Stream for “' + q + '”',
+      secondary: 'Videos, channels, users, tags and comments',
+      streamQ: q,
+      streamScope: 'all',
+      streamSort: '-publishedAt'
+    };
+  }
+
+  function pushStreamCommentUser(users, userSeen, author, secondary) {
+    const label = String(author || '').trim();
+    if (!label) return;
+    const key = secondary + ':' + label.toLowerCase();
+    if (userSeen.has(key)) return;
+    userSeen.add(key);
+    users.push({ label: label, secondary: secondary, avatar: '', url: '' });
+  }
+
+  function collectStreamReplyMatches(node, q, video, comments, users, userSeen) {
+    if (!node || typeof node !== 'object') return;
+    const body = String(node && node.text || '').trim();
+    const author = node && node.author ? String(node.author.display_name || node.author.name || '').trim() : '';
+    if (body && textMatch(body, q)) {
+      comments.push({ videoId: String(video && video.id || ''), videoTitle: String(video && video.title || 'Video'), commentId: '', replyId: String(node && (node.id || node.comment_id) || ''), author: author || 'Reply', text: body, kind: 'Reply' });
+      pushStreamCommentUser(users, userSeen, author, 'Reply author');
+    }
+    const children = Array.isArray(node && node.children) ? node.children : [];
+    children.forEach((child) => collectStreamReplyMatches(child, q, video, comments, users, userSeen));
+  }
+
+  async function gatherStreamSearch(q) {
+    const nonce = streamNonce();
+    if (!nonce) return { videos: [], channels: [], users: [], tags: [], comments: [] };
+
+    const videoRes = await postAjax('ia_stream_feed', { q: q, search: q, page: 1, per_page: 8, sort: '-publishedAt', nonce: nonce }).catch(() => null);
+    const channelRes = await postAjax('ia_stream_channels', { q: q, search: q, page: 1, per_page: 6, nonce: nonce }).catch(() => null);
+
+    const videos = videoRes && videoRes.ok !== false && Array.isArray(videoRes.items) ? videoRes.items : [];
+    const channels = channelRes && channelRes.ok !== false && Array.isArray(channelRes.items) ? channelRes.items : [];
+
+    const tags = [];
+    const comments = [];
+    const users = [];
+    const userSeen = new Set();
+    const tagSeen = new Set();
+
+    videos.forEach((v) => {
+      const ch = v && v.channel ? v.channel : {};
+      const uploader = String(ch.display_name || ch.name || '').trim();
+      if (uploader) {
+        const key = 'uploader:' + uploader.toLowerCase();
+        if (!userSeen.has(key)) {
+          userSeen.add(key);
+          users.push({ label: uploader, secondary: 'Video uploader', avatar: ch.avatar || '', url: ch.url || '' });
+        }
+      }
+      const category = String(v && v.category || '').trim();
+      if (category && textMatch(category, q)) {
+        const key = 'cat:' + category.toLowerCase();
+        if (!tagSeen.has(key)) {
+          tagSeen.add(key);
+          tags.push({ type: 'Category', label: category, videoId: String(v.id || '') });
+        }
+      }
+      (Array.isArray(v && v.tags) ? v.tags : []).forEach((tag) => {
+        const label = String(tag || '').trim();
+        if (!label || !textMatch(label, q)) return;
+        const key = 'tag:' + label.toLowerCase();
+        if (tagSeen.has(key)) return;
+        tagSeen.add(key);
+        tags.push({ type: 'Tag', label: '#' + label, videoId: String(v.id || '') });
+      });
+    });
+
+    for (const v of videos.slice(0, 5)) {
+      if (!v || !v.id) continue;
+      const cRes = await postAjax('ia_stream_comments', { video_id: v.id, page: 1, per_page: 6, nonce: nonce }).catch(() => null);
+      const rows = cRes && cRes.ok !== false && Array.isArray(cRes.items) ? cRes.items : [];
+      for (const row of rows) {
+        const body = String(row && row.text || '').trim();
+        const author = row && row.author ? String(row.author.display_name || row.author.name || '').trim() : '';
+        if (body && textMatch(body, q)) {
+          comments.push({ videoId: String(v.id || ''), videoTitle: String(v.title || 'Video'), commentId: String(row && (row.comment_id || row.commentId || row.id) || ''), replyId: '', author: author || 'Comment', text: body, kind: 'Comment' });
+          pushStreamCommentUser(users, userSeen, author, 'Comment author');
+        }
+        const threadId = String(row && row.id || '').trim();
+        if (threadId && comments.length < 6) {
+          const tRes = await postAjax('ia_stream_comment_thread', { video_id: v.id, thread_id: threadId, nonce: nonce }).catch(() => null);
+          const root = tRes && tRes.ok !== false && tRes.item && tRes.item.root ? tRes.item.root : null;
+          if (root && Array.isArray(root.children)) {
+            root.children.forEach((child) => collectStreamReplyMatches(child, q, v, comments, users, userSeen));
+          }
+        }
+        if (comments.length >= 6) break;
+      }
+      if (comments.length >= 6) break;
+    }
+
+    return { videos: videos.slice(0, 6), channels: channels.slice(0, 6), users: users.slice(0, 6), tags: tags.slice(0, 6), comments: comments.slice(0, 6) };
+  }
+
+  function goToStreamSearch(q, opts) {
+    q = String(q || '').trim();
+    opts = opts || {};
+    if (!q && !opts.streamQ && !opts.streamVideo) return;
+    const s = getShell();
+    if (s) setActiveTab(s, 'stream');
+    setUrlParam('tab', 'stream');
+    setUrlParam('stream_view', 'search');
+    setUrlParam('stream_q', String(opts.streamQ || q || '').trim());
+    setUrlParam('stream_scope', String(opts.streamScope || 'all'));
+    setUrlParam('stream_sort', String(opts.streamSort || '-publishedAt'));
+    setUrlParam('video', String(opts.streamVideo || ''));
+    setUrlParam('focus', opts.streamVideo ? 'comments' : '');
+    setUrlParam('stream_comment', String(opts.streamComment || ''));
+    setUrlParam('stream_reply', String(opts.streamReply || ''));
+    try {
+      window.dispatchEvent(new CustomEvent('ia:stream:search', { detail: {
+        query: String(opts.streamQ || q || '').trim(),
+        scope: String(opts.streamScope || 'all'),
+        sort: String(opts.streamSort || '-publishedAt')
+      }}));
+    } catch (e) {}
+    if (opts.streamVideo && window.IA_STREAM && IA_STREAM.ui && IA_STREAM.ui.video && typeof IA_STREAM.ui.video.open === 'function') {
+      try { IA_STREAM.ui.video.open(String(opts.streamVideo), { focus: 'comments', highlightCommentId: String(opts.streamReply || opts.streamComment || '') }); } catch (e) {}
+    }
+    setTimeout(knownHardClose, 0);
   }
 
   let t = 0;
@@ -767,6 +1074,42 @@
 
     const s = getShell();
     const scope = String((s && s.getAttribute('data-active-tab')) || getUrlParam('tab') || '').trim() || 'connect';
+
+    if (scope === 'stream') {
+      gatherStreamSearch(q).then((streamData) => {
+        const { input, results: rNow } = getEls();
+        if (input && String(input.value || '').trim() !== lastQ) return;
+        if (!rNow) return;
+        const html = [];
+        const videos = Array.isArray(streamData.videos) ? streamData.videos : [];
+        const channels = Array.isArray(streamData.channels) ? streamData.channels : [];
+        const users = Array.isArray(streamData.users) ? streamData.users : [];
+        const tags = Array.isArray(streamData.tags) ? streamData.tags : [];
+        const comments = Array.isArray(streamData.comments) ? streamData.comments : [];
+
+        if (videos.length) {
+          html.push(renderSection('Videos', videos.map(v => itemHtml({ tab: 'stream', primary: v.title || 'Video', secondary: ((v.channel && (v.channel.display_name || v.channel.name)) ? (String(v.channel.display_name || v.channel.name) + ' • ') : '') + 'Video', streamQ: q, streamScope: 'videos', streamSort: '-publishedAt' })).join('')));
+        }
+        if (channels.length) {
+          html.push(renderSection('Channels', channels.map(c => itemHtml({ tab: 'stream', primary: c.display_name || c.name || 'Channel', secondary: 'Channel', streamQ: q, streamScope: 'channels', streamSort: '-publishedAt' })).join('')));
+        }
+        if (users.length) {
+          html.push(renderSection('Users', users.map(u => itemHtml({ tab: 'stream', primary: u.label || 'User', secondary: u.secondary || 'User', streamQ: q, streamScope: 'users', streamSort: '-publishedAt' })).join('')));
+        }
+        if (tags.length) {
+          html.push(renderSection('Tags and categories', tags.map(t => itemHtml({ tab: 'stream', primary: t.label || 'Tag', secondary: t.type || 'Tag', streamQ: q, streamScope: ((t.type || '').toLowerCase() === 'category' ? 'categories' : 'tags'), streamSort: '-publishedAt' })).join('')));
+        }
+        if (comments.length) {
+          html.push(renderSection('Comments', comments.map(c => itemHtml({ tab: 'stream', primary: c.text || 'Comment', secondary: (c.author ? c.author + ' • ' : '') + (c.kind || 'Comment') + ' • ' + (c.videoTitle || 'Video comment'), streamQ: q, streamScope: 'comments', streamSort: '-publishedAt', streamVideo: c.videoId || '', streamComment: c.commentId || '', streamReply: c.replyId || '' })).join('')));
+        }
+
+        html.push(renderSection('Open full search', itemHtml(summarizeStreamQuery(q))));
+        rNow.innerHTML = html.join('');
+        if (!html.length) renderEmpty('No results');
+      }).catch(() => renderEmpty('No results'));
+      return;
+    }
+
     const wantDiscuss = (scope === 'discuss') ? true : (scope === 'connect' ? false : true);
     const wantConnect = (scope === 'connect') ? true : (scope === 'discuss' ? false : true);
 
@@ -854,6 +1197,8 @@
             tab: 'discuss',
             primary: t.topic_title || 'Topic',
             secondary: (t.forum_name ? (t.forum_name + ' • ') : '') + 'Discuss',
+            snippet: t.snippet || '',
+            query: q,
             iadTopic: String(t.topic_id || ''),
             profile: ''
           })).join('')));
@@ -864,6 +1209,8 @@
             tab: 'discuss',
             primary: r.topic_title || 'Reply',
             secondary: (r.username ? (r.username + ' • ') : '') + 'Discuss',
+            snippet: r.snippet || '',
+            query: q,
             iadTopic: String(r.topic_id || ''),
             profile: ''
           })).join('')));
@@ -879,6 +1226,8 @@
           tab: 'connect',
           primary: p.title || 'Post',
           secondary: p.author ? ('by ' + p.author) : 'Connect',
+          snippet: p.snippet || p.body || '',
+          query: q,
           profile: 'post:' + String(p.id || ''),
           avatar: p.author_avatar || ''
         })).join('')));
@@ -889,10 +1238,14 @@
           tab: 'connect',
           primary: (c.body || '').replace(/\s+/g,' ').trim().slice(0, 60) + ((c.body||'').length>60 ? '…' : ''),
           secondary: c.author ? ('by ' + c.author) : 'Connect',
+          snippet: c.snippet || c.body || '',
+          query: q,
           profile: 'comment:' + String(c.post_id || '') + ':' + String(c.id || ''),
           avatar: c.author_avatar || ''
         })).join('')));
       }
+
+      if (html.length) saveSearchHistory(scope, q);
 
       if (!html.length) {
         if (scope === 'connect' && !loggedIn) renderEmpty('Log in to search Connect');
@@ -927,12 +1280,50 @@
     if (e.target.closest('[data-ia-search-open]')) {
       e.preventDefault();
       open();
+      const { input } = getEls();
+      const s = getShell();
+      const scope = String((s && s.getAttribute('data-active-tab')) || getUrlParam('tab') || '').trim() || 'connect';
+      if (input && String(input.value || '').trim().length < 2) {
+        const { results } = getEls();
+        if (results) results.innerHTML = renderHistorySection(scope);
+      }
       return;
     }
 
     if (e.target.closest('[data-ia-search-close]') && isOpen()) {
       e.preventDefault();
       close();
+      return;
+    }
+
+    const historyRun = e.target.closest('[data-ia-search-history]');
+    if (historyRun) {
+      e.preventDefault();
+      const q = String(historyRun.getAttribute('data-ia-search-history') || '').trim();
+      const { input } = getEls();
+      if (input) input.value = q;
+      if (q) run(q);
+      return;
+    }
+
+    const historyDelete = e.target.closest('[data-ia-search-history-delete]');
+    if (historyDelete) {
+      e.preventDefault();
+      const s = getShell();
+      const scope = String((s && s.getAttribute('data-active-tab')) || getUrlParam('tab') || '').trim() || 'connect';
+      deleteSearchHistoryItem(scope, String(historyDelete.getAttribute('data-ia-search-history-delete') || ''));
+      const { results } = getEls();
+      if (results) results.innerHTML = renderHistorySection(scope);
+      return;
+    }
+
+    if (e.target.closest('[data-ia-search-clear]')) {
+      e.preventDefault();
+      const s = getShell();
+      const scope = String((s && s.getAttribute('data-active-tab')) || getUrlParam('tab') || '').trim() || 'connect';
+      clearSearchHistory(scope);
+      const { results } = getEls();
+      if (results) results.innerHTML = renderHistorySection(scope);
       return;
     }
   });
@@ -954,9 +1345,17 @@
       const q = String(input.value || '').trim();
       if (scope === 'discuss') {
         e.preventDefault();
+        saveSearchHistory(scope, q);
         close();
         knownHardClose();
         goToDiscussSearch(q);
+      }
+      if (scope === 'stream') {
+        e.preventDefault();
+        saveSearchHistory(scope, q);
+        close();
+        knownHardClose();
+        goToStreamSearch(q);
       }
     }
   });
@@ -987,7 +1386,15 @@
     try { e.preventDefault(); } catch (err) {}
 
     const tab = String(it.getAttribute('data-tab') || '').trim();
+    const streamVideo = String(it.getAttribute('data-stream-video') || '').trim();
+    const streamComment = String(it.getAttribute('data-stream-comment') || '').trim();
+    const streamReply = String(it.getAttribute('data-stream-reply') || '').trim();
     if (!tab) return;
+
+    const { input } = getEls();
+    const s = getShell();
+    const scope = String((s && s.getAttribute('data-active-tab')) || getUrlParam('tab') || '').trim() || 'connect';
+    saveSearchHistory(scope, input ? input.value : '');
 
     // Close overlay then navigate.
     close();
@@ -1030,6 +1437,14 @@
         if (s) setActiveTab(s, 'connect');
         setUrlParam('tab', 'connect');
       }
+      return;
+    }
+
+    if (tab === 'stream') {
+      const q = String(it.getAttribute('data-stream-q') || '').trim();
+      const streamScope = String(it.getAttribute('data-stream-scope') || 'all').trim() || 'all';
+      const streamSort = String(it.getAttribute('data-stream-sort') || '-publishedAt').trim() || '-publishedAt';
+      goToStreamSearch(q || String((getEls().input && getEls().input.value) || '').trim(), { streamQ: q, streamScope: streamScope, streamSort: streamSort, streamVideo: streamVideo, streamComment: streamComment, streamReply: streamReply });
       return;
     }
 

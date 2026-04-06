@@ -530,10 +530,14 @@ final class IA_Auth {
     // comments/replies correctly without needing the password again.
     do_action('ia_pt_user_password', (int)$wp_user_id, (string)$pw, (string)$id);
 
-    if (class_exists('IA_PeerTube_Token_Helper') && method_exists('IA_PeerTube_Token_Helper', 'get_token_for_current_user')) {
+    if (class_exists('IA_PeerTube_Token_Helper')) {
         // This is deliberately non-blocking: login should succeed even if PeerTube minting fails.
         try {
-            IA_PeerTube_Token_Helper::get_token_for_current_user();
+            if (method_exists('IA_PeerTube_Token_Helper', 'get_token_status_for_current_user')) {
+                IA_PeerTube_Token_Helper::get_token_status_for_current_user();
+            } elseif (method_exists('IA_PeerTube_Token_Helper', 'get_token_for_current_user')) {
+                IA_PeerTube_Token_Helper::get_token_for_current_user();
+            }
         } catch (Throwable $e) {
             // Non-fatal.
         }

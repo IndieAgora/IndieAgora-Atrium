@@ -306,6 +306,10 @@ function ia_stream_ajax_feed(): void {
   $q = [
     'page'     => ia_stream_post_int('page', 1),
     'per_page' => ia_stream_post_int('per_page', 10),
+    'search'   => ia_stream_post_str('search', ''),
+    'sort'     => ia_stream_post_str('sort', '-publishedAt'),
+    'mode'     => ia_stream_post_str('mode', ''),
+    'channel_handle' => ia_stream_post_str('channel_handle', ''),
   ];
 
   if (class_exists('IA_Stream_Module_Feed')) {
@@ -448,6 +452,10 @@ function ia_stream_ajax_pt_mint_token(): void {
   if ($u && !empty($u->user_login)) $identifier = (string)$u->user_login;
   if ($identifier === '' && $u && !empty($u->user_email)) $identifier = (string)$u->user_email;
 
+  if (function_exists('ia_pt_trace_log')) {
+    ia_pt_trace_log('ia-stream.prompt_recovery.begin', ['wp_user_id' => $wp_user_id, 'identifier' => $identifier]);
+  }
+
   // Capture password for this request (token plugin listens to this action).
   // Also call capture helper directly if present (covers non-hooked variants).
   try {
@@ -472,7 +480,17 @@ function ia_stream_ajax_pt_mint_token(): void {
     if (method_exists('IA_PeerTube_Token_Helper', 'get_token_status_for_current_user')) {
       $status = IA_PeerTube_Token_Helper::get_token_status_for_current_user();
       if (!empty($status['ok']) && trim((string)($status['token'] ?? '')) !== '') {
+        if (function_exists('ia_pt_trace_log')) {
+          ia_pt_trace_log('ia-stream.prompt_recovery.ok', ['wp_user_id' => $wp_user_id, 'code' => 'valid_token']);
+        }
         wp_send_json(['ok' => true, 'code' => 'valid_token']);
+      }
+      if (function_exists('ia_pt_trace_log')) {
+        ia_pt_trace_log('ia-stream.prompt_recovery.fail', [
+          'wp_user_id' => $wp_user_id,
+          'code' => (string)($status['code'] ?? 'mint_failed'),
+          'reason' => (string)($status['error'] ?? 'Mint failed'),
+        ]);
       }
       wp_send_json([
         'ok' => false,
@@ -484,9 +502,15 @@ function ia_stream_ajax_pt_mint_token(): void {
 
     $tok = (string) IA_PeerTube_Token_Helper::get_token_for_current_user();
     if (trim($tok) === '') {
+      if (function_exists('ia_pt_trace_log')) {
+        ia_pt_trace_log('ia-stream.prompt_recovery.fail', ['wp_user_id' => $wp_user_id, 'code' => 'mint_failed', 'reason' => 'Mint failed']);
+      }
       wp_send_json(['ok' => false, 'code' => 'mint_failed', 'error' => 'Mint failed']);
     }
   } catch (Throwable $e) {
+    if (function_exists('ia_pt_trace_log')) {
+      ia_pt_trace_log('ia-stream.prompt_recovery.exception', ['wp_user_id' => $wp_user_id, 'reason' => $e->getMessage() ?: 'Mint failed']);
+    }
     wp_send_json([
       'ok' => false,
       'code' => 'token_helper_exception',
@@ -494,5 +518,8 @@ function ia_stream_ajax_pt_mint_token(): void {
     ]);
   }
 
+  if (function_exists('ia_pt_trace_log')) {
+    ia_pt_trace_log('ia-stream.prompt_recovery.ok', ['wp_user_id' => $wp_user_id, 'code' => 'valid_token']);
+  }
   wp_send_json(['ok' => true, 'code' => 'valid_token']);
 }

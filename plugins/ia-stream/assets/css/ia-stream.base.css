@@ -1,16 +1,15 @@
 /* IA Stream — base */
 #ia-stream-shell {
-  --ia-bg: #0f1115;
-  --ia-panel: #151922;
-  --ia-card: #1b2030;
-  --ia-border: #2a3145;
-  --ia-text: #e6e8ee;
-  --ia-muted: #9aa3b2;
-  --ia-accent: #ff4500; /* reddit-ish */
-  --ia-radius: 10px;
+  --ia-bg: #0b0e15;
+  --ia-panel: #111724;
+  --ia-card: #171e2c;
+  --ia-border: #283247;
+  --ia-text: #edf1f8;
+  --ia-muted: #9ea8bb;
+  --ia-accent: #ff7a29;
+  --ia-radius: 14px;
   --ia-gap: 12px;
 
-  /* Discuss-compatible token aliases (Stream reuses Discuss card classnames) */
   --iad-border: var(--ia-border);
   --iad-radius: var(--ia-radius);
   --iad-muted: var(--ia-muted);
@@ -21,7 +20,9 @@
   --iad-lh-tight: 1.25;
 
   color: var(--ia-text);
-  background: var(--ia-bg);
+  background:
+    radial-gradient(circle at top left, rgba(255,122,41,0.14), transparent 28%),
+    linear-gradient(180deg, #090c13, #0b0e15 24%, #0a0d14 100%);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
                Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
 }
@@ -39,6 +40,14 @@
 
 #ia-stream-shell a:hover {
   text-decoration: underline;
+}
+
+#ia-stream-shell .screen-reader-text {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
 }
 
 .ia-stream-placeholder {

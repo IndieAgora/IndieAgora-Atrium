@@ -142,8 +142,27 @@ const qs = (root, sel) => (root || document).querySelector(sel);
     }catch(_){ }
   }
 
+  function iaConnectIsActiveSurface(){
+    try{
+      const shell = document.querySelector('#ia-atrium-shell');
+      const active = shell ? String(shell.getAttribute('data-active-tab') || '').trim().toLowerCase() : '';
+      if (active) return active === 'connect';
+    }catch(_2){ }
+    try{
+      const url = new URL(location.href);
+      const tab = String(url.searchParams.get('tab') || '').trim().toLowerCase();
+      if (tab) return tab === 'connect';
+    }catch(_){ }
+    try{
+      const panel = document.querySelector('#ia-atrium-shell .ia-panel[data-panel="connect"]');
+      if (panel) return panel.classList.contains('active') || panel.getAttribute('aria-hidden') === 'false';
+    }catch(_3){ }
+    return false;
+  }
+
   function iaConnectApplyPageTitle(rawTitle){
     try{
+      if (!iaConnectIsActiveSurface()) return;
       const site = iaConnectSiteTitle();
       const clean = String(rawTitle || '').trim();
       const full = clean ? (site ? (clean + ' | ' + site) : clean) : site;
@@ -373,6 +392,45 @@ const qs = (root, sel) => (root || document).querySelector(sel);
     t = t.replace(/[ \t]+\n/g, '\n');
     t = t.replace(/\n{3,}/g, '\n\n');
     return t.trim();
+  }
+
+
+  function renderLinkCard(u){
+    try{
+      const url = new URL(String(u||''));
+      const host = String(url.hostname || '').replace(/^www\./i,'') || String(u||'');
+      const path = decodeURIComponent(String(url.pathname || '/')).replace(/\/+$/,'') || '/';
+      const query = String(url.search || '').trim();
+      let title = path === '/' ? host : path.replace(/^\//,'').replace(/[\-_]+/g,' ').replace(/\//g,' / ').trim();
+      if (!title) title = host;
+      if (query) title += ' ' + query;
+      title = title.replace(/\s+/g,' ').trim();
+      if (title.length > 92) title = title.slice(0, 89).trim() + '…';
+      return (
+        '<a class="iac-linkcard" href="' + esc(url.toString()) + '" target="_blank" rel="noopener noreferrer nofollow">' +
+          '<span class="iac-linkcard-host">' + esc(host) + '</span>' +
+          '<span class="iac-linkcard-title">' + esc(title) + '</span>' +
+          '<span class="iac-linkcard-url">' + esc(url.toString()) + '</span>' +
+        '</a>'
+      );
+    }catch(_){ }
+    return '';
+  }
+
+  function renderLinkCardsFromText(text){
+    const urls = extractUrls(text);
+    if (!urls.length) return '';
+    const seen = new Set();
+    const cards = [];
+    for (let i=0;i<urls.length && cards.length<3;i++){
+      const u = urls[i];
+      if (!u || seen.has(u)) continue;
+      seen.add(u);
+      if (isEmbeddableVideoUrl(u)) continue;
+      const card = renderLinkCard(u);
+      if (card) cards.push(card);
+    }
+    return cards.length ? ('<div class="iac-linkcards">' + cards.join('') + '</div>') : '';
   }
 
   function profileUrlFrom(u){
@@ -1406,9 +1464,17 @@ const qs = (root, sel) => (root || document).querySelector(sel);
     function hideMention(){
       mentionBox.hidden = true;
       mentionBox.innerHTML = '';
+      mentionBox.removeAttribute('data-iac-style');
       mentionActiveEl = null;
       mentionToken = '';
       mentionItems = [];
+    }
+
+    function syncMentionTheme(el){
+      const host = el && el.closest && el.closest('[data-iac-style]');
+      const style = host ? String(host.getAttribute('data-iac-style') || '').trim() : '';
+      if (style) mentionBox.setAttribute('data-iac-style', style);
+      else mentionBox.removeAttribute('data-iac-style');
     }
 
     async function fetchMentions(q){
@@ -1473,6 +1539,7 @@ const qs = (root, sel) => (root || document).querySelector(sel);
         if (!token){ hideMention(); return; }
         mentionActiveEl = el;
         mentionToken = token;
+        syncMentionTheme(el);
         mentionDebounced(token);
       });
       el.addEventListener('blur', ()=>{ setTimeout(()=>hideMention(), 120); });
@@ -2138,6 +2205,7 @@ function renderCard(p, opts){
 	  const bodyClean = stripEmbeddableVideoUrls(bodyRaw);
 	  const body = linkMentions(bodyClean);
 	  const embeds = renderVideoEmbedsFromText(bodyRaw);
+      const linkCards = renderLinkCardsFromText(bodyRaw);
       const when = esc(p.created_at||'');
       const isRepost = (p.type === 'repost' || p.type === 'mention') && p.parent_post;
 
@@ -2209,6 +2277,7 @@ function renderCard(p, opts){
         const op = resolveOriginal(p.parent_post);
 	    const opBodyRaw = (op.body||'');
 	    const opEmbeds = renderVideoEmbedsFromText(opBodyRaw);
+	    const opLinkCards = renderLinkCardsFromText(opBodyRaw);
 	    const opBodyClean = stripEmbeddableVideoUrls(opBodyRaw);
         nested = '<div class="iac-card" style="margin-top:10px;opacity:.98">' +
           '<div class="iac-card-head"><img class="iac-card-ava" src="' + esc(op.author_avatar||BLANK_AVA) + '" alt="" />' +
@@ -2218,6 +2287,7 @@ function renderCard(p, opts){
             (op.title ? '<div class="iac-card-title">' + esc(op.title) + '</div>' : '') +
 	        (opBodyClean ? '<div class="iac-card-text">' + linkMentions(opBodyClean) + '</div>' : '') +
             (opEmbeds || '') +
+            (opLinkCards || '') +
             renderAttachmentGallery(op.attachments||[]) +
           '</div></div>';
       }
@@ -2304,6 +2374,7 @@ function renderCard(p, opts){
             (isDiscussShare ? '' : (title ? '<div class="iac-card-title">' + title + '</div>' : '')) +
             (body ? '<div class="iac-card-text">' + body + '</div>' : '') +
             (isDiscussShare ? discussEmbed : (embeds || '')) +
+            (isDiscussShare ? '' : (linkCards || '')) +
             gallery +
             nested +
           '</div>' +
@@ -3016,9 +3087,24 @@ if (e.target.closest('[data-iac-delete]')) {
     return json.data || {};
   }
 
+  function applyStyle(style){
+    const raw = String(style || 'default').trim().toLowerCase();
+    const allowed = ['default','black','calm','dawn','earth','flame','leaf','night','sun','twilight','water'];
+    const next = allowed.indexOf(raw) !== -1 ? raw : 'default';
+    try{ document.body.setAttribute('data-iac-style', next); }catch(_){}
+    try{ document.documentElement.setAttribute('data-iac-style', next); }catch(_){}
+    const shell = document.getElementById('ia-atrium-shell');
+    try{ if (shell) shell.setAttribute('data-iac-style', next); }catch(_){}
+    document.querySelectorAll('[data-iac-style]').forEach(function(el){ el.setAttribute('data-iac-style', next); });
+    try{ document.dispatchEvent(new CustomEvent('ia:connect-style-changed', { detail:{ style: next } })); }catch(_){}
+    return next;
+  }
+
   function init(){
     const cfg = window.IA_CONNECT || {};
     const nonces = (cfg.nonces || {});
+
+    applyStyle((cfg.me && cfg.me.style) ? cfg.me.style : 'default');
 
     const chkDeact = qs("[data-iac-acct-deactivate-confirm]");
     const btnDeact = qs("[data-iac-acct-deactivate]");
@@ -3049,6 +3135,14 @@ if (e.target.closest('[data-iac-delete]')) {
     }
     if (sigShow){
       try{ sigShow.checked = String((cfg.me && cfg.me.signature_show_discuss) ? cfg.me.signature_show_discuss : 0) === "1"; }catch(_){}
+    }
+    const homeTabInput = qs("[data-iac-home-tab-input]");
+    if (homeTabInput){
+      try{ homeTabInput.value = String((cfg.me && cfg.me.home_tab) ? cfg.me.home_tab : "connect"); }catch(_){}
+    }
+    const styleInput = qs("[data-iac-style-input]");
+    if (styleInput){
+      try{ styleInput.value = String((cfg.me && cfg.me.style) ? cfg.me.style : "default"); }catch(_){}
     }
     // Note: the Atrium SPA can replace this settings panel after init().
     // The save handler is bound via delegated click (see below).
@@ -3169,6 +3263,83 @@ if (e.target.closest('[data-iac-delete]')) {
       }catch(e){
         const msg = (e && e.data && e.data.message) ? e.data.message : (e && e.message ? e.message : 'Request failed');
         if (dnStat) dnStat.textContent = msg;
+      }
+    }, true);
+  })();
+
+  // Delegated handler for homepage save (SPA-safe)
+  (function bindHomeTabSave(){
+    if (window.__ia_connect_home_tab_bound) return;
+    window.__ia_connect_home_tab_bound = true;
+
+    document.addEventListener('click', async function(ev){
+      const btn = ev.target && ev.target.closest ? ev.target.closest('[data-iac-home-tab-save]') : null;
+      if (!btn) return;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const root = btn.closest('[data-iac-settings-section="homepage"]') || document;
+      const input = root.querySelector('[data-iac-home-tab-input]') || document.querySelector('[data-iac-home-tab-input]');
+      const stat  = root.querySelector('[data-iac-home-tab-status]') || document.querySelector('[data-iac-home-tab-status]');
+      if (!input) return;
+
+      const cfg = window.IA_CONNECT || {};
+      const nonces = (cfg.nonces || {});
+      const home_tab = String(input.value || 'connect').trim().toLowerCase();
+
+      if (stat) stat.textContent = 'Saving…';
+      try{
+        const r = await postForm('ia_connect_home_tab_update', { nonce: (nonces.home_tab_update||''), home_tab });
+        if (!r || !r.success) throw r;
+
+        const d = (r.data || {});
+        if (cfg && cfg.me){
+          cfg.me.home_tab = (d.home_tab != null) ? String(d.home_tab) : home_tab;
+        }
+        if (stat) stat.textContent = 'Saved. Applies when you enter IndieAgora without a deep link.';
+      }catch(e){
+        const msg = (e && e.data && e.data.message) ? e.data.message : (e && e.message ? e.message : 'Request failed');
+        if (stat) stat.textContent = msg;
+      }
+    }, true);
+  })();
+
+  // Delegated handler for style save (SPA-safe)
+  (function bindStyleSave(){
+    if (window.__ia_connect_style_bound) return;
+    window.__ia_connect_style_bound = true;
+
+    document.addEventListener('click', async function(ev){
+      const btn = ev.target && ev.target.closest ? ev.target.closest('[data-iac-style-save]') : null;
+      if (!btn) return;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const root = btn.closest('[data-iac-settings-section="style"]') || document;
+      const input = root.querySelector('[data-iac-style-input]') || document.querySelector('[data-iac-style-input]');
+      const stat  = root.querySelector('[data-iac-style-status]') || document.querySelector('[data-iac-style-status]');
+      if (!input) return;
+
+      const cfg = window.IA_CONNECT || {};
+      const nonces = (cfg.nonces || {});
+      const style = String(input.value || 'default').trim().toLowerCase();
+
+      if (stat) stat.textContent = 'Saving…';
+      try{
+        const r = await postForm('ia_connect_style_update', { nonce: (nonces.style_update||''), style });
+        if (!r || !r.success) throw r;
+
+        const d = (r.data || {});
+        const next = (d.style != null) ? String(d.style) : style;
+        if (cfg && cfg.me) cfg.me.style = next;
+        if (input) input.value = next;
+        applyStyle(next);
+        if (stat) stat.textContent = 'Saved.';
+      }catch(e){
+        const msg = (e && e.data && e.data.message) ? e.data.message : (e && e.message ? e.message : 'Request failed');
+        if (stat) stat.textContent = msg;
       }
     }, true);
   })();

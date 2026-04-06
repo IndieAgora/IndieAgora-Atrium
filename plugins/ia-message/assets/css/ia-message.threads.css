@@ -141,3 +141,41 @@ body.ia-msg-fullscreen .ia-msg-thread{
 .ia-msg-thread{
   padding:12px 12px;
 }
+
+/* Connect global style bridge: black */
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-thread,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-thread{
+  color:#111;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-thread:hover,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-thread:hover{
+  background:#eeeeee;
+  border-color:rgba(0,0,0,0.12);
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-thread.active,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-thread.active{
+  background:#dadada;
+  border-color:rgba(0,0,0,0.18);
+  box-shadow:none;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-name,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-name,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-title,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-title{
+  color:#111;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-last,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-last,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-meta,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-meta{
+  color:#444;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-avatar,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-avatar{
+  background:#efefef;
+  border-color:rgba(0,0,0,0.14);
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-initial,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-thread-initial{
+  color:#111;
+}

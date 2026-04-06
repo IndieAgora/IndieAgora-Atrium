@@ -1,0 +1,1060 @@
+/* MyBB-imported Atrium chrome colours. Default and Black stay untouched. */
+html[data-iac-style="calm"],
+body[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="calm"]{
+  --ia-mybb-shell:#edf5f0;
+  --ia-mybb-panel:#edf5f0;
+  --ia-mybb-surface:#dceadf;
+  --ia-mybb-surface-2:#f6fbf7;
+  --ia-mybb-border:#a8c0b1;
+  --ia-mybb-text:#1f3429;
+  --ia-mybb-muted:#486153;
+  --ia-mybb-link:#48715b;
+  --ia-mybb-header-top:#5f8a72;
+  --ia-mybb-header-bottom:#385947;
+  --ia-mybb-header-border:#263c30;
+  --ia-mybb-header-text:#ffffff;
+  --ia-mybb-topbar-top:#4b755e;
+  --ia-mybb-topbar-bottom:#304d3d;
+  --ia-mybb-topbar-border:#263c30;
+  --ia-mybb-topbar-text:#ffffff;
+  --ia-mybb-active-bg:#385947;
+  --ia-mybb-active-text:#ffffff;
+}
+
+html[data-iac-style="dawn"],
+body[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="dawn"]{
+  --ia-mybb-shell:#fff5ec;
+  --ia-mybb-panel:#fff5ec;
+  --ia-mybb-surface:#ffe7d1;
+  --ia-mybb-surface-2:#fff9f4;
+  --ia-mybb-border:#efc19f;
+  --ia-mybb-text:#5e3419;
+  --ia-mybb-muted:#87593b;
+  --ia-mybb-link:#d56c2c;
+  --ia-mybb-header-top:#f0a66a;
+  --ia-mybb-header-bottom:#d56c2c;
+  --ia-mybb-header-border:#9a4e20;
+  --ia-mybb-header-text:#ffffff;
+  --ia-mybb-topbar-top:#ec8b49;
+  --ia-mybb-topbar-bottom:#b15723;
+  --ia-mybb-topbar-border:#9a4e20;
+  --ia-mybb-topbar-text:#ffffff;
+  --ia-mybb-active-bg:#d56c2c;
+  --ia-mybb-active-text:#ffffff;
+}
+
+html[data-iac-style="earth"],
+body[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="earth"]{
+  --ia-mybb-shell:#f4ede7;
+  --ia-mybb-panel:#f4ede7;
+  --ia-mybb-surface:#e7d8cd;
+  --ia-mybb-surface-2:#faf6f2;
+  --ia-mybb-border:#c5ae9d;
+  --ia-mybb-text:#332821;
+  --ia-mybb-muted:#665448;
+  --ia-mybb-link:#6d5545;
+  --ia-mybb-header-top:#876a57;
+  --ia-mybb-header-bottom:#4a3b2f;
+  --ia-mybb-header-border:#31261e;
+  --ia-mybb-header-text:#ffffff;
+  --ia-mybb-topbar-top:#715949;
+  --ia-mybb-topbar-bottom:#43342a;
+  --ia-mybb-topbar-border:#31261e;
+  --ia-mybb-topbar-text:#ffffff;
+  --ia-mybb-active-bg:#4a3b2f;
+  --ia-mybb-active-text:#ffffff;
+}
+
+html[data-iac-style="flame"],
+body[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="flame"]{
+  --ia-mybb-shell:#fff0f0;
+  --ia-mybb-panel:#fff0f0;
+  --ia-mybb-surface:#f7d9d9;
+  --ia-mybb-surface-2:#fff7f7;
+  --ia-mybb-border:#d8aaaa;
+  --ia-mybb-text:#3d1717;
+  --ia-mybb-muted:#7a4a4a;
+  --ia-mybb-link:#a20000;
+  --ia-mybb-header-top:#b14a4a;
+  --ia-mybb-header-bottom:#750000;
+  --ia-mybb-header-border:#550000;
+  --ia-mybb-header-text:#ffffff;
+  --ia-mybb-topbar-top:#962121;
+  --ia-mybb-topbar-bottom:#630000;
+  --ia-mybb-topbar-border:#550000;
+  --ia-mybb-topbar-text:#ffffff;
+  --ia-mybb-active-bg:#750000;
+  --ia-mybb-active-text:#ffffff;
+}
+
+html[data-iac-style="leaf"],
+body[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="leaf"]{
+  --ia-mybb-shell:#f2faee;
+  --ia-mybb-panel:#f2faee;
+  --ia-mybb-surface:#e0eed8;
+  --ia-mybb-surface-2:#f8fcf6;
+  --ia-mybb-border:#b6d1aa;
+  --ia-mybb-text:#23361d;
+  --ia-mybb-muted:#4b6644;
+  --ia-mybb-link:#5aaf33;
+  --ia-mybb-header-top:#77be58;
+  --ia-mybb-header-bottom:#386e21;
+  --ia-mybb-header-border:#234615;
+  --ia-mybb-header-text:#ffffff;
+  --ia-mybb-topbar-top:#5d993e;
+  --ia-mybb-topbar-bottom:#2f5d1c;
+  --ia-mybb-topbar-border:#234615;
+  --ia-mybb-topbar-text:#ffffff;
+  --ia-mybb-active-bg:#386e21;
+  --ia-mybb-active-text:#ffffff;
+}
+
+html[data-iac-style="night"],
+body[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="night"]{
+  --ia-mybb-shell:#edf3f8;
+  --ia-mybb-panel:#edf3f8;
+  --ia-mybb-surface:#d8e4ef;
+  --ia-mybb-surface-2:#f5f9fc;
+  --ia-mybb-border:#aac0d3;
+  --ia-mybb-text:#162735;
+  --ia-mybb-muted:#425666;
+  --ia-mybb-link:#023a61;
+  --ia-mybb-header-top:#335e7d;
+  --ia-mybb-header-bottom:#022338;
+  --ia-mybb-header-border:#011929;
+  --ia-mybb-header-text:#ffffff;
+  --ia-mybb-topbar-top:#20425a;
+  --ia-mybb-topbar-bottom:#011d2f;
+  --ia-mybb-topbar-border:#011929;
+  --ia-mybb-topbar-text:#ffffff;
+  --ia-mybb-active-bg:#022338;
+  --ia-mybb-active-text:#ffffff;
+}
+
+html[data-iac-style="sun"],
+body[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="sun"]{
+  --ia-mybb-shell:#fff9e1;
+  --ia-mybb-panel:#fff9e1;
+  --ia-mybb-surface:#ffefb5;
+  --ia-mybb-surface-2:#fffdf1;
+  --ia-mybb-border:#e5ca6e;
+  --ia-mybb-text:#3d3207;
+  --ia-mybb-muted:#6f5a12;
+  --ia-mybb-link:#555555;
+  --ia-mybb-header-top:#fff0a6;
+  --ia-mybb-header-bottom:#ffdd4d;
+  --ia-mybb-header-border:#ffaf1a;
+  --ia-mybb-header-text:#2a2200;
+  --ia-mybb-topbar-top:#ffe77e;
+  --ia-mybb-topbar-bottom:#ffc935;
+  --ia-mybb-topbar-border:#ffaf1a;
+  --ia-mybb-topbar-text:#2a2200;
+  --ia-mybb-active-bg:#ffdd4d;
+  --ia-mybb-active-text:#2a2200;
+}
+
+html[data-iac-style="twilight"],
+body[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="twilight"]{
+  --ia-mybb-shell:#eef3f6;
+  --ia-mybb-panel:#eef3f6;
+  --ia-mybb-surface:#dae4ea;
+  --ia-mybb-surface-2:#f7fafb;
+  --ia-mybb-border:#b1c1cb;
+  --ia-mybb-text:#23333d;
+  --ia-mybb-muted:#536572;
+  --ia-mybb-link:#426276;
+  --ia-mybb-header-top:#5e7d91;
+  --ia-mybb-header-bottom:#273a46;
+  --ia-mybb-header-border:#1d2b34;
+  --ia-mybb-header-text:#ffffff;
+  --ia-mybb-topbar-top:#496578;
+  --ia-mybb-topbar-bottom:#233540;
+  --ia-mybb-topbar-border:#1d2b34;
+  --ia-mybb-topbar-text:#ffffff;
+  --ia-mybb-active-bg:#273a46;
+  --ia-mybb-active-text:#ffffff;
+}
+
+html[data-iac-style="water"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="water"]{
+  --ia-mybb-shell:#eef9f9;
+  --ia-mybb-panel:#eef9f9;
+  --ia-mybb-surface:#d8efef;
+  --ia-mybb-surface-2:#f7fcfc;
+  --ia-mybb-border:#acd1d1;
+  --ia-mybb-text:#1f3434;
+  --ia-mybb-muted:#4b7070;
+  --ia-mybb-link:#2d9595;
+  --ia-mybb-header-top:#5ca7a7;
+  --ia-mybb-header-bottom:#1e6365;
+  --ia-mybb-header-border:#133f41;
+  --ia-mybb-header-text:#ffffff;
+  --ia-mybb-topbar-top:#418c8c;
+  --ia-mybb-topbar-bottom:#174f51;
+  --ia-mybb-topbar-border:#133f41;
+  --ia-mybb-topbar-text:#ffffff;
+  --ia-mybb-active-bg:#1e6365;
+  --ia-mybb-active-text:#ffffff;
+}
+
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] #ia-atrium-shell,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-atrium-main,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-panel,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-slot,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-panel-inner { background: var(--ia-mybb-shell); color: var(--ia-mybb-text); }
+
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-atrium-topbar { background: linear-gradient(180deg,var(--ia-mybb-topbar-top),var(--ia-mybb-topbar-bottom)); border-bottom-color: var(--ia-mybb-topbar-border); }
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-atrium-brand,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-atrium-tabmenu-toggle { background: linear-gradient(180deg,var(--ia-mybb-header-top),var(--ia-mybb-header-bottom)); border-color: var(--ia-mybb-header-border); color: var(--ia-mybb-header-text); }
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-atrium-brand-text,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-atrium-tabmenu-label,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-atrium-tabmenu-caret { color: var(--ia-mybb-header-text); text-shadow:none; }
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-atrium-tabmenu,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-profile-menu,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-bottom-nav,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-modal-card,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-modal-header,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-modal-body,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-modal-footer { background: var(--ia-mybb-panel); border-color: var(--ia-mybb-border); color: var(--ia-mybb-text); }
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-atrium-tabmenu-item,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-menu-item,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-bottom-item,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-bottom-item-wrap > .ia-bottom-item,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-icon-btn,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-btn { color: var(--ia-mybb-text); }
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-atrium-tabmenu-item:hover,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-menu-item:hover,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-icon-btn:hover,
+html[data-iac-style="calm"],
+html[data-iac-style="dawn"],
+html[data-iac-style="earth"],
+html[data-iac-style="flame"],
+html[data-iac-style="leaf"],
+html[data-iac-style="night"],
+html[data-iac-style="sun"],
+html[data-iac-style="twilight"],
+html[data-iac-style="water"],
+body[data-iac-style="calm"],
+body[data-iac-style="dawn"],
+body[data-iac-style="earth"],
+body[data-iac-style="flame"],
+body[data-iac-style="leaf"],
+body[data-iac-style="night"],
+body[data-iac-style="sun"],
+body[data-iac-style="twilight"],
+body[data-iac-style="water"],
+#ia-atrium-shell[data-iac-style="calm"],
+#ia-atrium-shell[data-iac-style="dawn"],
+#ia-atrium-shell[data-iac-style="earth"],
+#ia-atrium-shell[data-iac-style="flame"],
+#ia-atrium-shell[data-iac-style="leaf"],
+#ia-atrium-shell[data-iac-style="night"],
+#ia-atrium-shell[data-iac-style="sun"],
+#ia-atrium-shell[data-iac-style="twilight"],
+#ia-atrium-shell[data-iac-style="water"] .ia-btn:hover { background: var(--ia-mybb-surface); }
+
+
+/* 2026-04-06 repair: generic non-default/non-black Atrium shell application */
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) #ia-atrium-shell,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-main,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-panel,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-slot,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-panel-inner{
+  background:var(--ia-mybb-shell);
+  color:var(--ia-mybb-text);
+}
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-topbar,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-bottom-nav,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-modal-header{
+  background:linear-gradient(180deg,var(--ia-mybb-topbar-top),var(--ia-mybb-topbar-bottom));
+  border-color:var(--ia-mybb-topbar-border);
+  color:var(--ia-mybb-topbar-text);
+}
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-brand,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-tabmenu,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-profile-menu,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-modal-card,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-modal-body,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-modal-footer{
+  background:var(--ia-mybb-panel);
+  border-color:var(--ia-mybb-border);
+  color:var(--ia-mybb-text);
+}
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-brand-text,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-topbar a,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-bottom-item,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-bottom-item-wrap > .ia-bottom-item{ color:var(--ia-mybb-topbar-text); }
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-tabmenu-toggle,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-btn,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-icon-btn,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-btn,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-tabmenu-item,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-menu-item{
+  background:var(--ia-mybb-surface-2);
+  border-color:var(--ia-mybb-border);
+  color:var(--ia-mybb-text);
+}
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-tabmenu-item.is-active,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-bottom-item.is-active,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-btn-primary{
+  background:var(--ia-mybb-active-bg);
+  border-color:var(--ia-mybb-header-border);
+  color:var(--ia-mybb-active-text);
+}
+
+/* 2026-04-06 follow-up: generic MyBB chrome readability + search-history contrast */
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-brand-text{
+  color:var(--ia-mybb-link) !important;
+  text-shadow:none;
+}
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-title,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-section-title,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-empty,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-history-text,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-item .ia-atrium-search-primary,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-item .ia-atrium-search-snippet,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-history-run,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-history-delete,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-history-clear{
+  color:var(--ia-mybb-text) !important;
+  opacity:1;
+}
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-item .ia-atrium-search-secondary,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-item .ia-atrium-search-meta,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-history-row{
+  color:var(--ia-mybb-muted) !important;
+  opacity:1;
+}
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-item,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-history-run,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-history-delete,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-history-clear{
+  background:var(--ia-mybb-surface-2);
+  border-color:var(--ia-mybb-border);
+}
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-item:hover,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-history-run:hover,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-history-delete:hover,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-search-history-clear:hover{
+  background:var(--ia-mybb-surface);
+}
+
+
+/* 2026-04-06 hotfix v3: keep the topbar tab selector readable in imported light MyBB themes. */
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-tabmenu-toggle,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-tabmenu-label,
+:is(html, body, #ia-atrium-shell)[data-iac-style]:not([data-iac-style="default"]):not([data-iac-style="black"]) .ia-atrium-tabmenu-caret{
+  color:var(--ia-mybb-text) !important;
+  opacity:1;
+}

@@ -2,14 +2,14 @@
 /**
  * Plugin Name: IA SEO
  * Description: Dynamic sitemap.xml generator for Atrium (Connect + Discuss).
- * Version: 0.1.1
+ * Version: 0.1.4
  * Author: IndieAgora
  * Text Domain: ia-seo
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('IA_SEO_VERSION', '0.1.1');
+define('IA_SEO_VERSION', '0.1.4');
 define('IA_SEO_PATH', plugin_dir_path(__FILE__));
 define('IA_SEO_URL', plugin_dir_url(__FILE__));
 

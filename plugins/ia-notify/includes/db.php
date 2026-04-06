@@ -149,6 +149,14 @@ function ia_notify_fetch_page(int $recipient_phpbb_id, int $offset = 0, int $lim
   ), ARRAY_A);
 }
 
+
+function ia_notify_clear_all(int $recipient_phpbb_id): int {
+  global $wpdb;
+  $t = ia_notify_table();
+  $wpdb->query($wpdb->prepare("DELETE FROM {$t} WHERE recipient_phpbb_id=%d", $recipient_phpbb_id));
+  return (int)$wpdb->rows_affected;
+}
+
 function ia_notify_mark_read(int $recipient_phpbb_id, array $ids = []): int {
   global $wpdb;
   $t = ia_notify_table();
@@ -197,7 +205,10 @@ function ia_notify_row_to_payload(array $r): array {
         }
         break;
       case 'message_received':
-        if ($objId > 0) $url = ia_notify_url_messages_thread($objId);
+        if ($objId > 0) {
+          $mid = isset($meta['message_id']) ? (int)$meta['message_id'] : 0;
+          $url = ia_notify_url_messages_thread($objId, $mid);
+        }
         break;
       case 'discuss_new_topic':
         if ($objId > 0) {
@@ -229,7 +240,7 @@ function ia_notify_row_to_payload(array $r): array {
     }
   }
 
-  return [
+  $payload = [
     'id' => (int)($r['id'] ?? 0),
     'recipient_phpbb_id' => (int)($r['recipient_phpbb_id'] ?? 0),
     'actor_phpbb_id' => (int)($r['actor_phpbb_id'] ?? 0),
@@ -242,4 +253,10 @@ function ia_notify_row_to_payload(array $r): array {
     'read_at' => $r['read_at'] ? (string)$r['read_at'] : null,
     'meta' => $meta,
   ];
+
+  if (function_exists('ia_notify_enrich_payload')) {
+    $payload = ia_notify_enrich_payload($payload);
+  }
+
+  return $payload;
 }

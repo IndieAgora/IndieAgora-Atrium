@@ -14,6 +14,7 @@ add_action('wp_enqueue_scripts', function () {
 
   // Needed for New Chat sheet overlay + suggestions UI
   wp_enqueue_style('ia-message-modal', IA_MESSAGE_URL . 'assets/css/ia-message.modal.css', ['ia-message-base'], IA_MESSAGE_VERSION);
+  wp_enqueue_style('ia-message-theme-mybb', IA_MESSAGE_URL . 'assets/css/ia-message.theme.mybb.css', ['ia-message-modal'], IA_MESSAGE_VERSION);
 
   // Scripts
   wp_enqueue_script('ia-message-api', IA_MESSAGE_URL . 'assets/js/ia-message.api.js', [], IA_MESSAGE_VERSION, true);

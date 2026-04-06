@@ -257,7 +257,7 @@
         return;
       }
 
-      const actionBtn = t.closest('.iad-sidebar .iad-tab, .iad-sidebar [data-iad-random-topic], .iad-sidebar [data-iad-create-agora], .iad-sidebar [data-iad-moderation], .iad-sidebar [data-iad-theme-toggle]');
+      const actionBtn = t.closest('.iad-sidebar .iad-tab, .iad-sidebar [data-iad-random-topic], .iad-sidebar [data-iad-create-agora], .iad-sidebar [data-iad-moderation]');
       if (actionBtn) {
         window.setTimeout(function () { closeSidebar(root); }, 0);
       }
@@ -301,6 +301,23 @@
   function normaliseTheme(value) {
     const v = String(value || '').toLowerCase();
     return getThemeOptions().some((opt) => opt.value === v) ? v : 'dark';
+  }
+
+  function getConnectStyleValue() {
+    try {
+      const rootStyle = document.documentElement.getAttribute('data-iac-style');
+      if (rootStyle) return String(rootStyle || '').toLowerCase();
+    } catch (e) {}
+    try {
+      const bodyStyle = document.body ? document.body.getAttribute('data-iac-style') : '';
+      if (bodyStyle) return String(bodyStyle || '').toLowerCase();
+    } catch (e) {}
+    return 'default';
+  }
+
+  function getThemeFromConnectStyle() {
+    const v = getConnectStyleValue();
+    return ['black','calm','dawn','earth','flame','leaf','night','sun','twilight','water'].includes(v) ? v : 'dark';
   }
 
 
@@ -446,6 +463,38 @@
     return next;
   }
 
+  function syncThemeFromConnectStyle(root) {
+    if (!root) return 'dark';
+    return applyTheme(root, getThemeFromConnectStyle());
+  }
+
+  function bindConnectStyleBridge(root) {
+    if (!root || root.__iadConnectStyleBridgeBound) return;
+    root.__iadConnectStyleBridgeBound = true;
+
+    const sync = function () {
+      syncThemeFromConnectStyle(root);
+    };
+
+    document.addEventListener('ia:connect-style-changed', function () {
+      sync();
+    });
+
+    if (window.MutationObserver) {
+      try {
+        const observer = new MutationObserver(function () {
+          sync();
+        });
+        if (document.documentElement) {
+          observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-iac-style'] });
+        }
+        if (document.body) {
+          observer.observe(document.body, { attributes: true, attributeFilter: ['data-iac-style'] });
+        }
+      } catch (e) {}
+    }
+  }
+
   function shell() {
     const root = qs('[data-ia-discuss-root]');
     if (!root) return null;
@@ -471,25 +520,6 @@
             <button class="iad-btn iad-tab-action" type="button" data-iad-random-topic>Random</button>
             <button class="iad-btn iad-tab-action" type="button" data-iad-create-agora hidden>Create Agora</button>
             <button class="iad-btn iad-tab-action" type="button" data-iad-moderation hidden>Moderation</button>
-            <button class="iad-btn iad-tab-action" type="button" data-iad-layout-toggle aria-pressed="false" title="Switch Discuss to AgoraBB mode">AgoraBB Mode</button>
-            <button class="iad-tab iad-tab-theme" type="button" data-iad-theme-toggle title="Choose theme">Theme</button>
-          </div>
-          <div class="iad-sidebar-divider" aria-hidden="true"></div>
-          <div class="iad-sidebar-group iad-sidebar-themes" role="group" aria-label="Discuss themes">
-            <div class="iad-sidebar-subtitle">Schemes</div>
-            <div class="iad-theme-picks">
-              <button class="iad-tab iad-theme-pick" type="button" data-iad-theme-pick="legacy" aria-pressed="false">Blue</button>
-              <button class="iad-tab iad-theme-pick" type="button" data-iad-theme-pick="black" aria-pressed="false">Black</button>
-              <button class="iad-tab iad-theme-pick" type="button" data-iad-theme-pick="calm" aria-pressed="false">Calm</button>
-              <button class="iad-tab iad-theme-pick" type="button" data-iad-theme-pick="dawn" aria-pressed="false">Dawn</button>
-              <button class="iad-tab iad-theme-pick" type="button" data-iad-theme-pick="earth" aria-pressed="false">Earth</button>
-              <button class="iad-tab iad-theme-pick" type="button" data-iad-theme-pick="flame" aria-pressed="false">Flame</button>
-              <button class="iad-tab iad-theme-pick" type="button" data-iad-theme-pick="leaf" aria-pressed="false">Leaf</button>
-              <button class="iad-tab iad-theme-pick" type="button" data-iad-theme-pick="night" aria-pressed="false">Night</button>
-              <button class="iad-tab iad-theme-pick" type="button" data-iad-theme-pick="sun" aria-pressed="false">Sun</button>
-              <button class="iad-tab iad-theme-pick" type="button" data-iad-theme-pick="twilight" aria-pressed="false">Twilight</button>
-              <button class="iad-tab iad-theme-pick" type="button" data-iad-theme-pick="water" aria-pressed="false">Water</button>
-            </div>
           </div>
           <div class="iad-sidebar-divider" aria-hidden="true"></div>
           <div class="iad-sidebar-group iad-sidebar-personal" role="tablist" aria-label="Your Discuss activity">
@@ -505,43 +535,12 @@
 
     ensureImageViewer();
 
-    let saved = 'dark';
-    try {
-      saved = normaliseTheme(localStorage.getItem('ia_discuss_theme') || '');
-    } catch (e) {}
-    applyTheme(root, saved);
+    try { localStorage.removeItem('ia_discuss_theme'); } catch (e) {}
+    try { localStorage.removeItem('ia_discuss_layout_mode'); } catch (e) {}
+    syncThemeFromConnectStyle(root);
+    applyLayoutMode(root, 'atrium');
 
-    let layoutSaved = 'atrium';
-    try {
-      layoutSaved = normaliseLayoutMode(localStorage.getItem('ia_discuss_layout_mode') || '');
-    } catch (e) {}
-    applyLayoutMode(root, layoutSaved);
-
-    const tBtn = root.querySelector('[data-iad-theme-toggle]');
-    if (tBtn) {
-      tBtn.addEventListener('click', () => {
-        openThemeModal(root);
-      });
-    }
-
-    root.querySelectorAll('[data-iad-theme-pick]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        applyTheme(root, btn.getAttribute('data-iad-theme-pick') || 'dark');
-      });
-    });
-
-    const layoutBtn = root.querySelector('[data-iad-layout-toggle]');
-    if (layoutBtn) {
-      layoutBtn.addEventListener('click', () => {
-        const cur = normaliseLayoutMode(root.getAttribute('data-iad-layout') || 'atrium');
-        const next = cur === 'agorabb' ? 'atrium' : 'agorabb';
-        applyLayoutMode(root, next);
-        try {
-          window.dispatchEvent(new CustomEvent('iad:layout_mode_changed', { detail: { mode: next } }));
-        } catch (e) {}
-      });
-    }
-
+    bindConnectStyleBridge(root);
     bindSidebar(root);
     installTopbarToggle(root);
     closeSidebar(root);

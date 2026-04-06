@@ -292,3 +292,208 @@
   margin-top: 0;
 }
 
+
+/* Stream upload mode */
+.ia-post-stream-card{
+  border:1px solid rgba(255,255,255,0.10);
+  border-radius:18px;
+  background: rgba(255,255,255,0.04);
+  padding:14px;
+}
+.ia-post-stream-copy{ font-size:13px; opacity:0.85; margin-bottom:12px; }
+.ia-post-stream-inline{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.ia-post-stream-picked{ font-size:12px; opacity:0.8; }
+
+.ia-post-stream-modal{ position:fixed; inset:0; z-index:100001; }
+.ia-post-stream-backdrop{ position:absolute; inset:0; background:rgba(0,0,0,0.72); }
+.ia-post-stream-panel{
+  position:absolute; inset:12px;
+  width:auto; max-width:none; height:auto; max-height:none; overflow:auto;
+  border-radius:22px; border:1px solid rgba(255,255,255,0.12);
+  background:rgba(18,18,18,0.98); box-shadow:0 24px 80px rgba(0,0,0,0.58);
+  padding:16px 16px calc(88px + env(safe-area-inset-bottom, 0px));
+}
+.ia-post-stream-head{
+  position:sticky; top:0; z-index:2;
+  display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin:0 0 12px;
+  padding:0 0 12px; background:rgba(18,18,18,0.98);
+}
+.ia-post-stream-title{ font-size:18px; font-weight:700; }
+.ia-post-stream-file{ font-size:12px; opacity:0.72; margin-top:4px; word-break:break-all; }
+.ia-post-stream-x{
+  width:36px; height:36px; border-radius:999px; border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.04); color:inherit; cursor:pointer; font-size:20px;
+}
+.ia-post-stream-status{ font-size:13px; opacity:0.82; margin:8px 0 12px; }
+.ia-post-stream-progress{ height:10px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,0.08); }
+.ia-post-stream-progress-bar{ height:100%; width:0; background:linear-gradient(90deg, #f59b42, #ffb865); }
+.ia-post-stream-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.ia-post-stream-field{ display:flex; flex-direction:column; gap:6px; }
+.ia-post-stream-field > span{ font-size:12px; opacity:0.78; }
+.ia-post-stream-field input,
+.ia-post-stream-field select,
+.ia-post-stream-field textarea{
+  width:100%; border-radius:14px; border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.04); color:inherit; padding:10px 12px;
+}
+.ia-post-stream-check{ display:flex; align-items:center; gap:8px; font-size:13px; opacity:0.92; min-height:42px; }
+.ia-post-stream-span-2{ grid-column:1 / -1; }
+.ia-post-stream-actions{ position:sticky; bottom:0; z-index:2; display:flex; gap:10px; justify-content:flex-end; margin-top:14px; padding-top:12px; padding-bottom:max(4px, env(safe-area-inset-bottom, 0px)); flex-wrap:wrap; background:linear-gradient(180deg, rgba(18,18,18,0), rgba(18,18,18,0.96) 28%, rgba(18,18,18,0.98) 100%); }
+.ia-post-stream-btn{
+  appearance:none; border:1px solid rgba(255,255,255,0.14); cursor:pointer;
+  background:rgba(255,255,255,0.12); color:inherit; border-radius:999px; padding:10px 14px;
+}
+.ia-post-stream-btn-secondary{ background:rgba(255,255,255,0.04); }
+.ia-post-stream-done{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.ia-post-stream-link{ font-size:13px; }
+@media (max-width: 720px){
+  .ia-post-stream-panel{ inset:0; border-radius:0; padding:14px 14px calc(92px + env(safe-area-inset-bottom, 0px)); }
+  .ia-post-stream-grid{ grid-template-columns:minmax(0,1fr); }
+  .ia-post-stream-span-2{ grid-column:auto; }
+}
+
+
+html[data-iac-style="black"] #ia-atrium-composer .ia-post-root,
+body[data-iac-style="black"] #ia-atrium-composer .ia-post-root,
+html[data-iac-style="black"] .ia-post-stream-panel,
+body[data-iac-style="black"] .ia-post-stream-panel{
+  color:#111;
+}
+html[data-iac-style="black"] #ia-atrium-composer .ia-post-pill,
+body[data-iac-style="black"] #ia-atrium-composer .ia-post-pill,
+html[data-iac-style="black"] #ia-atrium-composer .ia-post-agora-chip,
+body[data-iac-style="black"] #ia-atrium-composer .ia-post-agora-chip,
+html[data-iac-style="black"] #ia-atrium-composer .ia-post-mini-x,
+body[data-iac-style="black"] #ia-atrium-composer .ia-post-mini-x,
+html[data-iac-style="black"] .ia-post-stream-btn-secondary,
+body[data-iac-style="black"] .ia-post-stream-btn-secondary,
+html[data-iac-style="black"] .ia-post-stream-x,
+body[data-iac-style="black"] .ia-post-stream-x{
+  background:#efefef;
+  color:#111;
+  border-color:rgba(0,0,0,.16);
+}
+html[data-iac-style="black"] #ia-atrium-composer .ia-post-pill.is-active,
+body[data-iac-style="black"] #ia-atrium-composer .ia-post-pill.is-active,
+html[data-iac-style="black"] .ia-post-stream-btn,
+body[data-iac-style="black"] .ia-post-stream-btn{
+  background:#202121;
+  color:#fff;
+  border-color:#202121;
+}
+html[data-iac-style="black"] #ia-atrium-composer .ia-post-agora-joined,
+body[data-iac-style="black"] #ia-atrium-composer .ia-post-agora-joined,
+html[data-iac-style="black"] .ia-post-stream-card,
+body[data-iac-style="black"] .ia-post-stream-card,
+html[data-iac-style="black"] .ia-post-mini-panel,
+body[data-iac-style="black"] .ia-post-mini-panel,
+html[data-iac-style="black"] .ia-post-stream-panel,
+body[data-iac-style="black"] .ia-post-stream-panel,
+html[data-iac-style="black"] .iac-mentionbox,
+body[data-iac-style="black"] .iac-mentionbox{
+  background:#dcdcdc;
+  border-color:rgba(0,0,0,.16);
+  box-shadow:0 14px 40px rgba(0,0,0,.22);
+}
+html[data-iac-style="black"] .ia-post-stream-head,
+body[data-iac-style="black"] .ia-post-stream-head{
+  background:#dcdcdc;
+}
+html[data-iac-style="black"] .ia-post-stream-actions,
+body[data-iac-style="black"] .ia-post-stream-actions{
+  background:linear-gradient(180deg, rgba(220,220,220,0), rgba(220,220,220,.94) 28%, rgba(220,220,220,.98) 100%);
+}
+html[data-iac-style="black"] .ia-post-stream-field input,
+body[data-iac-style="black"] .ia-post-stream-field input,
+html[data-iac-style="black"] .ia-post-stream-field select,
+body[data-iac-style="black"] .ia-post-stream-field select,
+html[data-iac-style="black"] .ia-post-stream-field textarea,
+body[data-iac-style="black"] .ia-post-stream-field textarea,
+html[data-iac-style="black"] #ia-atrium-composer .ia-post-agora-picker .iad-suggest[data-ia-post-agora-suggest],
+body[data-iac-style="black"] #ia-atrium-composer .ia-post-agora-picker .iad-suggest[data-ia-post-agora-suggest]{
+  background:#efefef;
+  color:#111;
+  border-color:rgba(0,0,0,.16);
+}
+html[data-iac-style="black"] .iac-mention-row:hover,
+body[data-iac-style="black"] .iac-mention-row:hover,
+html[data-iac-style="black"] .ia-post-mini-row:hover,
+body[data-iac-style="black"] .ia-post-mini-row:hover{
+  background:#e4e4e4;
+}
+html[data-iac-style="black"] .iac-mention-name,
+body[data-iac-style="black"] .iac-mention-name,
+html[data-iac-style="black"] .iac-mention-user,
+body[data-iac-style="black"] .iac-mention-user{
+  color:#111;
+}
+
+
+html[data-iac-style="black"] #ia-atrium-composer .iad-composer,
+body[data-iac-style="black"] #ia-atrium-composer .iad-composer,
+html[data-iac-style="black"] #ia-atrium-composer .iad-composer-top,
+body[data-iac-style="black"] #ia-atrium-composer .iad-composer-top,
+html[data-iac-style="black"] #ia-atrium-composer .iad-composer-body,
+body[data-iac-style="black"] #ia-atrium-composer .iad-composer-body{
+  background:#dcdcdc;
+  color:#111;
+  border-color:rgba(0,0,0,.16);
+}
+html[data-iac-style="black"] #ia-atrium-composer .iad-composer,
+body[data-iac-style="black"] #ia-atrium-composer .iad-composer{
+  box-shadow:none;
+}
+html[data-iac-style="black"] #ia-atrium-composer .iad-composer-body,
+body[data-iac-style="black"] #ia-atrium-composer .iad-composer-body{
+  border-top-color:rgba(0,0,0,.12);
+}
+html[data-iac-style="black"] #ia-atrium-composer .iad-composer-toggle,
+body[data-iac-style="black"] #ia-atrium-composer .iad-composer-toggle,
+html[data-iac-style="black"] #ia-atrium-composer .iad-input,
+body[data-iac-style="black"] #ia-atrium-composer .iad-input,
+html[data-iac-style="black"] #ia-atrium-composer .iad-textarea,
+body[data-iac-style="black"] #ia-atrium-composer .iad-textarea,
+html[data-iac-style="black"] #ia-atrium-composer .iad-check,
+body[data-iac-style="black"] #ia-atrium-composer .iad-check,
+html[data-iac-style="black"] #ia-atrium-composer .iad-attachmini,
+body[data-iac-style="black"] #ia-atrium-composer .iad-attachmini{
+  color:#111;
+}
+html[data-iac-style="black"] #ia-atrium-composer .iad-input,
+body[data-iac-style="black"] #ia-atrium-composer .iad-input,
+html[data-iac-style="black"] #ia-atrium-composer .iad-textarea,
+body[data-iac-style="black"] #ia-atrium-composer .iad-textarea,
+html[data-iac-style="black"] #ia-atrium-composer .iad-attachkind,
+body[data-iac-style="black"] #ia-atrium-composer .iad-attachkind,
+html[data-iac-style="black"] #ia-atrium-composer .iad-mini,
+body[data-iac-style="black"] #ia-atrium-composer .iad-mini,
+html[data-iac-style="black"] #ia-atrium-composer .iad-editorbar button,
+body[data-iac-style="black"] #ia-atrium-composer .iad-editorbar button{
+  background:#efefef;
+  color:#111;
+  border-color:rgba(0,0,0,.16);
+}
+html[data-iac-style="black"] #ia-atrium-composer .iad-mini.is-danger,
+body[data-iac-style="black"] #ia-atrium-composer .iad-mini.is-danger{
+  background:#f8dddd;
+  border-color:rgba(155,0,0,.22);
+  color:#7a1111;
+}
+html[data-iac-style="black"] #ia-atrium-composer .iad-editorbar button:hover,
+body[data-iac-style="black"] #ia-atrium-composer .iad-editorbar button:hover,
+html[data-iac-style="black"] #ia-atrium-composer .iad-mini:hover,
+body[data-iac-style="black"] #ia-atrium-composer .iad-mini:hover{
+  background:#e4e4e4;
+}
+html[data-iac-style="black"] #ia-atrium-composer .iad-btn,
+body[data-iac-style="black"] #ia-atrium-composer .iad-btn{
+  background:#202121;
+  color:#fff;
+  border-color:#202121;
+}
+html[data-iac-style="black"] #ia-atrium-composer .iad-btn.iad-btn-lite,
+body[data-iac-style="black"] #ia-atrium-composer .iad-btn.iad-btn-lite{
+  background:#efefef;
+  color:#111;
+  border-color:rgba(0,0,0,.16);
+}

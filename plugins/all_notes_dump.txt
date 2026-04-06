@@ -1,0 +1,2412 @@
+===== ./ia-atrium/NOTES.md =====
+# AJAX notes for ia-atrium / .
+
+Files in this directory inspected for AJAX handling:
+
+- `AJAX-HANDLERS.md`
+- `ARCHITECTURE-NOTES.md`
+- `ia-atrium.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+## 2026-04-05 search overlay snippets and per-user history
+
+- Atrium overlay search items now render a third text line when the underlying result includes a snippet.
+- Discuss topic/reply suggestions now surface their existing snippet payloads in the shared overlay.
+- Connect post/comment suggestions now surface the new Connect search snippets in the shared overlay.
+- Added per-user local recent-search history in the overlay, with single-item delete and clear-all controls.
+
+
+## 2026-04-05 regression boundary for shared search overlay work
+
+- Shared overlay work must stay inside Atrium search UI/rendering only.
+- Do not patch Connect wall card rendering from Atrium search work.
+- If Connect results need richer text, prefer adding search-specific `snippet` fields on the search endpoint rather than reusing or rewriting wall render/link/embed code.
+
+## 2026-04-05 search overlay cleanup follow-up
+
+- Search history chips were restyled inside Atrium search CSS so recent-search controls no longer fall back to browser-default button chrome.
+- Shared overlay snippet rendering now sanitizes HTML-like/bbcode-like search text before display, clips around the typed match, and highlights the typed query in the preview line.
+- Guard repeated: these fixes stay inside Atrium search UI/CSS only and do not touch Connect wall card rendering, URL/embed handling, or modal render paths.
+
+- 2026-04-05 homepage preference support: Atrium default-tab resolution now runs through `ia_atrium_default_tab`, allowing a per-user homepage preference to decide the first visible surface only when the request has no explicit `tab` route.
+
+===== ./ia-auth-peertube-fallback/NOTES.md =====
+# AJAX notes for ia-auth-peertube-fallback / .
+
+Files in this directory inspected for AJAX handling:
+
+- `AJAX-HANDLERS.md`
+- `ARCHITECTURE-NOTES.md`
+- `ia-auth-peertube-fallback.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-auth/NOTES.md =====
+# AJAX notes for ia-auth / .
+
+Files in this directory inspected for AJAX handling:
+
+- `AJAX-HANDLERS.md`
+- `ARCHITECTURE-NOTES.md`
+- `README.md`
+- `ia-auth.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-auth/README.md =====
+# IA Auth (WordPress plugin)
+
+IA Auth is Atrium's identity + session layer.
+
+**Canonical user = phpBB (`phpbb_users`)**  
+**WordPress users = shadow accounts (sessions only)**  
+**PeerTube = backend via API + OAuth tokens**
+
+This implementation follows your spec: identity map table + encrypted token store + optional queue. fileciteturn1file1
+
+## What this plugin does right now
+
+- `/ia-login/` and `/ia-register/` routes (no theme templates required)
+- Shortcodes:
+  - `[ia_auth_login]`
+  - `[ia_auth_register]`
+  - `[ia_auth_gate]` (for other Atrium features to block actions until login)
+- phpBB credential verification (supports bcrypt + phpBB portable `$H$/$P$` + legacy md5)
+- Creates/links a WP shadow user and logs them in (WP cookie session)
+- Best-effort PeerTube token minting:
+  - `GET /api/v1/oauth-clients/local`
+  - `POST /api/v1/users/token`
+  - refresh flow supported if a refresh token exists fileciteturn1file3
+- Admin UI under **WP Admin → IA Auth**
+  - Status
+  - Configuration (phpBB DB creds, prefix, PeerTube URLs, policy toggles)
+  - Identity map viewer
+  - Migration preview + apply (WP shadow users + map rows)
+  - Logs + audit
+
+## Install
+
+1. Upload the `ia-auth/` folder into:
+   `wp-content/plugins/ia-auth/`
+2. Activate **IA Auth** in WP Admin → Plugins
+3. Go to **WP Admin → IA Auth → Configuration**
+   - Fill in phpBB DB credentials and table prefix (`phpbb_` by default)
+   - Fill in PeerTube base URL(s) if you want Stream tokens working
+
+## Notes / intentional limitations (for safety)
+
+- PeerTube user creation is not implemented yet (admin endpoint needs an admin token or a separate provisioning flow). The plugin currently assumes either:
+  - PeerTube has public registrations enabled (`/api/v1/users/register`), or
+  - a matching PeerTube account already exists and password grant will succeed.
+- “Token-only (admin minted)” is a placeholder in the UI (future enhancement).
+- Queue runner currently only implements `refresh_token`.
+
+## Next steps (when you’re ready)
+
+1) Add PeerTube user provisioning policy (public registration vs admin add-user).  
+2) Extend migration tool to also link PeerTube accounts by email.  
+3) Add “change password” UI in Atrium that updates phpBB + PeerTube.
+
+
+## March 15, 2026 account-deletion enforcement
+
+- Registration and shadow-user creation now respect IA Goodbye tombstones. Deleted identifiers are blocked from automatic recreation.
+- Re-registration no longer clears tombstones for the same email/username. A deleted account must come back with different credentials.
+
+- 2026-03-15: Hardened phpBB tombstone delete against schema drift by checking topic/user columns before updating them, and now logs the concrete SQL/column error to PHP error log when phpBB tombstoning fails.
+
+## Detailed note: why IA Auth matters in account deletion
+
+IA Auth is part of the delete system even though the delete button does not live here.
+
+### Identity role
+
+This plugin owns the main local identity machinery used by the delete flow:
+
+- `ia_identity_map` lookup by WordPress user ID
+- phpBB bridge methods used to deactivate or tombstone phpBB users
+- shadow-user creation/linking during login and registration
+- guard points where deleted identifiers must now be refused
+
+### Why deletion cannot be treated as a simple WordPress delete
+
+In this stack, WordPress is not the canonical account authority. A user can be rebuilt from phpBB or PeerTube-linked flows. That means deleting the WordPress shadow user on its own is not enough. If IA Auth still allows normal linking/creation for the same identifiers, the user can come straight back.
+
+### Current deletion-related responsibilities in IA Auth
+
+- resolve identity-map data for the WordPress user being deleted
+- perform the final phpBB-user tombstone/update path
+- keep that phpBB delete path schema-tolerant so host column drift does not fatal the delete flow
+- refuse shadow-user recreation for tombstoned/deleted identifiers
+- refuse registration flows that would silently clear a deleted identity marker for the same credentials
+
+### Current live rule
+
+Deletion is orchestrated by IA Goodbye, but IA Auth is the plugin that makes the local identity bridges obey deletion.
+
+### phpBB tombstone note
+
+The live stack does not assume every phpBB host has identical column availability. The delete bridge therefore checks which phpBB user/topic columns exist and only updates the columns actually present. This is why the current delete path is more reliable than the earlier fixed-schema attempt.
+
+### Practical reading rule for future work
+
+When debugging login resurrection, registration recreation, or delete failures, treat IA Auth as part of the delete system, not just the login system.
+
+
+## Canonical login note (April 2026)
+
+The preferred live login route is now `ia_user_login`, not `ia_auth_login`.
+`ia_auth_login` remains as a compatibility shim so older forms do not fork the auth flow.
+When `ia-user-peertube-fallback-clean` is active, IA Auth delegates login handling to that canonical ladder.
+
+===== ./ia-auth/includes/NOTES.md =====
+# AJAX notes for ia-auth / includes
+
+Files in this directory inspected for AJAX handling:
+
+- `class-ia-auth-crypto.php`
+- `class-ia-auth-db.php`
+- `class-ia-auth-logger.php`
+- `class-ia-auth-peertube.php`
+- `class-ia-auth-phpbb.php`
+- `class-ia-auth.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-cache-control/NOTES.md =====
+# AJAX notes for ia-cache-control / .
+
+Files in this directory inspected for AJAX handling:
+
+- `AJAX-HANDLERS.md`
+- `ARCHITECTURE-NOTES.md`
+- `ia-cache-control.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-connect/NOTES.md =====
+- 2026-04-05 patch: `Subscriptions` was corrected again after live retest. It now uses `/api/v1/users/me/subscriptions` and renders subscribed channels/accounts. Do not switch this tab back to `/subscriptions/videos` unless the UI requirement changes.
+- 2026-04-05 patch: self Stream tabs that require authenticated PeerTube reads now resolve the bearer through `IA_PeerTube_Token_Helper::get_token_status_for_current_user()` first, matching the canonical token authority used by `ia-stream`. Legacy `IA_Auth` token storage remains fallback-only.
+- `Likes` now merges video likes with locally stored Stream comment likes for the profile owner, because comment votes are stored in `wp_ia_stream_comment_votes` rather than exposed by a PeerTube comment-like API route.
+- `History` and `Subscriptions` were previously able to appear empty or fall into PostgreSQL fallback/error paths when Connect skipped the canonical per-user token helper. Keep self Stream token resolution aligned with `ia-stream` before changing routes again.
+## 0.5.30 Connect Stream API-only hardening
+
+- Repaired the Connect `Stream` tab again after live retest showed the previous patch could still hit handler-level 500s and render nothing.
+- Root cause: the Stream path was still depending on PeerTube PostgreSQL enrichment/fallback queries for some subtabs, so a bad DB-side assumption could still collapse the AJAX response even when PeerTube's 8.1 REST/feed endpoints were available.
+- Stream now fails much softer:
+  - `Videos` prefers `/api/v1/users/me/videos` and falls back to `/api/v1/accounts/{name}/videos`.
+  - `Comments` now reads authored comment activity from PeerTube's documented comments feed endpoint (`/feeds/video-comments.json?accountName=...`) instead of querying PostgreSQL comment tables.
+  - `Likes`, `Subscriptions`, `Playlists`, and `History` now render directly from PeerTube 8.1 API payloads without requiring PostgreSQL thumbnail/url enrichment.
+- PeerTube PDO is now optional for Stream rendering. If DB lookup/identity repair is unavailable, API-backed subtabs still render instead of hard failing.
+- Keep Connect Stream aligned to confirmed PeerTube API/feed routes first. Do not reintroduce DB-only rendering on tabs that the uploaded 8.1 spec already covers.
+
+## 0.5.29 Connect Stream API alignment
+
+- Reworked the Connect `Stream` tab to use PeerTube 8.1 REST endpoints where the uploaded API spec actually supports the requested data shape.
+- `Videos` now prefers `/api/v1/users/me/videos` for the owner and `/api/v1/accounts/{name}/videos` for account-profile fallback.
+- `Subscriptions` now returns videos from subscribed accounts via `/api/v1/users/me/subscriptions/videos` instead of incorrectly listing followed actors/channels.
+- `Playlists` now prefers `/api/v1/accounts/{name}/video-playlists`.
+- `History` now prefers `/api/v1/users/me/history/videos`.
+- `Likes` now prefers `/api/v1/accounts/{name}/ratings?rating=like`, which is the latest API route exposed in the uploaded PeerTube 8.1 schema for account video likes.
+- `Comments` stays on the existing PostgreSQL path because the uploaded PeerTube 8.1 schema does not expose a direct authored-comments listing endpoint for account/profile activity; the current DB query is still the compatible path for comments/replies by that account.
+- API responses are now enriched with PeerTube PostgreSQL URL/thumbnail metadata so the existing Connect UI can keep rendering clickable rows and thumbnails without inventing undocumented watch URLs.
+- Scope stayed inside `ia-connect/includes/support/ajax.php` plus notes/version bumps only.
+
+## 0.5.28 Connect Stream query-parameter repair
+
+- Kept the earlier PostgreSQL pagination and identity-backfill work, but patched the actual query binding failure that was still breaking the Connect `Stream` tab.
+- Root cause: the Stream handler reused the same named PDO placeholder (`:q`) multiple times in single PostgreSQL queries. On the deployed driver/path this could still throw a query failure even though the SQL shape looked correct.
+- Replaced repeated named search placeholders with per-column generated placeholders so videos, comments, likes, subscriptions, playlists, and history can all search safely without tripping PeerTube query errors.
+- Added narrow server-side error logging in `ia_connect_stream_activity` so future PeerTube query failures report the failing activity type instead of collapsing silently into a generic browser-side 500 with no handler context.
+- Scope intentionally stayed inside `ia-connect/includes/support/ajax.php`; no wall-rendering paths, Connect post rendering, or other profile tabs were changed.
+
+# Notes: IA Connect
+
+## Core entry points
+
+- `ia-connect.php` — plugin header, constants, activation, boot wiring.
+- `includes/functions.php` — shared helpers, phpBB identity mapping, privacy helpers, and page-level metadata helpers.
+- `includes/modules/panel.php` — profile/wall renderer and Connect panel output.
+- `includes/support/assets.php` — asset enqueue and front-end config payload.
+- `includes/support/ajax.php` — Connect AJAX actions.
+
+## Operating rule
+
+Keep changes patch-only. Preserve existing routing, UI paths, AJAX actions, and phpBB/WordPress identity mapping.
+
+## 0.5.10 page-level titles and share metadata groundwork
+
+- Added server-side document-title resolution for Connect so shared links do not fall back to the global site title on Connect routes.
+- Profile routes now use the resolved display name where available.
+- Post routes (`ia_post`) now use the stored post title, or a short body excerpt when the post has no title.
+- Added narrow `og:title` and `twitter:title` output in `wp_head` so page-level titles can start flowing into shared-link metadata.
+- Kept the change confined to `includes/functions.php` and the root loader in `ia-connect.php`; no UI behaviour was changed.
+
+## 0.5.11 client-side page title sync
+
+- Fixed Connect page titles so modal/deep-link navigation updates the browser title immediately instead of waiting for a manual refresh.
+- Added client-side `document.title` + `og:title` / `twitter:title` syncing for profile and post-modal states.
+- Kept the patch narrow in `assets/js/ia-connect.js`; no feed, modal, or routing behavior was widened beyond title/meta refresh timing.
+
+
+## 0.5.12 live title consistency fix
+
+- Fixed client-side title drift on Connect where post routes could remain at `Post` and profile routes could keep an older title until refresh.
+- Post-title resolution now falls back through modal title, Discuss-share title, embed title, then body excerpt.
+- Server-side title resolution for shared Discuss posts now looks up the original Discuss topic title when the Connect post itself has no stored title.
+- Profile resolution now also checks WordPress user slug when `ia_profile_name` is present.
+- Added mutation/history observers so `document.title`, `og:title`, and `twitter:title` stay in sync during Connect SPA navigation.
+
+- 0.5.13: tightened Connect title routing so modal/profile loading states now fall back to `Connect | IndieAgora` until the requested post/profile content has actually loaded, and pinned the client/server site-title source to `IndieAgora` so transient `| Free` suffixes cannot leak in during SPA navigation.
+
+## 0.5.14 account deletion delegation retained
+
+- Kept Connect's existing account-delete endpoint and UI path intact.
+- Delete flow now relies on IA Goodbye for deeper purge/tombstone enforcement across phpBB, Message, and Connect data.
+
+- 2026-03-15: Wrapped `ia_connect_ajax_account_delete()` in a `try/catch` so frontend delete failures return JSON instead of fatal HTML/non-JSON responses.
+
+- 2026-03-15: Connect delete endpoint still delegates lifecycle work to IA Goodbye, but phpBB tombstoning underneath is now schema-tolerant and surfaces the underlying phpBB failure text instead of only the generic `phpBB delete failed.` string.
+
+## 2026-03-15 detailed account-delete delegation note
+
+Connect still owns the visible frontend delete action, but Connect is not the system of record for deletion. The current design is intentionally split:
+
+- Connect owns the UI, password-confirm form, and AJAX entry point.
+- IA Goodbye owns irreversible delete orchestration.
+- IA Auth owns the final phpBB-user tombstone/update path.
+
+This matters because a Connect-only delete would be incomplete in this stack. The same person can exist as:
+
+- a Connect-visible WordPress shadow user,
+- a phpBB canonical account,
+- a PeerTube-linked identity,
+- an `ia_identity_map` binding across systems.
+
+So the Connect endpoint should continue to delegate rather than attempting to directly delete users itself.
+
+### Frontend expectation
+
+The current frontend expectation is:
+
+- user enters current password,
+- Connect validates/delegates,
+- Connect receives structured JSON success/failure,
+- deeper lifecycle work happens outside Connect.
+
+### Why the JSON handling note matters
+
+The earlier non-JSON error was caused by a deeper delete fatal bubbling up as HTML. The current Connect-side note is important because the endpoint should remain a clean JSON boundary even when a lower layer fails.
+
+### Practical maintenance rule
+
+Do not move destructive cross-system delete logic into Connect. Keep Connect as the frontend gate and response boundary only.
+
+
+## 0.5.25 non-embeddable URL post/render fix
+
+- Removed the stray `iaConnectRefreshPageTitle(root, postModal);` call left inside `renderVideoEmbedsFromText()`.
+- That call referenced out-of-scope variables, so ordinary non-embeddable URLs in post bodies could throw during `renderCard()` on create/load.
+- Resulting symptom matched the reported behavior: the post insert succeeded server-side, the frontend showed `Post failed`, and wall rendering could blank when that post was present.
+- Patch kept narrow to `assets/js/ia-connect.js` plus version/notes sync.
+
+
+## 0.5.26 render guard + stable baseline note
+
+- Added a narrow defensive guard at the top of `renderCard()` so non-object values return early before any field access.
+- Marked the current `0.5.25` URL-post/render fix line as the working stable baseline for this issue family.
+- Diagnostic note for future incidents: avoid long trial-and-error by checking in this order:
+  1. confirm the wall SQL returns the expected post IDs,
+  2. confirm `ia_connect_post_list` returns real post payloads rather than empty arrays,
+  3. only then inspect `renderCard()`/embed rendering for the first thrown client-side error.
+- Practical rule: when AJAX returns matched IDs and non-empty payloads but the wall is blank, stop changing SQL/PHP query logic and inspect the first frontend render exception instead.
+
+
+## 2026-04-05 wall-render regression guard for search work
+
+- Reference incident: the blank profile wall was previously traced to a stray `iaConnectRefreshPageTitle(root, postModal);` call left inside `renderVideoEmbedsFromText()`. Because `root` and `postModal` were out of scope there, ordinary non-video URLs could throw during card render and blank the wall.
+- Hard rule: search changes must not touch Connect wall render, URL parsing, linkification, embed cleanup, or page-title refresh paths.
+- For Connect search work, limit PHP edits to search handlers/payload shaping and limit JS edits to the Atrium search overlay/UI only.
+- Fast diagnostic order for any future blank-wall report: verify wall SQL IDs, verify AJAX payload objects, then inspect first frontend render exception before changing persistence or wall query logic again.
+
+## 2026-04-05 search-result regression boundary reinforcement
+
+- Connect search-result presentation changes were kept out of wall rendering again after the earlier blank-wall incident.
+- Search preview cleanup/highlighting now happens in the shared Atrium overlay; Connect wall/card render, URL/embed parsing, and page-title refresh paths remain untouched.
+
+
+## 0.5.27 Connect Stream profile-activity repair
+
+- Fixed the Connect profile `Stream` tab backend to use PostgreSQL pagination syntax (`LIMIT ... OFFSET ...`) instead of MySQL's `LIMIT offset,count` form.
+- This matters because Connect reads profile Stream activity directly from the PeerTube PostgreSQL database. The old pagination form could make every Stream subtab query fail even when matching data existed.
+- Added a narrow identity backfill step for Stream activity so partially populated `wp_ia_identity_map` rows can recover missing PeerTube `user/account/actor` ids from whichever PeerTube id is already present.
+- Repaired ids are written back to the identity map to avoid repeated misses on later profile loads.
+- Scope stayed patch-only in `includes/support/ajax.php`; no Connect wall render, search overlay, or routing code was touched.
+- Regression guard: when Connect needs PeerTube profile activity, treat the source as PostgreSQL-first and do not introduce MySQL paging syntax into these queries.
+
+## 0.5.31 title ownership guard
+
+- Fixed cross-tab title stomping where Connect's live title observer could keep writing the logged-in profile name after the user had already switched into Discuss or Stream.
+- Root cause: Atrium keeps multiple tab panels mounted in the shell, so hidden Connect observers were still alive and still capable of calling `document.title`.
+- Connect client title writes are now gated by the active Atrium surface / `tab=connect` before they touch `document.title`, `og:title`, or `twitter:title`.
+- Scope stayed patch-only in `assets/js/ia-connect.js`; no profile, wall, or modal behaviour was changed.
+
+## 0.5.32 title guard ordering fix
+
+- Follow-up after live failure: the browser title was still reverting to the logged-in Connect profile name (`A Tree Stump | IndieAgora`) even on Discuss and Stream views.
+- Root cause: Atrium fires the surface switch before it finishes replacing the `?tab=` query param. Hidden Connect timers could wake up during that short window, read the stale URL first, and wrongly decide Connect still owned `document.title`.
+- Fix: Connect title ownership now checks Atrium's active shell surface first, then falls back to the URL, then the panel visibility state.
+- Scope stayed patch-only in `assets/js/ia-connect.js`; no wall, profile, modal, or routing behaviour changed.
+
+- 2026-04-05 user homepage preference: Connect settings now include a per-user homepage selector (`Connect` / `Discuss` / `Stream`). The choice is stored in user meta and only affects plain homepage entry with no explicit `?tab=` or deep-link route.
+
+- 2026-04-05 tidy-only Connect pass after rollback: kept scope inside `ia-connect` presentation only. Improved Settings card spacing, switch alignment, input box-sizing, composer spacing, and Connect post-card container polish. No shared style/theme system changes were reapplied in this rollback branch.
+
+- 2026-04-05 follow-up on the rollback tidy branch: danger-button text in Connect settings was too faint against the red deactivate/delete styling, especially in the disabled pre-confirm state. Kept scope to `assets/css/ia-connect.fb.css` and raised label contrast without touching broader theme work.
+
+- 2026-04-06 Connect style import phase started with BLACK only. Added a per-user Connect Settings style selector with `Default` and `Black`, keeping Default as the Atrium baseline. Scope is colour-only inside Connect for this pass: no layout rhythm changes, no Discuss/Stream/messages changes yet, and no frontend mention of MyBB. BLACK palette was calibrated from the imported source into Connect CSS variables and component overrides with light-surface/dark-text contrast rules.
+
+===== ./ia-connect/assets/css/NOTES.md =====
+# IA Connect CSS notes
+
+- 2026-04-06: Started imported style rollout in Connect only. Added the first alternate palette, `black`, alongside the existing `default` Atrium palette.
+- Scope of this pass is colour only. Do not change spacing rhythm, component structure, or layout when adding style variants.
+- The imported `black` pass uses light surfaces with darker text and controls so contrast stays readable across cards, settings, search, composer, comments, modal surfaces, and action buttons.
+- Frontend naming stays generic (`Default`, `Black`). Do not expose MyBB-origin terminology in Connect UI.
+- Style selection is user-scoped through Connect Settings for surgical rollout and comparison before extending the same palette to Discuss, Stream, and messages.
+
+===== ./ia-connect/includes/support/NOTES.md =====
+- 2026-04-05 patch: `Subscriptions` was corrected again after live retest. It now uses `/api/v1/users/me/subscriptions` and renders subscribed channels/accounts. Do not switch this tab back to `/subscriptions/videos` unless the UI requirement changes.
+- 2026-04-05 patch: self Stream tabs that require authenticated PeerTube reads now resolve the bearer through `IA_PeerTube_Token_Helper::get_token_status_for_current_user()` first, matching the canonical token authority used by `ia-stream`. Legacy `IA_Auth` token storage remains fallback-only.
+- `Likes` now merges video likes with locally stored Stream comment likes for the profile owner, because comment votes are stored in `wp_ia_stream_comment_votes` rather than exposed by a PeerTube comment-like API route.
+- `History` and `Subscriptions` were previously able to appear empty or fall into PostgreSQL fallback/error paths when Connect skipped the canonical per-user token helper. Keep self Stream token resolution aligned with `ia-stream` before changing routes again.
+## 2026-04-05 Connect Stream API-only fallback rule
+
+- Treat PeerTube PDO as optional in `ia_connect_stream_activity()`. If API/feed routes can satisfy the tab, do not hard-fail the whole handler because a PostgreSQL query/enrichment step broke.
+- `Comments` now comes from the documented comments feed endpoint using `accountName`; do not switch this back to direct `videoComment` SQL unless explicitly required.
+- For `Videos`, prefer `/api/v1/users/me/videos` but fall back to `/api/v1/accounts/{name}/videos` so a stale/missing self token does not blank the tab for the profile owner.
+
+# AJAX notes for ia-connect / includes/support
+
+Files in this directory inspected for AJAX handling:
+
+- `ajax.php`
+- `assets.php`
+- `notifications.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+
+## 2026-04-05 Connect Stream handler guard
+
+- `ia_connect_stream_activity()` talks to PeerTube's PostgreSQL tables directly.
+- Do not use MySQL `LIMIT offset,count` paging here. Use PostgreSQL `LIMIT ... OFFSET ...` only.
+- Stream activity also depends on complete PeerTube identity ids (`peertube_user_id`, `peertube_account_id`, `peertube_actor_id`). If one is missing, resolve from the others before assuming the user has no activity.
+- Keep Stream fixes in this handler/backend layer; do not touch Connect wall rendering for Stream-tab data issues.
+
+- Stream search clauses in this file now build distinct PostgreSQL/PDO placeholders per searched column. Do not reintroduce repeated named placeholders like `:q` across multiple `ILIKE` clauses in a single prepared statement.
+- If Stream fails again, inspect PHP error log for `[ia-connect][stream_activity]` entries before widening scope into wall/profile rendering code.
+
+## 2026-04-05 Connect Stream API alignment
+
+- Stream now uses PeerTube 8.1 REST endpoints first for tabs that are actually exposed in the uploaded `openapi(1).json`: owner videos, subscription videos, playlists, history, and account ratings/likes.
+- Keep authored comments on the PostgreSQL fallback path unless the stack later adds a confirmed authored-comments API route. The uploaded PeerTube 8.1 spec does not expose one.
+- `Subscriptions` now intentionally lists subscribed channels/accounts, not the videos from those subscriptions. Keep this aligned with the user-facing requirement for the Connect profile Stream tab.
+- When using API responses for Stream, enrich them with PostgreSQL URL/thumbnail metadata instead of inventing undocumented watch URLs.
+
+===== ./ia-context-menu-override/NOTES.md =====
+# AJAX notes for ia-context-menu-override / .
+
+Files in this directory inspected for AJAX handling:
+
+- `AJAX-HANDLERS.md`
+- `ARCHITECTURE-NOTES.md`
+- `ia-context-menu-override.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-discuss/NOTES.md =====
+## 0.3.99 Discuss housekeeping
+
+- Removed the Discuss sidebar `AgoraBB Mode` control and forced Discuss back onto the standard Atrium layout so old browser storage can no longer reopen the board-style variant.
+- Removed the Discuss sidebar theme/style controls, including the theme modal entry point and the direct MyBB scheme picker buttons.
+- Cleared legacy `ia_discuss_theme` and `ia_discuss_layout_mode` localStorage keys at shell boot and reapplied the default Discuss baseline (`dark` theme, `atrium` layout) so housekeeping takes effect immediately without requiring users to clear storage manually.
+- Kept the patch narrow to `assets/js/ia-discuss.ui.shell.js`; no feed, topic, API, or phpBB endpoint behaviour was changed.
+
+# Notes: IA Discuss
+
+## 0.3.60 architecture pass summary
+
+- Added README.md and NOTES.md coverage across the full plugin tree so each folder carries local maintenance context.
+- Rebuilt the large JS split folders into clean contiguous source slices mapped back to the stable runtime bundles.
+- Replaced the placeholder asset build helper with a working `tools/build-assets.sh` builder that regenerates the live JS bundles from the split source tree.
+- Kept WordPress enqueue handles stable in `includes/support/assets.php` and documented the generated-runtime workflow there.
+- Bumped the plugin version to `0.3.60` to invalidate cached assets after the architecture pass.
+
+## Core PHP entry points
+
+- `ia-discuss.php` — plugin header, constants, safe loader.
+- `includes/ia-discuss.php` — orchestrator that loads support files, services, modules, cron hooks, and AJAX dispatch.
+- `includes/support/assets.php` — WordPress asset registration and enqueue order.
+- `includes/support/ajax.php` — route dispatch into module AJAX handlers.
+- `includes/functions.php` — shared helpers, logging, JSON helpers, phpBB identity helpers, and user relationship helpers.
+
+## High-risk files
+
+- `assets/js/ia-discuss.router.js` — navigation, deep links, topic opening, search opening, feed scroll restoration, and event wiring.
+- `assets/js/ia-discuss.ui.feed.js` — feed rendering, load-more behaviour, media cards, share modal, link modal, and attachment/video handling.
+- `assets/js/ia-discuss.ui.composer.js` — composer rendering, drafts, file handling, and editor tools.
+- `assets/js/ia-discuss.ui.search.js` — suggestions, result rendering, and page loading.
+- `includes/services/phpbb.php` and `includes/services/phpbb-write.php` — core data access and write operations.
+
+## Operating rule
+
+Edit split JS slices first, rebuild the generated bundles, then update the relevant README.md / NOTES.md entries for the folders that changed.
+
+## 0.3.60 YouTube playlist fix summary
+- Patched the YouTube embed path so playlist URLs use the YouTube playlist embed endpoint instead of the single-video endpoint.
+- Preserved the existing single-video, Shorts, live, and PeerTube behaviour.
+- Updated local notes in the PHP render layer and both topic/feed JS media layers.
+## 0.3.61 YouTube playlist start-item fix
+
+- Kept playlist behaviour for YouTube playlist URLs but stopped forcing all playlist embeds through `videoseries`.
+- Playlist URLs that include both `v=` and `list=` now embed the selected video in playlist context, which preserves the chosen item and avoids the unavailable player seen on some playlists.
+- Pure list-only playlist URLs still fall back to the `videoseries` endpoint.
+## 0.3.62 YouTube playlist domain fix
+
+- Kept the selected-video playlist rule from `0.3.61` but changed playlist-with-video embeds from `youtube-nocookie.com/embed/{videoId}` to `youtube.com/embed/{videoId}`.
+- List-only playlist URLs still use `https://www.youtube.com/embed/videoseries?list=...`.
+- Single-video and Shorts embeds remain on the existing no-cookie path.
+- This change is intentionally narrow and targets the unavailable-player case seen in topic view for playlist posts.
+
+## 0.3.63 YouTube playlist rebuild
+
+- Replaced the mixed playlist experiments with one canonical YouTube helper: `assets/js/ia-discuss.youtube.js`.
+- Playlist URLs now win as playlists. The plugin no longer tries to force a `v=` item into the iframe path for playlist posts.
+- Feed JS, topic JS, and PHP rendering now all use the same rule set for YouTube URLs.
+
+## 0.3.64 playlist fallback cards
+- YouTube playlist URLs no longer render as inline iframes. They now render as simple playlist cards that open the playlist on YouTube.
+- Single videos and Shorts keep inline embed behaviour.
+
+## 0.3.65 light sidebar contrast patch
+
+- Fixed the Discuss sidebar button contrast in light mode so sidebar labels are readable again.
+- Kept the patch confined to `assets/css/ia-discuss.layout.css`.
+- Styled the theme toggle so when light mode is active the button shown as `Dark` renders as a dark button with light text.
+
+## 0.3.66 playlist iframe restore
+
+- Restored inline YouTube playlist iframes so playlist URLs are not downgraded to click-out cards in topic rendering paths.
+- Playlist URLs with both `v=` and `list=` now embed the selected video on `youtube.com/embed/{videoId}?list=...`.
+- List-only playlist URLs still use the playlist embed form with `listType=playlist`.
+- Feed and topic JavaScript now use the same shared helper output for playlist embeds.
+
+## 0.3.67 playlist iframe endpoint correction
+
+- Switched playlist iframe generation from mixed video-or-playlist embed URLs to the dedicated YouTube playlist iframe endpoint: `https://www.youtube.com/embed/videoseries?list=...`.
+- Kept playlist rendering inline in topic/feed views, but stopped forcing the selected `v=` item into the iframe path because that form was producing the unavailable-player state.
+- Playlist `index` and `start` values are still preserved when present in the pasted URL.
+
+
+## 0.3.68 code-block URL literal fix
+
+- URLs inside `[code]...[/code]` now stay literal text and are no longer auto-embedded, auto-linked, or converted into rich cards.
+- Removed the legacy code-block collapse path that could turn code content into a standalone URL outside the code block.
+- Kept the patch confined to `includes/render/bbcode.php` and bumped the plugin version for cache invalidation.
+
+## 0.3.69 code-block HTML embed fix
+- Fixed topic HTML post-processing so video embedding now stashes `<pre>` and `<code>` blocks before scanning for video links.
+- URLs inside `[code]...[/code]` now remain literal text and do not turn into iframes during the HTML video-embed pass.
+
+- 0.3.69a: Fixed a PHP parse error introduced in `includes/render/bbcode.php` during the code-block URL literal patch. Cause was unsafe regex quoting in single-quoted PHP strings inside `embed_video_links_in_html()`. Added `ERRORS-TO-AVOID.md` with the failure mode and prevention rule.
+
+## 0.3.70 critical-error hotfix
+
+- Fixed PHP parse error in `includes/render/bbcode.php` caused by unsafe regex quoting inside `embed_video_links_in_html()`.
+- Added `ERRORS-TO-AVOID.md` documenting the failure mode and prevention rule.
+- Purpose: restore plugin activation/runtime while keeping the code-block URL literal behavior.
+
+- 0.3.71: Topic fullscreen view now starts below the fixed top bar (72px offset) so the topic title/header are visible in topic view. Patch-only CSS change in `assets/css/ia-discuss.modal.css`.
+
+## 0.3.72 personal sidebar feeds
+
+- Added a new `My` subsection in the Discuss sidebar after the light/dark toggle with `My Topics`, `My Replies`, and `My History`.
+- `My Topics` shows the logged-in user's authored topics.
+- `My Replies` shows topics where the logged-in user has made a reply, ordered by that user's latest reply in each topic.
+- `My History` shows topics the logged-in user has opened in Discuss, stored in WP user meta and ordered by most recent visit by default.
+- Kept the existing feed sort dropdown present for these personal views.
+- Kept the existing Random behaviour intact instead of rebasing it onto the new personal feed contexts.
+
+## 0.3.73 housekeeping and regression-cause notes
+
+- Wrote down the concrete causes behind the earlier personal-feed/random regressions so they are preserved in-plugin instead of in chat only.
+- Cause 1: personal feed semantics were initially grafted onto existing global feed paths instead of being kept as separate view keys end-to-end. That let `My Replies` fall through to the generic replies/feed behaviour.
+- Cause 2: Random was temporarily coupled to whichever feed context remained active, so `My History` could shrink the candidate pool and make Random appear stuck on only a few topics.
+- Cause 3: a later repair attempt touched broader feed/runtime paths than the requested target. That widened a Random fix into unrelated feed regressions.
+- Housekeeping pass: reduced two large split JS source slices into smaller intent-labelled slices in `assets/js/split/router/` and `assets/js/split/feed/` while keeping the generated runtime bundle names and live behaviour unchanged.
+- Updated the build script and folder notes so future edits target the smaller source slices instead of recreating the old monoliths.
+
+## 0.3.74 private Agora moderation
+
+- Added a dedicated `includes/services/agora-privacy.php` service for per-Agora private/public state and invite records.
+- Added moderation controls for `Set private` / `Set public` and `Invite users` inside the existing Agora settings modal.
+- Private Agora access is enforced server-side for Agora list, Agora meta, topic view, posting, replying, joining, and random/feed loading.
+- Share to Connect is blocked server-side for private Agoras, and Discuss hides Share/Copy actions for private content in feed/topic UI.
+- Invite notifications are emitted via IA Notify when that plugin is present, using an Agora invite URL that opens an accept/decline prompt before private content is shown.
+
+
+## 0.3.75 private Agora access consistency fix
+
+- Fixed private Agora invite notifications to deep-link into Discuss explicitly (`tab=discuss&ia_tab=discuss`) instead of relying on the current page context.
+- Fixed feed/random privacy filtering to use the same canonical phpBB identity resolver as topic/forum-meta/membership paths, preventing invited users and moderators from being treated as anonymous in feed loaders.
+- Invite acceptance now normalises the browser URL to the Discuss Agora route and removes the one-time `iad_invite` parameter after response.
+
+
+## 0.3.76 private Agora leave/reinvite fix
+
+- Leaving a private Agora as an invited non-moderator now revokes the accepted invite record as well as joined-state membership.
+- That means the user immediately loses access to the private Agora until a moderator sends a fresh invite.
+- Private-Agora leave now redirects non-moderators back to the global Discuss feed instead of leaving them inside an Agora they can no longer access.
+- Moderator access remains intact for private Agoras because moderation access is preserved separately from invite-based membership.
+
+
+## 0.3.77 private Agora invite hardening
+
+- Fixed the private-Agora invite suggestion rows in moderation so invite search results are rendered with dedicated readable styling instead of reusing kicked-user row presentation.
+- Fixed the Invite action to surface inline status and to use the first visible suggestion when text is typed but no row was explicitly clicked.
+- Reinvite now invalidates any older invite row first and creates a fresh invite id, so stale invite URLs stop working permanently and Notify can emit a new reinvite item instead of deduping onto the old one.
+- Invite responses now only succeed for pending invites, preventing accepted/declined stale links from being reused.
+
+
+## 0.3.79 report override/admin access fix
+
+- Fixed report-link access for WordPress admins who are not invited into a private Agora: report override is now checked before requiring a mapped phpBB identity, so admins can open the single reported post from the notification without gaining wider Agora access.
+- Fixed report recipient fan-out so forum moderators are resolved from both `moderator_cache` and phpBB ACL grants (`m_*`) rather than only `moderator_cache`.
+- Scope kept narrow: no general private-Agora admin bypass was added; the exemption remains report-link-only.
+
+## 0.3.80 theme modal and legacy style
+
+- Replaced the sidebar light/dark toggle with a theme picker modal offering `Dark`, `Light`, and `Legacy style`.
+- Added a narrow new stylesheet, `assets/css/ia-discuss.legacy.css`, to carry both the new modal UI skin and the phpBB-inspired legacy Discuss theme.
+- Legacy style uses a prosilver-like palette, classic font stack, simpler panel borders, and lighter forum-card surfaces to make posts easier to read.
+## 0.3.81 legacy readability patch
+- Improved legacy-theme readability in feed cards by overriding excerpt text away from inherited dark-theme white.
+- Improved legacy-theme topic signature contrast so Connect bio signatures remain readable against the pale phpBB-style post backgrounds.
+
+
+
+
+## 0.3.83 topic title bar viewport lift
+
+- When the Atrium top nav/header auto-hides in Discuss topic view, the topic sheet now also lifts to the viewport top so the topic title bar does not sit below a letterbox gap.
+- The topic title bar remains sticky in place while scrolling within the topic and drops back to the normal offset when the Atrium top bar returns.
+
+## 0.3.82 topic topbar auto-hide
+
+- Added a narrow topic-view scroll behaviour so the Atrium top nav/header hides while scrolling down in Discuss topic view and reappears when scrolling up or returning near the top.
+- Kept the change local to `assets/js/ia-discuss.ui.topic.js` and restored the original topbar inline styles when the topic closes or the user leaves Discuss.
+
+
+## 0.3.84 page-level titles and share metadata groundwork
+
+- Added server-side document-title resolution for Discuss so browser titles and link scrapers no longer fall back to the global site title on Discuss routes.
+- Topic view now resolves the real phpBB topic title through `IA_Discuss_Service_PhpBB::get_topic_row()` and uses it as the page title.
+- Agora view now resolves the forum name through `IA_Discuss_Service_PhpBB::get_forum_row()` and uses it as the page title.
+- Added narrow `og:title` and `twitter:title` output in `wp_head` so shared links can start reflecting page-level titles before fuller metadata work lands.
+- Kept the change patch-only in `includes/functions.php` and boot wiring in `includes/ia-discuss.php`; no feed/topic UI paths were changed.
+
+## 0.3.84 client-side page title sync
+
+- Fixed Discuss page titles so they update on in-panel SPA navigation instead of only after a hard refresh.
+- Added client-side `document.title` + `og:title` / `twitter:title` syncing for topic, agora, search, and feed-view transitions.
+- Kept the patch narrow in `assets/js/ia-discuss.router.js`; no route or UI behavior was changed beyond title/meta refresh timing.
+
+
+## 0.3.84b live title observer fix
+
+- Fixed SPA title drift where Discuss topic titles could lag behind navigation until a full refresh.
+- Client-side title resolution now falls back to `window.IA_DISCUSS_TOPIC_DATA.topic_title` when the topic header DOM has not settled yet.
+- Added mutation/history observers in the router so `document.title`, `og:title`, and `twitter:title` are refreshed after topic/agora route changes and late DOM updates.
+
+- 0.3.86: tightened Discuss title routing so the loading state now falls back to `Discuss | IndieAgora` instead of stale topic/agora names, and the client/server site-title source is pinned to `IndieAgora` so transient `| Free` suffixes cannot leak in during SPA navigation.
+
+## 0.3.89 AgoraBB mode
+
+- Added a separate `AgoraBB Mode` sidebar toggle that switches Discuss navigation into a phpBB-style forum index and forum-topic listing without changing the global theme system.
+- In AgoraBB mode, the default Discuss landing route now opens the forum index (`Agoras`) when no explicit Discuss deep link is present.
+- Topic view remains on the existing Atrium topic renderer; only the Agoras index and single-Agora navigation surfaces switch to the board-style layout.
+
+
+## 0.3.90 MyBB colour themes in Discuss
+
+- Added the default MyBB colour schemes as additional Discuss theme options: `black`, `calm`, `dawn`, `earth`, `flame`, `leaf`, `night`, `sun`, `twilight`, and `water`.
+- Kept the existing Discuss dark/light/legacy theme system intact and extended it instead of replacing it.
+- Added direct theme pick buttons in the Discuss sidebar so users can switch to the MyBB-style colour schemes without leaving the menu.
+- Reworked `assets/css/ia-discuss.legacy.css` so the legacy/phpBB-style rules now run through a shared classic-theme class, with per-theme colour variables mapped from the MyBB default package colour names.
+- Updated the search suggestions portal theme sync so the floating search dropdown follows the selected MyBB-style colour scheme as well.
+- Bumped the plugin version to `0.3.90` for cache invalidation.
+
+===== ./ia-discuss/README.md =====
+# IA Discuss
+
+IA Discuss is a WordPress plugin that mounts an Atrium Discuss panel backed by phpBB. The plugin is composed from four layers: WordPress bootstrap and support glue, PHP services and modules, front-end runtime assets, and developer notes/build tooling.
+
+## Architecture map
+
+- `ia-discuss.php` loads the orchestrator and defines the plugin constants used by every other layer.
+- `includes/` holds the PHP runtime. `includes/support/` wires WordPress, `includes/services/` encapsulates phpBB/auth/notify/membership logic, `includes/render/` formats content, and `includes/modules/` exposes AJAX feature entry points.
+- `assets/css/` and `assets/js/` hold the front-end assets. The live site still loads generated JS bundle files for stability, while the largest bundles are now maintained through atomised source slices in `assets/js/split/`.
+- `tools/build-assets.sh` rebuilds the generated JS bundles from the split source slices.
+- `DEVELOPMENT-NOTES.md` is the root maintenance policy and should be updated whenever behaviour or structure changes.
+- `ENDPOINTS.md` is the master endpoint map and should be updated whenever the AJAX or browser-route surface changes.
+
+## Runtime asset model
+
+The live site still enqueues the generated runtime bundle files so WordPress handles remain stable and the browser only sees the tested runtime files. The source-of-truth for the large JS bundles is now the split source tree. Those split files are concatenation slices, not standalone script tags:
+
+- `assets/js/split/feed/` → `assets/js/ia-discuss.ui.feed.js`
+- `assets/js/split/search/` → `assets/js/ia-discuss.ui.search.js`
+- `assets/js/split/composer/` → `assets/js/ia-discuss.ui.composer.js`
+- `assets/js/split/router/` → `assets/js/ia-discuss.router.js`
+- `assets/js/split/topic/` → `assets/js/topic/ia-discuss.topic.actions.js`
+
+After editing those split slices, run `./tools/build-assets.sh` from the plugin root.
+
+## Folder map
+
+```text
+├── assets/
+├── includes/
+├── tools/
+├── DEVELOPMENT-NOTES.md
+├── NOTES.md
+├── README.md
+└── ia-discuss.php
+```
+
+Read the local README.md and NOTES.md inside any folder before making changes there.
+
+===== ./ia-discuss/assets/NOTES.md =====
+## 0.3.99 sidebar housekeeping
+
+- Removed the Discuss-only style and layout controls from the sidebar so housekeeping can proceed before the later cross-platform styling pass.
+- Discuss now boots back onto the default dark Atrium presentation and clears older per-browser Discuss theme/layout picks during shell mount.
+
+# Notes: assets
+
+## What changed in the 0.3.59 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `css/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `img/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `js/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+## 0.3.72 sidebar feed note
+
+- The Discuss sidebar now includes a `My` subsection for personal topic/reply/history feeds.
+
+
+## 0.3.74 private Agora UI
+
+- Moderation settings modal now includes private/public toggle and invite search/send controls.
+- Agora view now intercepts invite URLs and shows an accept/decline modal before loading private content.
+- Feed/topic action rows hide Copy link and Share to Connect for private Agora content.
+
+
+## 0.3.75 invite-route follow-up
+
+- Agora invite acceptance now normalises the URL to the Discuss Agora route and removes the one-time invite query parameter after response.
+
+- `ia-discuss.ui.agora.membership.js` — Leaving a private Agora now redirects non-moderators to the global Discuss feed after access is revoked.
+
+- 0.3.77: Moderation invite search results now use dedicated readable dark-mode rows instead of borrowed kicked-user styling.
+
+## 0.3.80 theme UI
+
+- Discuss sidebar theme control now opens a chooser modal with Dark, Light, and Legacy style options.
+- Legacy style is a phpBB-inspired theme aimed at improving post readability for users who prefer the older forum look.
+
+
+## 0.3.89 AgoraBB mode
+
+- Added a separate navigation/layout mode for Discuss. AgoraBB mode is not tied to the existing dark/light/legacy theme chooser.
+
+===== ./ia-discuss/assets/README.md =====
+# assets
+
+Front-end asset container for styles, scripts, and static images used by the Discuss panel.
+
+## File tree
+```text
+├── css/
+├── img/
+└── js/
+```
+
+## File roles
+- `css/` — Runtime stylesheets. Base, layout, modal, topic, moderation, audio, and feature-specific CSS live here.
+- `img/` — Static image assets referenced by the UI.
+- `js/` — Runtime JavaScript bundles and already-modular UI files that are loaded by WordPress.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+
+===== ./ia-discuss/assets/css/NOTES.md =====
+# Notes: assets / css
+
+## What changed in the 0.3.59 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `split/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `ia-discuss.agora.create.css` — Stylesheet. Primary selectors include: .iad-tab-action, .iad-modal-overlay, .iad-modal-sheet, .iad-modal-head, .iad-modal-title, .iad-modal-x, .iad-modal-body, .iad-field
+- `ia-discuss.agora.css` — Stylesheet. Primary selectors include: .iad-agora-head, .iad-agora-banner, .iad-agora-inner, .iad-agora-name, .iad-agora-sub, .iad-agora-desc, .iad-agora-row, .iad-agora-row__open
+- `ia-discuss.audio.css` — Stylesheet. Primary selectors include: .iad-audio-player, .iad-audio-player:before, .iad-audio-player > *, .iad-ap-head, .iad-ap-logo, .iad-ap-brand, .iad-ap-file, .iad-ap-main
+- `ia-discuss.base.css` — Stylesheet. Primary selectors include: :root, .iad-shell, .ia-discuss-root h4, .iad-empty, .iad-user-link, .iad-user-link:hover, .iad-shell a:visited, .iad-shell a:hover
+- `ia-discuss.cards.css` — Stylesheet. Primary selectors include: .iad-feed-list, .iad-card, .iad-card-main, .iad-card object, .iad-card object, .iad-card table, .iad-card pre, .iad-card code
+- `ia-discuss.composer.css` — Stylesheet. Primary selectors include: .iad-composer-body[hidden], .iad-composer, .iad-composer-top, .iad-composer-toggle, .iad-dot, .iad-composer-body, .iad-input, .iad-textarea
+- `ia-discuss.layout.css` — Stylesheet. Primary selectors include: .iad-shell, .iad-view, .iad-sidebar-backdrop, .iad-sidebar-backdrop[hidden], .iad-sidebar, .ia-discuss-root.is-sidebar-open .iad-sidebar, .iad-sidebar-head, .iad-sidebar-title
+- `ia-discuss.legacy.css` — Stylesheet. Primary selectors include: .ia-discuss-root[data-iad-theme="legacy"], .ia-discuss-root[data-iad-theme="legacy"] .iad-card, .ia-discuss-root[data-iad-theme="legacy"] .iad-post, .ia-discuss-root[data-iad-theme="legacy"] .iad-sidebar, .iad-theme-sheet, .iad-theme-list, .iad-theme-choice, .iad-theme-choice.is-active
+- `ia-discuss.light.css` — Stylesheet. Primary selectors include: .ia-discuss-root[data-iad-theme="light"], .ia-discuss-root[data-iad-theme="light"] .iad-btn, .ia-discuss-root[data-iad-theme="light"] .iad-btn:hover, .ia-discuss-root[data-iad-theme="light"] .iad-tab.is-active, .ia-discuss-root[data-iad-theme="light"] .iad-textarea, .ia-discuss-root[data-iad-theme="light"] .iad-textarea::placeholder, .ia-discuss-root[data-iad-theme="light"] .iad-card, .ia-discuss-root[data-iad-theme="light"] .iad-card.is-unread
+- `ia-discuss.modal.css` — Stylesheet. Primary selectors include: .iad-modal[hidden], .iad-modal, .iad-modal-backdrop, .iad-modal-sheet, .iad-modal-top, .iad-x, .iad-modal-title, .iad-modal-body
+- `ia-discuss.moderation.css` — Stylesheet. Primary selectors include: .iad-mod-form .iad-form-row, .iad-mod-form, .iad-mod-form .iad-help, .iad-mod-form .iad-label, .iad-mod-form .iad-textarea, .iad-mod-form .iad-textarea, .iad-form-actions, .iad-form-actions .iad-btn
+- `ia-discuss.rules.css` — Stylesheet. Primary selectors include: .iad-modal-sheet.iad-modal-sheet--full, .iad-rules-body, .iad-rules-empty
+- `ia-discuss.search.css` — Stylesheet. Primary selectors include: .iad-suggest, .iad-suggest--portal[data-iad-theme="light"], .iad-suggest--portal[data-iad-theme="light"] .iad-sug-row, .iad-suggest--portal[data-iad-theme="light"] .iad-sug-row:hover, .iad-suggest--portal[data-iad-theme="light"] .iad-sug-row.is-cta, .iad-suggest--portal[data-iad-theme="light"] .iad-sg-title, .iad-suggest--portal[data-iad-theme="light"] .iad-sug-sn, .iad-suggest--portal[data-iad-theme="light"] .iad-av
+- `ia-discuss.topic.css` — Stylesheet. Primary selectors include: .iad-att-iframe, .iad-att-iframe.is-vertical, .iad-topic-modal .iad-attwrap, .iad-topic-modal .iad-att-media.iad-att-video, .iad-topic-modal .iad-att-media.iad-att-video, .iad-topic-modal .iad-att-media.iad-att-video .iad-att-iframe, .iad-compose-overlay, .iad-compose-sheet
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+## 0.3.65 light sidebar contrast patch
+- `ia-discuss.layout.css` now carries the light-mode sidebar contrast fix so sidebar tabs/actions stay readable and the `Dark` theme button renders dark in light mode.
+
+- 0.3.71: Topic fullscreen view now starts below the fixed top bar (72px offset) so the topic title/header are visible in topic view. Patch-only CSS change in `assets/css/ia-discuss.modal.css`.
+- 0.3.83: `ia-discuss.modal.css` now lifts the fullscreen topic sheet to `top: 0` while topic-view topbar auto-hide is active so the topic title bar fills the reclaimed viewport space.
+
+## 0.3.72 layout note
+
+- Added minimal sidebar divider/subtitle styling for the new personal-feed subsection.
+
+
+## 0.3.80 theme modal and legacy style
+
+- Added `ia-discuss.legacy.css` with a phpBB prosilver-inspired legacy theme for users who prefer the classic forum look.
+- The shared theme picker modal styling now also lives in `ia-discuss.legacy.css` so the new dark/light/legacy theme chooser stays in one small intent-labelled file.
+## 0.3.81 legacy readability patch
+
+- `ia-discuss.legacy.css` now overrides feed excerpt text and topic signature text/dividers for the legacy theme so feed previews and signatures remain readable on pale cards/posts.
+
+
+
+## 0.3.89 AgoraBB layout styling
+
+- `ia-discuss.agora.css` now includes the board-style index/forum table styling used only when the root has `data-iad-layout="agorabb"`.
+- The change is layout-scoped and does not alter the existing theme chooser files.
+
+
+## 0.3.90 MyBB colour themes
+
+- `ia-discuss.legacy.css` now carries the whole classic-forum theme family instead of only the original legacy blue variant.
+- The classic theme file now supports `legacy`, `black`, `calm`, `dawn`, `earth`, `flame`, `leaf`, `night`, `sun`, `twilight`, and `water` by applying shared forum-style selectors through `.iad-theme-classic` and changing colour variables per selected theme.
+- Added `.iad-theme-picks` / `.iad-theme-pick` sidebar styles so the MyBB colour choices can be selected directly from the Discuss sidebar.
+
+## 0.3.91 stronger MyBB schemes
+- Renamed the Discuss sidebar theme subsection from `MyBB styles` to `Schemes`.
+- Renamed the legacy blue picker label to `Blue` in the Discuss theme UI while keeping the stored theme key as `legacy` for compatibility.
+- Expanded `assets/css/ia-discuss.legacy.css` so each MyBB-derived scheme now changes more of the forum chrome instead of mostly just accents: card backgrounds, alternate post rows, borders, sidebar gradients, modal header gradients, AgoraBB/topic header bars, and the Discuss topbar toggle all now vary by scheme.
+- This change was based on reviewing the supplied screen recording frame-by-frame: the previous pass showed only small accent differences, so this patch intentionally broadens the visible scheme surfaces without changing Discuss routing or theme storage keys.
+
+## 0.3.92 pagination visibility pass
+- Classic/MyBB scheme rules now explicitly style feed pagination controls, load-more buttons, and sort controls so they remain visible across the scheme set.
+
+## 0.3.94 pagination alignment polish
+- `cards.feed_list_layout.css` now aligns the feed toolbar/jump-to layout more cleanly on desktop and mobile.
+- `ia-discuss.legacy.css` now also styles the sort label text/icon in the MyBB-derived schemes so the toolbar remains readable there too.
+## 0.3.95 pagination toolbar compaction
+- Tightened feed toolbar alignment into compact icon controls, cleaner summary spacing, and a right-aligned jump form so pagination no longer breaks into oversized pills.
+- Legacy/MyBB visibility rules still apply to the compact controls.
+
+
+## 0.3.96 pagination visibility repair
+- Added the missing `.iad-screen-reader-text` utility in `ia-discuss.base.css` so pagination toolbar buttons stay SVG-only visually while keeping accessible labels.
+- Added `.iad-feed-jump[hidden]{display:none !important;}` and tightened toolbar/pager spacing in `split/cards/cards.feed_list_layout.css` so Jump To stays collapsed until clicked and the numbered pager sits closer to the top controls.
+
+## 0.3.97 pagination row alignment follow-up
+- Removed the extra sort icon button so sorting is controlled only by the existing dropdown pill.
+- Moved the top pager into the main toolbar row and kept the jump form collapsed below the right side until explicitly toggled.
+
+===== ./ia-discuss/assets/css/README.md =====
+# assets / css
+
+Runtime stylesheets. Base, layout, modal, topic, moderation, audio, and feature-specific CSS live here.
+
+## File tree
+```text
+├── split/
+├── ia-discuss.agora.create.css
+├── ia-discuss.agora.css
+├── ia-discuss.audio.css
+├── ia-discuss.base.css
+├── ia-discuss.cards.css
+├── ia-discuss.composer.css
+├── ia-discuss.layout.css
+├── ia-discuss.legacy.css
+├── ia-discuss.light.css
+├── ia-discuss.modal.css
+├── ia-discuss.moderation.css
+├── ia-discuss.rules.css
+├── ia-discuss.search.css
+└── ia-discuss.topic.css
+```
+
+## File roles
+- `split/` — Atomised CSS source groups. These files break larger visual systems into intent-led slices.
+- `ia-discuss.agora.create.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.agora.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.audio.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.base.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.cards.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.composer.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.layout.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.legacy.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.light.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.modal.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.moderation.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.rules.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.search.css` — Runtime or split CSS stylesheet.
+- `ia-discuss.topic.css` — Runtime or split CSS stylesheet.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+
+===== ./ia-discuss/assets/css/split/NOTES.md =====
+# Notes: assets / css / split
+
+## What changed in the 0.3.59 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `cards/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `search/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+===== ./ia-discuss/assets/css/split/README.md =====
+# assets / css / split
+
+Atomised CSS source groups. These files break larger visual systems into intent-led slices.
+
+## File tree
+```text
+├── cards/
+└── search/
+```
+
+## File roles
+- `cards/` — Card and feed presentation slices for the topic list UI, media blocks, pills, and icon buttons.
+- `search/` — Search-specific presentation slices for suggestions and result rows.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+
+===== ./ia-discuss/assets/css/split/cards/NOTES.md =====
+# Notes: assets / css / split / cards
+
+## What changed in the 0.3.59 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `cards.card_body_actions.css` — Stylesheet. Primary selectors include: .iad-card-excerpt, .iad-card-excerpt *, .iad-card-meta, .iad-sub, .iad-card-title, .iad-card-excerpt p, .iad-card-actions, .iad-attachrow
+- `cards.feed_list_layout.css` — Stylesheet. Primary selectors include: .iad-feed-list, .iad-card, .iad-card::before, .iad-card.is-unread::before, .iad-card.is-read::before, .iad-card.is-unread, .iad-card.is-read, .iad-card-main
+- `cards.icon_buttons.css` — Stylesheet. Primary selectors include: .iad-video-frame, .iad-video-frame.is-vertical, .iad-video-el, .iad-video-frame.is-vertical .iad-video-el, .iad-iconbtn, .iad-iconbtn:hover, .iad-iconbtn:active, .iad-iconbtn svg
+- `cards.links_modal_items.css` — Stylesheet. Primary selectors include: .iad-linksmodal-top, .iad-linksmodal-title, .iad-linksmodal-body, .iad-linkslist, .iad-linksitem, .iad-linksitem:hover, .iad-linksitem-ico, .iad-linksitem-txt
+- `cards.media_thumbs.css` — Stylesheet. Primary selectors include: .iad-mediawrap, .iad-media-row, .iad-media-meta, .iad-media-line, .iad-media-tag, .iad-media-host, .iad-vthumb, .iad-vthumb:hover
+- `cards.pills_and_links_modal.css` — Stylesheet. Primary selectors include: .iad-vthumb-fallback, .iad-vthumb-overlay, .iad-vthumb-play, .iad-mediastrip, .iad-pill, .iad-pill:hover, .iad-pill.is-muted, .iad-media-row
+- `cards.video_modal.css` — Stylesheet. Primary selectors include: .iad-videomodal-backdrop, .iad-videomodal-sheet, .iad-videomodal-sheet, .iad-videomodal-top, .iad-videomodal-title, .iad-videomodal-actions, .iad-videomodal-open, .iad-videomodal-open:hover
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+## 0.3.92 feed toolbar and pager styling
+- Added feed toolbar, pagination, jump-to, and mode-toggle styles to the feed list layout split CSS.
+- Added mobile wrapping so the top controls stay aligned instead of splitting awkwardly.
+
+## 0.3.96 feed toolbar visibility fix
+- `cards.feed_list_layout.css` now respects the Jump To `hidden` state explicitly and tightens the top toolbar/pager spacing so the numbered controls sit higher.
+- The feed mode buttons, sort icon button, and Jump To button remain compact SVG-first controls with no visible text labels.
+
+## 0.3.97 pagination toolbar row alignment
+- Removed the extra sort icon chrome, kept the dropdown pill only, and shifted the top pager into the same row as the mode toggles.
+- Tightened the desktop header layout so the summary and Jump To icon sit directly after the top pager instead of drifting to the far edge.
+
+===== ./ia-discuss/assets/css/split/cards/README.md =====
+# assets / css / split / cards
+
+Card and feed presentation slices for the topic list UI, media blocks, pills, and icon buttons.
+
+## File tree
+```text
+├── cards.card_body_actions.css
+├── cards.feed_list_layout.css
+├── cards.icon_buttons.css
+├── cards.links_modal_items.css
+├── cards.media_thumbs.css
+├── cards.pills_and_links_modal.css
+└── cards.video_modal.css
+```
+
+## File roles
+- `cards.card_body_actions.css` — Runtime or split CSS stylesheet.
+- `cards.feed_list_layout.css` — Runtime or split CSS stylesheet.
+- `cards.icon_buttons.css` — Runtime or split CSS stylesheet.
+- `cards.links_modal_items.css` — Runtime or split CSS stylesheet.
+- `cards.media_thumbs.css` — Runtime or split CSS stylesheet.
+- `cards.pills_and_links_modal.css` — Runtime or split CSS stylesheet.
+- `cards.video_modal.css` — Runtime or split CSS stylesheet.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+
+===== ./ia-discuss/assets/css/split/search/NOTES.md =====
+# Notes: assets / css / split / search
+
+## What changed in the 0.3.59 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `search.results_list.css` — Stylesheet. Primary selectors include: .iad-search-title, .iad-search-q, .iad-search-tabs, .iad-stab, .iad-stab:hover, .iad-stab.is-active, .iad-sr-list, .iad-sr-row
+- `search.results_row_details.css` — Stylesheet. Primary selectors include: .iad-sr-ico svg, .iad-sr-mid, .iad-sr-title, .iad-sr-sub, .iad-sr-sn
+- `search.suggestions_dropdown.css` — Stylesheet. Primary selectors include: .iad-suggest, .iad-suggest[data-iad-theme="light"], .iad-suggest[data-iad-theme="light"] .iad-sug-row, .iad-suggest[data-iad-theme="light"] .iad-sug-row:hover, .iad-suggest[data-iad-theme="light"] .iad-sug-row.is-cta, .iad-suggest[data-iad-theme="light"] .iad-sg-title, .iad-suggest[data-iad-theme="light"] .iad-sug-sn, .iad-suggest[data-iad-theme="light"] .iad-av
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+===== ./ia-discuss/assets/css/split/search/README.md =====
+# assets / css / split / search
+
+Search-specific presentation slices for suggestions and result rows.
+
+## File tree
+```text
+├── search.results_list.css
+├── search.results_row_details.css
+└── search.suggestions_dropdown.css
+```
+
+## File roles
+- `search.results_list.css` — Runtime or split CSS stylesheet.
+- `search.results_row_details.css` — Runtime or split CSS stylesheet.
+- `search.suggestions_dropdown.css` — Runtime or split CSS stylesheet.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+
+===== ./ia-discuss/assets/img/NOTES.md =====
+# Notes: assets / img
+
+## What changed in the 0.3.59 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `agora-player-logo.png` — File present in this folder.
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+===== ./ia-discuss/assets/img/README.md =====
+# assets / img
+
+Static image assets referenced by the UI.
+
+## File tree
+```text
+└── agora-player-logo.png
+```
+
+## File roles
+- `agora-player-logo.png` — Static image asset.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+
+===== ./ia-discuss/assets/js/NOTES.md =====
+## 0.3.99 sidebar housekeeping
+
+- `ia-discuss.ui.shell.js` no longer exposes the `AgoraBB Mode` toggle, Discuss theme modal button, or direct sidebar scheme buttons.
+- Shell boot now clears the old per-browser theme/layout keys and reapplies the baseline `dark` theme with `atrium` layout so previous local selections do not survive this housekeeping pass.
+
+# Notes: assets / js
+
+## What changed in the 0.3.59 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `split/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `topic/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `ia-discuss.agora.create.js` — Functions: qs, esc, ensureModal, openModal, closeModal, submit, wireOnce
+- `ia-discuss.api.js` — Functions: safeJsonFromResponse, fetchWithTimeout, post, uploadFile, uploadFileWithProgress, upload Window exports: IA_DISCUSS_API
+- `ia-discuss.audio.js` — Functions: fmtTime, ensureWaves, pauseOthers, initPlayer, syncPlayState, syncTime, init, boot Window exports: IA_DISCUSS_AUDIO
+- `ia-discuss.boot.js` — Functions: depsReady, safeQS, bootWhenReady, tick
+- `ia-discuss.core.js` — Functions: qs, qsa, esc, timeAgo Window exports: IA_DISCUSS_CORE
+- `ia-discuss.modtools.js` — Functions: ready, patchModerationReturnShape, removeCoverButtons, patchCoverPrompt, init
+- `ia-discuss.router.js` — Functions: depsReady, safeQS, setParam, setParams, mount, render, setModerationContext, agRowHTML, previewHTML, renderShell, renderMoreButton, appendFromCache, loadAgorasNext, getDiscussScroller, getFeedMount, computeFeedAnchor, saveFeedScroll, restoreFeedScrollAfterFeed, openTopicPage, openSearchPage, viewToTab, bindRandomTopic, composerError, routeFromURL Window exports: IA_DISCUSS_ROUTER
+- `ia-discuss.state.js` — Functions: load, save, get, set, markRead, isRead Window exports: IA_DISCUSS_STATE
+- `ia-discuss.ui.agora.js` — Functions: loadMeta, renderAgora Window exports: IA_DISCUSS_UI_AGORA
+- `ia-discuss.ui.agora.membership.js` — Functions: stop, isLoggedIn, setBtnState, setJoinState, persistState, setBellState, getBellEnabled, toggleJoin, toggleBell, changeCover, findRootFor, bind
+- `ia-discuss.ui.composer.js` — Functions: htmlToBbcode, walk, wrapSelection, insertAtCursor, isImage, isVideo, makeToolbar, composerHTML, bindComposer, draftLoad, draftSave, draftClear, setError, openFilePicker, setOpen, renderAttachList Window exports: IA_DISCUSS_UI_COMPOSER
+- `ia-discuss.ui.feed.js` — Functions: ensureShareModal, isShareModalOpen, closeShareModal, openShareModal, togglePicked, runShareSearch, submitShare, currentUserId, makeTopicUrl, copyToClipboard, openConnectProfile, ico, ensureLinksModal, openLinksModal, lockPageScroll, openAttachmentsModal, ensureVideoModal, closeVideoModal, decodeHtmlUrl, parseYouTubeMeta, cleanId, parseStartSeconds, parsePeerTubeUuid, buildVideoMeta … Window exports: IA_DISCUSS_UI_FEED
+- `ia-discuss.ui.moderation.js` — Functions: ensureModerationModal, showModal, hideModal, loadMyModeration, rowHTML, renderModerationView, settingsFormHTML, applyKickFilter, openSettings, setInlineStatus, saveSettingsInline, deleteAgora, flash, unbanUser, uploadCover, bind Window exports: IA_DISCUSS_UI_MODERATION
+- `ia-discuss.ui.moderation.js.bak` — File present in this folder.
+- `ia-discuss.ui.rules.js` — Functions: ensureModal, show, hide, bind Window exports: IA_DISCUSS_UI_RULES
+- `ia-discuss.ui.search.js` — Functions: debounce, stripMarkup, avatarHTML, iconSVG, openConnectProfile, ensureSuggestBox, positionSuggestBox, hideSuggest, showSuggest, suggestGroup, bindSearchBox, resultsShellHTML, setActiveType, iconBubble, renderResultRow, bindResultsClicks, loadResults, renderSearchPageInto Window exports: IA_DISCUSS_UI_SEARCH
+- `ia-discuss.ui.shell.js` — Functions: ensureImageViewer, lockScroll, getOrCreateViewer, openViewer, closeViewer, tryOpenFromEvent, clearPress, dist2, getDiscussRoot, getSidebar, getTopbarToggle, setSidebarOpen, closeSidebar, installTopbarToggle, syncVisibility, bindSidebar, shell, setActiveTab Window exports: IA_DISCUSS_UI_SHELL
+- `ia-discuss.ui.shell.js.bak2` — File present in this folder.
+- `ia-discuss.ui.topic.js` — Functions: iaRelModal, fetchTopic, openConnectProfile, renderInto, apply, bindAttachmentsModal, updateCount, appendPosts, ensurePostVisible, applyScrollAndHighlight, bindBackTop, resolveScroller, isGoodScroller, getTop, scrollToTop, setVisible, onScroll, bindTopicNav, resolveScroller, isGoodScroller, navFromState, computeIdsAndIndex, tabForView, syncButtons … Window exports: IA_DISCUSS_UI_TOPIC
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+## 0.3.64 playlist fallback cards
+- YouTube playlist URLs no longer render as inline iframes. They now render as simple playlist cards that open the playlist on YouTube.
+- Single videos and Shorts keep inline embed behaviour.
+
+## 0.3.66 playlist iframe restore
+
+- Restored inline YouTube playlist iframes so playlist URLs are not downgraded to click-out cards in topic rendering paths.
+- Playlist URLs with both `v=` and `list=` now embed the selected video on `youtube.com/embed/{videoId}?list=...`.
+- List-only playlist URLs still use the playlist embed form with `listType=playlist`.
+- Feed and topic JavaScript now use the same shared helper output for playlist embeds.
+
+## 0.3.72 JS note
+
+- `ia-discuss.ui.shell.js` now renders the personal `My` sidebar subsection.
+- Feed loading now maps `mytopics`, `myreplies`, and `myhistory` to dedicated server-side feed tabs.
+
+
+## 0.3.80 theme chooser
+
+- `ia-discuss.ui.shell.js` no longer hard-toggles only dark/light. The sidebar theme control now opens a theme modal and persists `dark`, `light`, or `legacy` in localStorage.
+- Kept the change local to the shell runtime so feed/router/topic behaviour stays untouched.
+
+- 0.3.82: `ia-discuss.ui.topic.js` now auto-hides the Atrium top nav/header while scrolling down in topic view, then restores it on scroll-up, topic close, or tab change.
+- 0.3.83: `ia-discuss.ui.topic.js` now adds/removes a topic-modal state class while the Atrium top nav is auto-hidden so the topic sheet can lift to the viewport top without affecting other views.
+
+
+## 0.3.89 AgoraBB layout mode
+
+- `ia-discuss.ui.shell.js` now persists a separate `ia_discuss_layout_mode` flag and exposes an `AgoraBB Mode` sidebar toggle.
+- `ia-discuss.router.js` now defaults Discuss to the forum index when AgoraBB mode is enabled and no explicit Discuss deep link is present.
+- `ia-discuss.ui.agora.js` now renders a board-style single-forum topic list in AgoraBB mode while leaving topic view unchanged.
+
+
+## 0.3.90 MyBB colour theme picker
+
+- `ia-discuss.ui.shell.js` now recognises the MyBB default colour-scheme names and exposes them both in the theme modal and as direct buttons in the Discuss sidebar.
+- `applyTheme()` now marks the root/modal/search portal with a shared classic-theme flag so the phpBB/MyBB-style CSS can be reused across multiple colour variants without changing feed/router/topic behaviour.
+- `ia-discuss.ui.search.js` now mirrors the classic-theme state onto the floating suggestions portal so search respects the selected MyBB-style colour scheme.
+
+## 0.3.91 stronger MyBB schemes
+- Renamed the Discuss sidebar theme subsection from `MyBB styles` to `Schemes`.
+- Renamed the legacy blue picker label to `Blue` in the Discuss theme UI while keeping the stored theme key as `legacy` for compatibility.
+- Expanded `assets/css/ia-discuss.legacy.css` so each MyBB-derived scheme now changes more of the forum chrome instead of mostly just accents: card backgrounds, alternate post rows, borders, sidebar gradients, modal header gradients, AgoraBB/topic header bars, and the Discuss topbar toggle all now vary by scheme.
+- This change was based on reviewing the supplied screen recording frame-by-frame: the previous pass showed only small accent differences, so this patch intentionally broadens the visible scheme surfaces without changing Discuss routing or theme storage keys.
+
+===== ./ia-discuss/assets/js/README.md =====
+# assets / js
+
+Runtime JavaScript bundles and already-modular UI files that are loaded by WordPress.
+
+## File tree
+```text
+├── split/
+├── topic/
+├── ia-discuss.agora.create.js
+├── ia-discuss.api.js
+├── ia-discuss.audio.js
+├── ia-discuss.boot.js
+├── ia-discuss.core.js
+├── ia-discuss.modtools.js
+├── ia-discuss.router.js
+├── ia-discuss.state.js
+├── ia-discuss.ui.agora.js
+├── ia-discuss.ui.agora.membership.js
+├── ia-discuss.ui.composer.js
+├── ia-discuss.ui.feed.js
+├── ia-discuss.ui.moderation.js
+├── ia-discuss.ui.moderation.js.bak
+├── ia-discuss.ui.rules.js
+├── ia-discuss.ui.search.js
+├── ia-discuss.ui.shell.js
+├── ia-discuss.ui.shell.js.bak2
+└── ia-discuss.ui.topic.js
+```
+
+## File roles
+- `split/` — Source-of-truth JS slices for the largest runtime bundles. Edit here, then rebuild the generated bundles.
+- `topic/` — Topic page runtime modules that already ship as separate files.
+- `ia-discuss.agora.create.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.api.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.audio.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.boot.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.core.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.modtools.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.router.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.state.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.ui.agora.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.ui.agora.membership.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.ui.composer.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.ui.feed.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.ui.moderation.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.ui.moderation.js.bak` — Project file.
+- `ia-discuss.ui.rules.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.ui.search.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.ui.shell.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.ui.shell.js.bak2` — Project file.
+- `ia-discuss.ui.topic.js` — Runtime JS file enqueued or consumed by the front end.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+
+Update note: `ia-discuss.youtube.js` is the shared YouTube parser/embed helper used by feed and topic media runtime code.
+
+===== ./ia-discuss/assets/js/split/NOTES.md =====
+# Notes: assets / js / split
+
+## What changed in the 0.3.59 architecture pass
+- Rebuilt the split source tree into clean contiguous slices taken from the stable runtime bundles.
+- Established the split folders as the maintenance source-of-truth for the largest JS bundles.
+
+## File/function index
+- `composer/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `feed/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `router/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `search/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `topic/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+
+## Editing rules for this folder
+- Do not edit the generated runtime bundle first. Update the split slices and rebuild.
+- Keep slice order stable because the build script concatenates these files into a single IIFE runtime bundle.
+- Do not treat the split slices as standalone browser scripts; the generated bundle is the runtime artifact.
+
+===== ./ia-discuss/assets/js/split/README.md =====
+# assets / js / split
+
+Source-of-truth JS slices for the largest runtime bundles. These files are ordered concatenation slices inside a generated IIFE bundle, so they are maintained here and rebuilt into the live runtime bundles.
+
+## File tree
+```text
+├── composer/
+├── feed/
+├── router/
+├── search/
+└── topic/
+```
+
+## File roles
+- `composer/` — Split source slices for the composer runtime bundle.
+- `feed/` — Split source slices for the feed runtime bundle.
+- `router/` — Split source slices for the router runtime bundle.
+- `search/` — Split source slices for the search runtime bundle.
+- `topic/` — Split source slices for the topic action runtime bundle.
+
+## Maintenance entry point
+Edit the split JS slices here, then run `./tools/build-assets.sh` from the plugin root to rebuild the generated runtime bundles. Do not enqueue the split slices directly.
+
+===== ./ia-discuss/assets/js/split/composer/NOTES.md =====
+# Notes: assets / js / split / composer
+
+## What changed in the 0.3.59 architecture pass
+- Composer source slices were rebuilt from the live runtime bundle and renamed by intent where needed.
+
+## File/function index
+- `_composer.body.js` — Functions: htmlToBbcode, walk, wrapSelection, insertAtCursor, isImage, isVideo, makeToolbar, composerHTML
+- `composer.bind_attachments.js` — Functions: setOpen, renderAttachList
+- `composer.bind_state_and_files.js` — Functions: bindComposer, draftLoad, draftSave, draftClear, setError, openFilePicker
+- `composer.export.js` — Window exports: IA_DISCUSS_UI_COMPOSER
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+===== ./ia-discuss/assets/js/split/composer/README.md =====
+# assets / js / split / composer
+
+Split source slices for the composer runtime bundle.
+
+## File tree
+```text
+├── _composer.body.js
+├── composer.bind_attachments.js
+├── composer.bind_state_and_files.js
+└── composer.export.js
+```
+
+## File roles
+- `_composer.body.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `composer.bind_attachments.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `composer.bind_state_and_files.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `composer.export.js` — Split JS source slice used to rebuild a generated runtime bundle.
+
+## Maintenance entry point
+Edit the split JS slices here, then run `./tools/build-assets.sh` from the plugin root to rebuild the generated runtime bundle.
+
+===== ./ia-discuss/assets/js/split/feed/NOTES.md =====
+# Notes: assets / js / split / feed
+
+## What changed in the 0.3.60 architecture pass
+- Feed source slices were rebuilt from the live runtime bundle so each file now maps to a clean contiguous concern.
+
+## File/function index
+- `_feed.body.js` — Functions: ensureShareModal, isShareModalOpen, closeShareModal, openShareModal, togglePicked, runShareSearch, submitShare, currentUserId, makeTopicUrl, copyToClipboard, openConnectProfile, ico
+- `feed.bind_card_actions.js` — Feed action helpers used by the runtime bundle.
+- `feed.card_template.js` — Functions: feedCard
+- `feed.export.js` — Functions: renderFeed Window exports: IA_DISCUSS_UI_FEED
+- `feed.links_modal.js` — Functions: ensureLinksModal, openLinksModal, lockPageScroll, openAttachmentsModal, ensureVideoModal, closeVideoModal
+- `feed.load_request.js` — Functions: loadFeed
+- `feed.media_blocks_and_pills.js` — Functions: mediaBlockHTML, linkLabel, attachmentPillsHTML
+- `feed.render.body.js` — Start of function: renderFeedInto, renderShell, setMoreButton, appendItems
+- `feed.render.loading.js` — Middle of function: renderFeedInto, loadNext
+- `feed.render.clicks_and_boot.js` — End of function: renderFeedInto
+- `feed.render_entry.js` — Feed render entry wiring.
+- `feed.utils.js` — Feed helper utilities.
+- `feed.video_open_and_attachments.js` — Functions: openVideoModal, isImageAtt, isVideoAtt, isAudioAtt, agoraPlayerHTML, attachmentInlineMediaHTML
+- `feed.video_parsers.js` — Functions: decodeHtmlUrl, parseYouTubeMeta, cleanId, parseStartSeconds, parsePeerTubeUuid, buildVideoMeta, detectVideoMeta
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+- Treat `feed.render.body.js`, `feed.render.loading.js`, and `feed.render.clicks_and_boot.js` as one ordered `renderFeedInto()` function body. Preserve their concatenation order in `tools/build-assets.sh`.
+
+## 0.3.60 playlist embed fix
+- `feed.video_parsers.js` now keeps `playlistId` alongside `id` and preserves the selected `v=` id for playlist URLs, using the single-video embed path in playlist context when available and falling back to `videoseries` for list-only URLs.
+- Feed cards should now keep playlist behaviour without dropping the selected video, which avoids the unavailable embed seen on some playlists.
+## 0.3.62 playlist domain follow-up
+- `feed.video_parsers.js` now builds playlist-with-video embeds on `youtube.com/embed/{videoId}` while keeping `videoseries` for list-only playlists.
+- Feed media keeps the existing no-cookie path for non-playlist single-video embeds.
+
+## 0.3.63 playlist rebuild
+- `feed.video_parsers.js` now consumes the shared `window.IA_DISCUSS_YOUTUBE` helper.
+- Feed media treats playlist URLs as playlist embeds only and no longer builds hybrid selected-video playlist iframes.
+
+## 0.3.64 playlist fallback cards
+- YouTube playlist URLs no longer render as inline iframes. They now render as simple playlist cards that open the playlist on YouTube.
+- Single videos and Shorts keep inline embed behaviour.
+
+## 0.3.73 housekeeping split
+- Replaced the larger `feed.load_and_render.js` source slice with four intent-labelled slices covering request mapping, render body, render loading, and render click/bootstrap flow.
+- This was a structure-only change in the split source tree. The generated runtime bundle path and runtime behaviour were kept the same.
+
+## 0.3.92 numbered feed pagination
+- Added a dedicated split slice for feed pagination UI/state so numbered pages, jump-to, and mode toggles do not bloat the main render slices.
+- `feed.load_request.js` now passes explicit page requests when numbered mode is active.
+- `renderFeedInto()` now exposes `goToPage()` and pagination mode/state for router scroll restoration.
+
+## 0.3.94 toolbar alignment and icon pass
+- `feed.render.body.js` now groups pagination mode, sort, totals, and jump-to into cleaner toolbar blocks and adds the SVG sort icon.
+- Keep toolbar markup changes in the split file only, then rebuild the runtime bundle. Editing only `assets/js/ia-discuss.ui.feed.js` will be overwritten on the next build.
+## 0.3.95 pagination control compaction
+- Replaced text-heavy pagination mode and jump controls with SVG-first buttons plus accessible labels so the toolbar stops wrapping into cramped pills on smaller widths.
+- Kept feed markup split-based; rebuild `assets/js/ia-discuss.ui.feed.js` after editing the feed slices.
+
+
+## 0.3.96 pagination UI follow-up
+- No feed click-handler logic change was needed for Jump To. The visible-always bug came from CSS overriding `hidden`, not from missing JS.
+- Keep SVG button labels as screen-reader-only text and verify the helper class exists in CSS before release.
+
+## 0.3.97 pagination row alignment follow-up
+- `feed.render.body.js` now places the top pager in the toolbar center, keeps sort as dropdown-only, and leaves Jump To as an icon toggle that reveals the form only when clicked.
+
+===== ./ia-discuss/assets/js/split/feed/README.md =====
+# assets / js / split / feed
+
+Split source slices for the feed runtime bundle.
+
+## File tree
+```text
+├── _feed.body.js
+├── feed.bind_card_actions.js
+├── feed.card_template.js
+├── feed.export.js
+├── feed.links_modal.js
+├── feed.load_request.js
+├── feed.media_blocks_and_pills.js
+├── feed.render.body.js
+├── feed.render.clicks_and_boot.js
+├── feed.render.loading.js
+├── feed.render_entry.js
+├── feed.utils.js
+├── feed.video_open_and_attachments.js
+└── feed.video_parsers.js
+```
+
+## File roles
+- `_feed.body.js` — Shared feed runtime helpers and modal wiring.
+- `feed.bind_card_actions.js` — Feed card action helpers.
+- `feed.card_template.js` — Feed card HTML builder.
+- `feed.export.js` — Window exports for the feed runtime.
+- `feed.links_modal.js` — Links, attachments, and video modal helpers.
+- `feed.load_request.js` — Feed AJAX request mapper.
+- `feed.media_blocks_and_pills.js` — Media block and attachment-pill HTML helpers.
+- `feed.render.body.js` — Start of `renderFeedInto()` and shell helpers.
+- `feed.render.clicks_and_boot.js` — `renderFeedInto()` click delegation, sort binding, and boot.
+- `feed.render.loading.js` — `renderFeedInto()` paging/load helpers.
+- `feed.render_entry.js` — Feed render entry wiring.
+- `feed.utils.js` — Feed utility helpers.
+- `feed.video_open_and_attachments.js` — Inline media and video-modal helpers.
+- `feed.video_parsers.js` — YouTube / PeerTube detection and embed metadata helpers.
+
+## Maintenance entry point
+Edit the split JS slices here, then run `./tools/build-assets.sh` from the plugin root to rebuild the generated runtime bundle.
+
+Update note: feed video parsing keeps playlist-with-video embeds on the standard YouTube embed domain and reserves `videoseries` for list-only playlists.
+
+Update note: feed video parsing now relies on the shared `ia-discuss.youtube.js` helper for canonical YouTube parsing and embed selection.
+
+===== ./ia-discuss/assets/js/split/router/NOTES.md =====
+# Notes: assets / js / split / router
+
+## What changed in the 0.3.59 architecture pass
+- Router source slices were rebuilt from the live runtime bundle and separated into render, scroll-state, event-bus, and route files.
+
+## File/function index
+- `_router.body.js` — Functions: depsReady, safeQS, setParam, setParams, mount
+- `router.event_bus.js` — Functions: bindRandomTopic, composerError
+- `router.export.js` — Window exports: IA_DISCUSS_ROUTER
+- `router.feed_scroll_state.js` — Functions: getDiscussScroller, getFeedMount, computeFeedAnchor, saveFeedScroll, restoreFeedScrollAfterFeed
+- `router.open_pages.js` — Functions: openTopicPage, openSearchPage, viewToTab
+- `router.render.entry.js` — Start of function: render, setModerationContext
+- `router.render.agoras.js` — Middle of function: render, agRowHTML, previewHTML, renderShell, renderMoreButton, appendFromCache, loadAgorasNext
+- `router.render.default_views.js` — End of function: render
+- `router.reply_submit_hook.js` — Functions: bindReplySubmitHook
+- `router.route_from_url.js` — Functions: routeFromURL
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+- Treat the three `router.render.*.js` files as one ordered function body. Preserve their concatenation order in `tools/build-assets.sh`.
+
+## 0.3.73 housekeeping split
+- Replaced the large `router.mount_and_view.js` source slice with three intent-labelled slices: entry, agoras, and default-views.
+- This was a structure-only change in the split source tree. The generated runtime bundle path and runtime behaviour were kept the same.
+
+## 0.3.92 feed restore for numbered pages
+- Feed scroll restoration now records pagination mode and current page, and will reopen the correct numbered page before restoring the anchor position.
+
+===== ./ia-discuss/assets/js/split/router/README.md =====
+# assets / js / split / router
+
+Split source slices for the router runtime bundle.
+
+## File tree
+```text
+├── _router.body.js
+├── router.event_bus.js
+├── router.export.js
+├── router.feed_scroll_state.js
+├── router.open_pages.js
+├── router.render.agoras.js
+├── router.render.default_views.js
+├── router.render.entry.js
+├── router.reply_submit_hook.js
+└── router.route_from_url.js
+```
+
+## File roles
+- `_router.body.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `router.event_bus.js` — Event listeners and cross-view router reactions.
+- `router.export.js` — Window exports for the router runtime.
+- `router.feed_scroll_state.js` — Feed scroll save/restore helpers.
+- `router.open_pages.js` — Topic and search page openers.
+- `router.render.entry.js` — Start of `render()` including moderation/list-view setup.
+- `router.render.agoras.js` — Agora-list render branch and its local helpers.
+- `router.render.default_views.js` — Agora/default feed render tail for `render()`.
+- `router.reply_submit_hook.js` — Reply-submit route hook.
+- `router.route_from_url.js` — URL-to-view routing.
+
+## Maintenance entry point
+Edit the split JS slices here, then run `./tools/build-assets.sh` from the plugin root to rebuild the generated runtime bundle.
+
+===== ./ia-discuss/assets/js/split/search/NOTES.md =====
+# Notes: assets / js / split / search
+
+## What changed in the 0.3.59 architecture pass
+- Search source slices were rebuilt from the live runtime bundle into suggestions, result rendering, click handling, loading, and export files.
+
+## File/function index
+- `_search.body.js` — Functions: debounce, stripMarkup, avatarHTML, iconSVG, openConnectProfile
+- `search.export.js` — Window exports: IA_DISCUSS_UI_SEARCH
+- `search.results_clicks.js` — Functions: bindResultsClicks
+- `search.results_load_and_page.js` — Functions: loadResults, renderSearchPageInto
+- `search.results_render.js` — Functions: resultsShellHTML, setActiveType, iconBubble, renderResultRow
+- `search.suggestions_box.js` — Functions: ensureSuggestBox, positionSuggestBox, hideSuggest, showSuggest, suggestGroup
+- `search.suggestions_interactions.js` — Functions: bindSearchBox
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+===== ./ia-discuss/assets/js/split/search/README.md =====
+# assets / js / split / search
+
+Split source slices for the search runtime bundle.
+
+## File tree
+```text
+├── _search.body.js
+├── search.export.js
+├── search.results_clicks.js
+├── search.results_load_and_page.js
+├── search.results_render.js
+├── search.suggestions_box.js
+└── search.suggestions_interactions.js
+```
+
+## File roles
+- `_search.body.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `search.export.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `search.results_clicks.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `search.results_load_and_page.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `search.results_render.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `search.suggestions_box.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `search.suggestions_interactions.js` — Split JS source slice used to rebuild a generated runtime bundle.
+
+## Maintenance entry point
+Edit the split JS slices here, then run `./tools/build-assets.sh` from the plugin root to rebuild the generated runtime bundle.
+
+===== ./ia-discuss/assets/js/split/topic/NOTES.md =====
+# Notes: assets / js / split / topic
+
+## What changed in the 0.3.59 architecture pass
+- Topic action source slices were rebuilt from the live runtime bundle into setup, action binding, and export files.
+
+## File/function index
+- `_ta.body.js` — Functions: findComposerTextarea, extractQuoteTextFromPost, decodeB64Utf8, copyToClipboard, makePostUrl, ensureConfirmModal, close, confirmModal, openReplyModal
+- `topic_actions.bind_actions.js` — Functions: bindTopicActions
+- `topic_actions.export.js` — Window exports: IA_DISCUSS_TOPIC_ACTIONS
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+===== ./ia-discuss/assets/js/split/topic/README.md =====
+# assets / js / split / topic
+
+Split source slices for the topic action runtime bundle.
+
+## File tree
+```text
+├── _ta.body.js
+├── topic_actions.bind_actions.js
+└── topic_actions.export.js
+```
+
+## File roles
+- `_ta.body.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `topic_actions.bind_actions.js` — Split JS source slice used to rebuild a generated runtime bundle.
+- `topic_actions.export.js` — Split JS source slice used to rebuild a generated runtime bundle.
+
+## Maintenance entry point
+Edit the split JS slices here, then run `./tools/build-assets.sh` from the plugin root to rebuild the generated runtime bundle.
+
+===== ./ia-discuss/assets/js/topic/NOTES.md =====
+# Notes: assets / js / topic
+
+## What changed in the 0.3.60 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `ia-discuss.topic.actions.js` — Functions: findComposerTextarea, extractQuoteTextFromPost, decodeB64Utf8, copyToClipboard, makePostUrl, ensureConfirmModal, close, confirmModal, openReplyModal, bindTopicActions Window exports: IA_DISCUSS_TOPIC_ACTIONS
+- `ia-discuss.topic.media.js` — Functions: isImageMime, isVideoMime, isAudioMime, isLikelyAudioUrl, agoraPlayerHTML, decodeHtmlUrl, parseYouTubeMeta, parsePeerTubeUuid, isLikelyVideoUrl, buildVideoEmbedHtml, attachmentPillsHTML, inlineMediaHTML Window exports: IA_DISCUSS_TOPIC_MEDIA
+- `ia-discuss.topic.modal.js` — Functions: ensureModal, close, openComposerModal, closeComposerModal, getComposerMount Window exports: IA_DISCUSS_TOPIC_MODAL
+- `ia-discuss.topic.render.js` — Functions: renderError, bindBack, b64utf8, renderPostHTML, renderTopicHTML Window exports: IA_DISCUSS_TOPIC_RENDER
+- `ia-discuss.topic.utils.js` — Functions: qs, esc, timeAgo, ensureListModal, openListModal Window exports: IA_DISCUSS_TOPIC_UTILS
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+## 0.3.60 playlist embed fix
+- `ia-discuss.topic.media.js` now carries `playlistId` through the YouTube parser and preserves the selected `v=` id for playlist URLs, using the single-video embed path in playlist context when available and falling back to `videoseries` for list-only URLs.
+- Topic inline media should now preserve playlist rendering instead of falling back to a single-video iframe.
+## 0.3.62 playlist domain follow-up
+- `ia-discuss.topic.media.js` now builds playlist-with-video embeds on `youtube.com/embed/{videoId}` while keeping `videoseries` for list-only playlists.
+- Topic media keeps the existing no-cookie path for non-playlist single-video embeds.
+
+## 0.3.63 playlist rebuild
+- `ia-discuss.topic.media.js` now consumes the shared `window.IA_DISCUSS_YOUTUBE` helper.
+- Topic media treats playlist URLs as playlist embeds only and no longer builds hybrid selected-video playlist iframes.
+
+## 0.3.64 playlist fallback cards
+- YouTube playlist URLs no longer render as inline iframes. They now render as simple playlist cards that open the playlist on YouTube.
+- Single videos and Shorts keep inline embed behaviour.
+
+## 0.3.66 playlist iframe restore
+- `ia-discuss.topic.media.js` no longer converts YouTube playlists into click-out cards.
+- Topic attachment video rendering now uses the shared helper iframe output for both single videos and playlists.
+
+===== ./ia-discuss/assets/js/topic/README.md =====
+# assets / js / topic
+
+Topic page runtime modules that already ship as separate files.
+
+## File tree
+```text
+├── ia-discuss.topic.actions.js
+├── ia-discuss.topic.media.js
+├── ia-discuss.topic.modal.js
+├── ia-discuss.topic.render.js
+└── ia-discuss.topic.utils.js
+```
+
+## File roles
+- `ia-discuss.topic.actions.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.topic.media.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.topic.modal.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.topic.render.js` — Runtime JS file enqueued or consumed by the front end.
+- `ia-discuss.topic.utils.js` — Runtime JS file enqueued or consumed by the front end.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+Update note: playlist URLs with both `v=` and `list=` now use the standard YouTube embed domain in topic media to avoid the unavailable-player case seen with some playlist posts.
+
+Update note: topic media now depends on the shared `ia-discuss.youtube.js` helper for YouTube parsing and embed URL selection.
+
+===== ./ia-discuss/includes/NOTES.md =====
+# Notes: includes
+
+## What changed in the 0.3.59 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `modules/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `render/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `services/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `support/` — See its local README.md and NOTES.md for its own file tree and symbol index.
+- `functions.php` — Functions/methods: ia_discuss_log, ia_discuss_repair_agora_moderator_cache, ia_discuss_is_atrium_page, ia_discuss_clean_out_buffer, ia_discuss_json_ok, ia_discuss_json_err, ia_discuss_wp_user_id_from_phpbb, ia_discuss_phpbb_user_id_from_wp, ia_discuss_display_name_from_phpbb, ia_discuss_avatar_url_from_phpbb, ia_discuss_signature_html_from_phpbb, ia_user_rel_table, ia_user_rel_ensure_table, ia_user_rel_is_following, ia_user_rel_toggle_follow, ia_user_rel_is_blocked_any, ia_user_rel_is_blocked_by_me, ia_user_rel_toggle_block, ia_user_rel_blocked_ids_for
+- `ia-discuss.php` — Functions/methods: ia_discuss_require_if_exists, ia_discuss_admin_notice, ia_discuss_boot
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+## 0.3.72 personal feed support
+
+- `functions.php` now includes lightweight topic-history helpers backed by WP user meta.
+- `modules/topic.php` records a topic visit for the logged-in WP user whenever a topic is opened.
+- `services/phpbb.php` now supports `my_topics`, `my_replies`, and `my_history` feed tabs while leaving the existing global feed tabs unchanged.
+
+
+## 0.3.74 private Agora support
+
+- Added `services/agora-privacy.php` for private/public Agora state and invite acceptance records.
+- Moderation, membership, feed, topic, forum-meta, agoras, and write modules now consult the privacy service instead of relying on UI-only hiding.
+
+
+## 0.3.75 private Agora follow-up
+
+- `modules/feed.php` now resolves the viewer through `IA_Discuss_Service_Auth` to keep private-Agora feed gating consistent with topic, forum-meta, membership, and write paths.
+- `modules/moderation.php` invite notifications now deep-link to Discuss explicitly.
+
+
+## 0.3.89 mode boundary note
+
+- No PHP endpoints were changed for AgoraBB mode. The new board-style navigation uses the existing Agoras, forum-meta, and feed endpoints.
+
+===== ./ia-discuss/includes/README.md =====
+# includes
+
+PHP composition layer. Bootstraps support helpers, services, renderers, and AJAX modules.
+
+## File tree
+```text
+├── modules/
+├── render/
+├── services/
+├── support/
+├── functions.php
+└── ia-discuss.php
+```
+
+## File roles
+- `modules/` — AJAX-facing module layer. Each module declares routes and feature entry points.
+- `render/` — Server-side formatting helpers for BBCode, attachments, and media extraction.
+- `services/` — Longer-lived service classes that encapsulate auth, phpBB access, notifications, uploads, and membership logic.
+- `support/` — WordPress support glue for assets, AJAX dispatch, security checks, and relationship endpoints.
+- `functions.php` — PHP source file used by the plugin runtime.
+- `ia-discuss.php` — WordPress plugin header and root bootstrap loader.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+
+===== ./ia-discuss/includes/modules/NOTES.md =====
+# Notes: includes / modules
+
+## What changed in the 0.3.59 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `agora-create.php` — Classes: IA_Discuss_Module_Agora_Create Functions/methods: __construct, boot, ajax_routes, ajax_create_agora
+- `agoras.php` — Classes: IA_Discuss_Module_Agoras Functions/methods: __construct, boot, ajax_routes, ajax_agoras, ajax_agora_meta
+- `diag.php` — Classes: IA_Discuss_Module_Diag Functions/methods: __construct, boot, ajax_routes, ajax_diag, ajax_probe, ajax_repair_agora_mods
+- `feed.php` — Classes: IA_Discuss_Module_Feed Functions/methods: __construct, boot, ajax_routes, ajax_random_topic, ajax_feed
+- `forum-meta.php` — Classes: IA_Discuss_Module_Forum_Meta Functions/methods: __construct, boot, ajax_routes, ajax_forum_meta
+- `membership.php` — Classes: IA_Discuss_Module_Membership Functions/methods: __construct, boot, ajax_routes, ajax_join, ajax_leave, ajax_notify_set, ajax_cover_set
+- `moderation.php` — Classes: IA_Discuss_Module_Moderation Functions/methods: __construct, boot, ajax_routes, current_phpbb_id, is_global_admin, can_manage_forum, ajax_my_moderation, list_kicked_users, ajax_cover_set, ajax_agora_settings_get, ajax_agora_settings_save, ajax_agora_setting_save_one, ajax_agora_unban, ajax_agora_delete
+- `module-interface.php` — Functions/methods: boot, ajax_routes
+- `panel.php` — Functions/methods: ia_discuss_module_panel_boot, ia_discuss_render_panel
+- `search.php` — Classes: IA_Discuss_Module_Search Functions/methods: __construct, boot, ajax_routes, norm_q, clip, ajax_suggest, ajax_search
+- `topic.php` — Classes: IA_Discuss_Module_Topic Functions/methods: __construct, boot, effective_topic_notify, ajax_routes, ajax_topic, ajax_mark_read
+- `upload.php` — Classes: IA_Discuss_Module_Upload Functions/methods: __construct, boot, ajax_routes, ajax_upload
+- `write.php` — Classes: IA_Discuss_Module_Write Functions/methods: __construct, boot, ajax_routes, extract_mentions, emit_mentions, ajax_forum_meta, ajax_new_topic, ajax_reply, ajax_share_to_connect, ajax_topic_notify_set, ajax_edit_post, ajax_delete_post, ajax_ban_user, ajax_unban_user
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+## 0.3.72 module note
+
+- `topic.php` now records topic visits into the Discuss topic-history helper when a logged-in user opens a topic.
+
+
+- `membership.php` — Private Agora leave now revokes accepted-invite access for non-moderators and returns redirect flags for the client to send the user back to global feeds.
+
+===== ./ia-discuss/includes/modules/README.md =====
+# includes / modules
+
+AJAX-facing module layer. Each module declares routes and feature entry points.
+
+## File tree
+```text
+├── agora-create.php
+├── agoras.php
+├── diag.php
+├── feed.php
+├── forum-meta.php
+├── membership.php
+├── moderation.php
+├── module-interface.php
+├── panel.php
+├── search.php
+├── topic.php
+├── upload.php
+└── write.php
+```
+
+## File roles
+- `agora-create.php` — PHP source file used by the plugin runtime.
+- `agoras.php` — PHP source file used by the plugin runtime.
+- `diag.php` — PHP source file used by the plugin runtime.
+- `feed.php` — PHP source file used by the plugin runtime.
+- `forum-meta.php` — PHP source file used by the plugin runtime.
+- `membership.php` — PHP source file used by the plugin runtime.
+- `moderation.php` — PHP source file used by the plugin runtime.
+- `module-interface.php` — PHP source file used by the plugin runtime.
+- `panel.php` — PHP source file used by the plugin runtime.
+- `search.php` — PHP source file used by the plugin runtime.
+- `topic.php` — PHP source file used by the plugin runtime.
+- `upload.php` — PHP source file used by the plugin runtime.
+- `write.php` — PHP source file used by the plugin runtime.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+
+===== ./ia-discuss/includes/render/NOTES.md =====
+# Notes: includes / render
+
+## What changed in the 0.3.60 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `attachments.php` — Classes: IA_Discuss_Render_Attachments Functions/methods: extract, strip_payload
+- `bbcode.php` — Classes: IA_Discuss_Render_BBCode, so Functions/methods: sanitize_youtube_id, parse_youtube_embed_meta, sanitize_linkmeta_image, format_post_html, link_mentions_in_html, strip_legacy_preview_codeblocks, strip_legacy_preview_preblocks, collapse_legacy_richcard_codeblocks_in_html, embed_video_links_in_html, video_embed_html, excerpt_html, to_plaintext, strip_phpbb_internal_tags, bbcode_to_html, abs_url, link_meta, nl2p, allowed_tags
+- `media.php` — Classes: IA_Discuss_Render_Media Functions/methods: extract_urls, pick_video_url, extract_media
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+## 0.3.60 playlist embed fix
+- `bbcode.php` now preserves the YouTube playlist id separately from the video id so playlist URLs can render in playlist context without losing the chosen `v=` item.
+- `video_embed_html()` now prefers `https://www.youtube-nocookie.com/embed/{videoId}?list=...` when a playlist URL includes a specific video, and falls back to `https://www.youtube.com/embed/videoseries?list=...` only for list-only playlist URLs.
+- This keeps single-video behaviour intact while preventing playlist URLs from collapsing down to one video.
+## 0.3.62 playlist domain follow-up
+- `bbcode.php` now uses `https://www.youtube.com/embed/{videoId}?list=...` when a playlist URL includes both a selected `v=` item and a `list=` id.
+- List-only playlist URLs still fall back to `https://www.youtube.com/embed/videoseries?list=...`.
+- Single-video embeds remain on the no-cookie domain.
+
+## 0.3.63 playlist rebuild
+- `bbcode.php` now has a dedicated `build_youtube_embed_url()` method.
+- Playlist URLs render with `https://www.youtube.com/embed?listType=playlist&list=...` and optional `index`/`start` values.
+- Non-playlist YouTube URLs stay on the existing no-cookie single-video path.
+
+## 0.3.64 playlist fallback cards
+- YouTube playlist URLs no longer render as inline iframes. They now render as simple playlist cards that open the playlist on YouTube.
+- Single videos and Shorts keep inline embed behaviour.
+
+## 0.3.66 playlist iframe restore
+
+- Restored inline YouTube playlist iframes so playlist URLs are not downgraded to click-out cards in topic rendering paths.
+- Playlist URLs with both `v=` and `list=` now embed the selected video on `youtube.com/embed/{videoId}?list=...`.
+- List-only playlist URLs still use the playlist embed form with `listType=playlist`.
+- Feed and topic JavaScript now use the same shared helper output for playlist embeds.
+
+
+## 0.3.68 code block literal URL fix
+- `bbcode.php` no longer collapses `[code]...[/code]` content into standalone URLs for later rich-card rendering.
+- Rendered `.iad-code-block` output is now stashed before the standalone URL embed/link passes and restored afterwards.
+- Result: URLs inside code blocks remain plain text only.
+
+## 0.3.69 code block HTML embed fix
+- `embed_video_links_in_html()` now stashes `<pre>` and `<code>` blocks before replacing video links, preventing embeds inside rendered code samples.
+
+- 0.3.69a: Fixed a PHP parse error introduced in `includes/render/bbcode.php` during the code-block URL literal patch. Cause was unsafe regex quoting in single-quoted PHP strings inside `embed_video_links_in_html()`. Added `ERRORS-TO-AVOID.md` with the failure mode and prevention rule.
+
+## 0.3.70 critical-error hotfix
+
+- Fixed PHP parse error in `includes/render/bbcode.php` caused by unsafe regex quoting inside `embed_video_links_in_html()`.
+- Added `ERRORS-TO-AVOID.md` documenting the failure mode and prevention rule.
+- Purpose: restore plugin activation/runtime while keeping the code-block URL literal behavior.
+
+===== ./ia-discuss/includes/render/README.md =====
+# includes / render
+
+Server-side formatting helpers for BBCode, attachments, and media extraction.
+
+## File tree
+```text
+├── attachments.php
+├── bbcode.php
+└── media.php
+```
+
+## File roles
+- `attachments.php` — PHP source file used by the plugin runtime.
+- `bbcode.php` — PHP source file used by the plugin runtime.
+- `media.php` — PHP source file used by the plugin runtime.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+Update note: the render layer now distinguishes between list-only playlists and selected-video playlist URLs, using the standard YouTube embed domain for the latter.
+
+Update note: playlist URLs are now rendered through YouTube's playlist embed form (`embed?listType=playlist&list=...`) instead of hybrid video-plus-playlist iframe paths.
+
+Update note: playlist iframes were restored in 0.3.66. URLs with both `v=` and `list=` now embed the selected video in playlist context; list-only URLs use the playlist embed form.
+
+===== ./ia-discuss/includes/services/NOTES.md =====
+# Notes: includes / services
+
+## What changed in the 0.3.59 architecture pass
+- This folder was documented and indexed as part of the architecture pass.
+
+## File/function index
+- `auth.php` — Classes: IA_Discuss_Service_Auth Functions/methods: __construct, is_logged_in, current_wp_user_id, current_phpbb_user_id, lookup_phpbb_user_id_by_identity_map, try_external_mapper, lookup_phpbb_user_id_by_username
+- `membership.php` — Classes: IA_Discuss_Service_Membership Functions/methods: __construct, boot, t_members, t_covers, ensure_tables, current_user_phpbb_id, is_joined, join, leave, touch, get_notify_agora, set_notify_agora, list_notify_users, cover_url, set_cover_url, ensure_cron, cron_inactivity_tick, most_active_topic_last_month
+- `notify.php` — Classes: IA_Discuss_Service_Notify Functions/methods: __construct, on_topic_created, notify_new_topic, set_membership_service, boot, ensure_tables, table_topic_notify, topic_notify_enabled, topic_notify_state, set_topic_notify, notify_reply, send_agora_inactivity_popular, ensure_actor_subscribed, get_topic_participant_ids, list_topic_participants, is_topic_participant, get_topic_optin_ids, resolve_canonical_phpbb_user_id, get_phpbb_user_row, make_topic_url …
+- `phpbb-write.php` — Classes: IA_Discuss_Service_PhpBB_Write Functions/methods: __construct, boot, to_plain_text, ensure_bans_table, ban_user_in_forum, unban_user_in_forum, is_user_banned, edit_post, delete_post, create_topic, reply
+- `phpbb.php` — Classes: IA_Discuss_Service_PhpBB Functions/methods: __construct, is_ready, db, prefix, table, detect_forum_counter_mode, detect_topic_last_post_id_mode, forum_counter_select_sql, diagnostics, probe, get_forum_row, get_feed_rows, get_random_topic_id, get_agoras_rows, get_topic_row, get_topic_posts_rows, user_is_forum_moderator, list_forum_moderator_ids, list_moderated_forums, user_has_global_acl_like, user_has_local_acl_like …
+- `text.php` — Classes: IA_Discuss_Service_Text Functions/methods: squash_ws, limit_chars
+- `upload.php` — Classes: IA_Discuss_Service_Upload Functions/methods: handle
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+## 0.3.72 service note
+
+- `phpbb.php` now supports the personal feed tabs used by the Discuss sidebar: authored topics, replied-to topics, and visit history.
+- `my_replies` is based on the logged-in user's own visible reply posts and excludes topics where the user only created the opening post.
+
+
+## 0.3.74 private Agora service
+
+- Added `agora-privacy.php` to own private/public Agora state and invite lifecycle storage.
+
+- `agora-privacy.php` — Added `revoke_user_access()` so leaving a private Agora can remove accepted-invite access without altering moderator access rules.
+
+
+## 0.3.79 service note
+
+- `phpbb.php` now exposes `list_forum_moderator_ids()` so moderator-targeted actions such as private-Agora post reports can notify forum moderators resolved through either `moderator_cache` or phpBB ACL grants.
+
+## 0.3.92 feed count/query helpers
+- Added `list_forum_ids()`, `build_feed_query_parts()`, and `count_feed_rows()` in `phpbb.php`.
+- Feed topic queries can now apply accessible-forum and blocked-poster filters in SQL so pagination totals and page fills stay aligned.
+
+===== ./ia-discuss/includes/services/README.md =====
+# includes / services
+
+Longer-lived service classes that encapsulate auth, phpBB access, notifications, uploads, and membership logic.
+
+## File tree
+```text
+├── auth.php
+├── membership.php
+├── notify.php
+├── phpbb-write.php
+├── phpbb.php
+├── text.php
+└── upload.php
+```
+
+## File roles
+- `auth.php` — PHP source file used by the plugin runtime.
+- `membership.php` — PHP source file used by the plugin runtime.
+- `notify.php` — PHP source file used by the plugin runtime.
+- `phpbb-write.php` — PHP source file used by the plugin runtime.
+- `phpbb.php` — PHP source file used by the plugin runtime.
+- `text.php` — PHP source file used by the plugin runtime.
+- `upload.php` — PHP source file used by the plugin runtime.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+
+===== ./ia-discuss/includes/support/NOTES.md =====
+# Notes: includes / support
+
+## What changed in the 0.3.59 architecture pass
+- Asset notes were updated to document the generated-runtime plus split-source workflow.
+
+## File/function index
+- `ajax.php` — Classes: IA_Discuss_Support_Ajax Functions/methods: boot, dispatch, ia_discuss_ajax
+- `assets.php` — Functions/methods: ia_discuss_support_assets_boot, ia_discuss_register_assets, ia_discuss_enqueue_assets
+- `security.php` — Classes: IA_Discuss_Support_Security Functions/methods: verify_nonce_from_post, can_run_ajax, ia_discuss_security
+- `user-rel-ajax.php` — Functions/methods: ia_discuss_ajax_user_rel_status, ia_discuss_ajax_user_follow_toggle, ia_discuss_ajax_user_block_toggle
+
+## Editing rules for this folder
+- Keep this folder documentation current when files in the folder change.
+
+## 0.3.63 asset dependency update
+- Added script handle `ia-discuss-youtube` for the shared YouTube parser/embed helper.
+- `ia-discuss-ui-feed` and `ia-discuss-topic-media` now depend on that handle so feed/topic media use the same parser at runtime.
+
+## 0.3.92 feed pagination asset pass
+- Kept existing enqueue order intact while extending the feed runtime bundle and toolbar CSS for numbered pagination / jump-to controls.
+- No new standalone handles were introduced; the feed bundle rebuild stays on the existing `ia-discuss-ui-feed` handle.
+
+
+## 0.3.93 packaging permission repair
+- No enqueue-order logic was changed in `assets.php`. This repair pass normalises packaged file permissions so the already-registered JS dependency chain can actually load on the server.
+
+## 0.3.94 asset workflow reminder
+- No enqueue-order change was needed for this pass. The fix stays inside existing CSS/JS handles.
+- To avoid false "JS dependencies not loaded" troubleshooting loops, verify the rebuilt runtime bundle exists after split-source edits and package readable file permissions with the zip.
+## 0.3.95 asset discipline reminder
+- Pagination UI work touched split feed JS plus split card-layout CSS only; the generated feed bundle was rebuilt afterwards.
+- Avoid prior breakdowns by checking both split source edits and rebuilt runtime bundles before packaging.
+
+
+===== ./ia-discuss/includes/support/README.md =====
+# includes / support
+
+WordPress support glue for assets, AJAX dispatch, security checks, and relationship endpoints.
+
+## File tree
+```text
+├── ajax.php
+├── assets.php
+├── security.php
+└── user-rel-ajax.php
+```
+
+## File roles
+- `ajax.php` — PHP source file used by the plugin runtime.
+- `assets.php` — PHP source file used by the plugin runtime.
+- `security.php` — PHP source file used by the plugin runtime.
+- `user-rel-ajax.php` — PHP source file used by the plugin runtime.
+
+## Maintenance entry point
+Use this folder README together with the sibling NOTES file before changing anything in the folder.
+
+Update note: `assets.php` now registers `ia-discuss-youtube` as a shared helper dependency for feed/topic media assets.
+
+===== ./ia-discuss/tools/NOTES.md =====
+# Notes: tools
+
+## What changed in the 0.3.59 architecture pass
+- build-assets.sh now rebuilds the generated runtime bundles from the split source slices instead of acting as a placeholder.
+
+## File/function index
+- `build-assets.sh` — Shell script. Functions: build_js_bundle
+
+## Editing rules for this folder
+- Run ./tools/build-assets.sh after editing the split JS folders.
+
+## 0.3.73 housekeeping split
+- build-assets.sh was updated to concatenate the new smaller router/feed source slices in a fixed order.
+- Preserve that order; several of the new files are contiguous slices of one larger function body.
+
+===== ./ia-discuss/tools/README.md =====
+# tools
+
+Developer tooling for rebuilding generated assets and maintaining the plugin.
+
+## File tree
+```text
+└── build-assets.sh
+```
+
+## File roles
+- `build-assets.sh` — Developer helper script.
+
+## Maintenance entry point
+Use the tooling here from the plugin root so file paths resolve consistently.
+
+Update note: the builder now assembles the router render path and feed render/load path from smaller intent-labelled slices.
+
+===== ./ia-engine/NOTES.md =====
+# AJAX notes for ia-engine / .
+
+Files in this directory inspected for AJAX handling:
+
+- `AJAX-HANDLERS.md`
+- `ARCHITECTURE-NOTES.md`
+- `ia-engine.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-engine/includes/NOTES.md =====
+# AJAX notes for ia-engine / includes
+
+Files in this directory inspected for AJAX handling:
+
+- `class-ia-engine-admin.php`
+- `class-ia-engine-ajax.php`
+- `class-ia-engine-crypto.php`
+- `class-ia-engine-pt-token.php`
+- `class-ia-engine.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-goodbye/NOTES.md =====
+# Notes: IA Goodbye
+
+## 0.1.2 account-deletion hard block + content purge
+
+- Added a stronger delete path for frontend account deletion.
+- Deletion now writes/keeps tombstones, purges first-party Atrium Connect content, removes authored IA Message content and memberships, and scrubs phpBB Discuss post/topic text before tombstoning the phpBB user record.
+- Identity-map rows are retained in deleted state instead of being fully removed, so resurrection checks have a stable local marker.
+- Kept the change centralized in IA Goodbye so existing Connect account-delete UI and routes do not need to move.
+
+- 2026-03-15: Fixed account-delete fatal introduced by calling nonexistent `IA_Engine::phpbb()`. `scrub_phpbb_content()` now uses `IA_Engine::phpbb_db()` and preserves the existing phpBB scrub path.
+
+- 2026-03-15: Kept IA Goodbye delete orchestration intact, but the underlying phpBB tombstone write is now handled by a schema-tolerant IA Auth path so delete does not fail just because one phpBB inactivity/name column is missing on this host.
+
+## 2026-03-15 detailed account deletion system note
+
+This plugin is now the deletion orchestrator for the current Atrium identity stack. The important point is that account deletion is not a simple WordPress-user delete. In this stack, a person may exist across four linked layers at once:
+
+- WordPress shadow user for session/cookie/UI purposes
+- phpBB canonical user for forum authority and shared identity
+- PeerTube account and/or PeerTube token linkage
+- `wp_ia_identity_map` row that ties the systems together
+
+Deletion therefore has to block resurrection before it starts removing anything.
+
+### Current deletion rule
+
+Frontend deletion requires the user to provide their current password. There is no one-click accidental delete path in the current UI. The intended behaviour is irreversible deletion.
+
+### Current live deletion order
+
+1. Connect frontend AJAX calls the existing Connect account-delete endpoint.
+2. Connect delegates lifecycle work to `IA_Goodbye->delete_account()`.
+3. IA Goodbye resolves the current user across:
+   - WordPress user ID
+   - `ia_identity_map`
+   - phpBB user ID fallback from usermeta if needed
+   - email / username-clean identifiers
+   - PeerTube user ID if present in the identity map
+4. IA Goodbye writes a tombstone first in `wp_ia_goodbye_tombstones`.
+5. Only after the tombstone exists does cleanup begin.
+6. Connect-owned content is deleted.
+7. IA Message-owned content and memberships are deleted.
+8. phpBB-authored Discuss content is scrubbed/anonymised.
+9. IA Auth performs schema-tolerant phpBB user tombstoning via `delete_user_preserve_posts()`.
+10. `ia_identity_map` is retained but converted to `status='deleted'` with `wp_user_id=NULL`.
+11. PeerTube token rows are deleted.
+12. WordPress shadow user is deleted last.
+
+### Why the tombstone must happen first
+
+Without a pre-delete tombstone, this stack can recreate a deleted account through multiple fallback routes:
+
+- phpBB recreation path
+- PeerTube fallback login path
+- WP shadow-user recreation path
+- old identity-map relinking path
+
+The tombstone is the local do-not-recreate marker. It exists to stop the loop where deleting only the WordPress shadow user allows the person to log in again and silently rebuild the local account chain.
+
+### What the tombstone stores
+
+`wp_ia_goodbye_tombstones` stores:
+
+- `identifier_email`
+- `identifier_username_clean`
+- `phpbb_user_id`
+- `peertube_user_id`
+- deletion timestamp
+- reason
+
+The table is not the user record itself. It is a local resurrection block.
+
+### Identity-map behaviour after deletion
+
+The identity-map row is intentionally kept. It is not removed outright. Instead it is turned into a deletion marker so the local stack still has a stable record that this cross-system identity existed and was deliberately deleted.
+
+Current behaviour:
+
+- `wp_user_id` set to `NULL`
+- `status` set to `deleted`
+- `last_error` stamped with a deletion marker and time
+
+This is important because full row removal makes debugging and resurrection prevention harder.
+
+### Content handling policy in this plugin
+
+Current deletion behaviour is split by subsystem:
+
+#### Connect
+- Deletes authored Connect posts
+- Deletes related Connect attachments for those posts
+- Deletes related Connect comments for those posts
+- Deletes authored comments made by that user elsewhere
+- Deletes follow rows owned by that user
+- Deletes relevant relation rows
+
+#### Message
+- Deletes authored messages for the phpBB identity
+- Deletes invite rows where the user is inviter or invitee
+- Deletes thread-membership rows for the user
+- Deletes orphaned threads only where membership removal leaves no remaining members
+
+#### phpBB / Discuss
+- Scrubs phpBB post subject/body and username marker for authored posts
+- Scrubs topic titles for topics first-authored by that user
+- Then calls IA Auth phpBB user tombstoning instead of attempting a hard destructive phpBB account removal that would risk referential breakage
+
+### phpBB deletion note
+
+The phpBB portion is deliberately schema-tolerant. This matters because the live host schema can differ from assumptions in plugin code. The current stack uses IA Auth to perform the final phpBB-user tombstoning so the update only touches columns that actually exist. This avoids the earlier failure mode where one missing phpBB column caused the entire delete path to fail.
+
+### PeerTube note
+
+This delete flow does not currently hard-delete the remote PeerTube account itself. What it does do is:
+
+- preserve the local deletion marker
+- remove local PeerTube token rows
+- prevent the same deleted identifiers from automatically relinking or recreating the local account
+
+That means the deleted local Atrium account cannot simply resurrect through the old fallback path using the same local identity.
+
+### Re-registration rule
+
+Deleted identifiers are not silently cleared for reuse. The current rule is: if the local identity has been deleted, the same identifier set should not auto-recreate the account. The user would need to return with genuinely new credentials/identity data that do not match the deleted local tombstone path.
+
+### Frontend behaviour expectation
+
+Connect should continue to own the existing deletion UI and endpoint. IA Goodbye should continue to own the destructive orchestration. This keeps the delete flow centralised rather than spreading deletion logic across Connect, Auth, Message, and the PeerTube fallback plugins.
+
+
+===== ./ia-hide-wp-admin-bar/NOTES.md =====
+# AJAX notes for ia-hide-wp-admin-bar / .
+
+Files in this directory inspected for AJAX handling:
+
+- `AJAX-HANDLERS.md`
+- `ARCHITECTURE-NOTES.md`
+- `ia-hide-wp-admin-bar.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-login/NOTES.md =====
+# AJAX notes for ia-login / .
+
+Files in this directory inspected for AJAX handling:
+
+- `AJAX-HANDLERS.md`
+- `ARCHITECTURE-NOTES.md`
+- `ia-login.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-mail-suite/NOTES.md =====
+# AJAX notes for ia-mail-suite / .
+
+Files in this directory inspected for AJAX handling:
+
+- `AJAX-HANDLERS.md`
+- `ARCHITECTURE-NOTES.md`
+- `README.txt`
+- `ia-mail-suite.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-mail-suite/includes/NOTES.md =====
+# AJAX notes for ia-mail-suite / includes
+
+Files in this directory inspected for AJAX handling:
+
+- `class-ia-mail-suite.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-message/NOTES.md =====
+# AJAX notes for ia-message / .
+
+Files in this directory inspected for AJAX handling:
+
+- `AJAX-HANDLERS.md`
+- `ARCHITECTURE-NOTES.md`
+- `LICENSE`
+- `README.md`
+- `ia-message.php`
+- `uninstall.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-message/README.md =====
+# IA Message
+
+Atrium-native messaging module for WordPress/Atrium surfaces.
+
+This package now carries local development discipline files so future edits can be narrower, easier to reason about, and less likely to break unrelated messaging behaviour.
+
+Key runtime surfaces:
+- PHP bootstrap: `ia-message.php`, `includes/ia-message.php`
+- AJAX endpoint loader: `includes/support/ajax.php`
+- AJAX callbacks by intent: `includes/support/ajax/*.php`
+- Services: `includes/services/*.php`
+- Panel template: `includes/templates/panel.php`
+- Front-end runtime: `assets/js/ia-message.boot.js` plus extracted helpers in `assets/js/ia-message.*.js`
+
+Documentation index:
+- `docs/RULES.md`
+- `docs/DEVELOPMENT-NOTES.md`
+- `docs/ERROR-NOTES.md`
+- `docs/LIVE-NOTES.md`
+- `docs/ENDPOINTS.md`
+- `assets/js/README.md`
+- `includes/support/README.md`
+- `includes/services/README.md`
+
+===== ./ia-message/assets/js/README.md =====
+# assets/js
+
+Intent-labelled front-end files.
+
+Current load order:
+1. `ia-message.api.js`
+2. `ia-message.state.js`
+3. `ia-message.ui.modals.js`
+4. `ia-message.ui.composer.js`
+5. `ia-message.boot.js`
+
+`ia-message.boot.js` remains the main orchestrator. Extract new helper concerns into dedicated files and keep boot focused on wiring, activation, and delegation.
+
+
+`ia-message.ui.composer.js` owns textarea autosize behaviour for send/new/group composers. It also handles clipboard file paste for composer textareas by reusing the existing upload endpoint and inserting returned URLs into the textarea. Keep it SPA-safe and capped so message history remains visible while typing.
+
+===== ./ia-message/includes/services/README.md =====
+# includes/services
+
+Reusable data and integration services.
+
+Keep endpoint/controller logic out of this folder. Service files should provide reusable reads/writes and identity/notification/search helpers consumed by multiple surfaces.
+
+===== ./ia-message/includes/support/NOTES.md =====
+# AJAX notes for ia-message / includes/support
+
+Files in this directory inspected for AJAX handling:
+
+- `README.md`
+- `ajax.php`
+- `assets.php`
+- `capabilities.php`
+- `install.php`
+- `routes.php`
+- `security.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-message/includes/support/README.md =====
+# includes/support
+
+Support layer for installation, asset registration, security helpers, routes, and AJAX entrypoints.
+
+`ajax.php` is the stable entry file and should keep public action registration centralised.
+Actual callback bodies now live under `includes/support/ajax/` by intent.
+
+===== ./ia-notify/NOTES.md =====
+# AJAX notes for ia-notify / .
+
+Files in this directory inspected for AJAX handling:
+
+- `AJAX-HANDLERS.md`
+- `ARCHITECTURE-NOTES.md`
+- `ia-notify.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-notify/includes/NOTES.md =====
+# AJAX notes for ia-notify / includes
+
+Files in this directory inspected for AJAX handling:
+
+- `ajax.php`
+- `assets.php`
+- `db.php`
+- `email-gate.php`
+- `hooks.php`
+- `identity.php`
+- `mail-intercept.php`
+- `prefs.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+===== ./ia-online/NOTES.md =====
+# Notes: IA Online
+
+## Core entry points
+
+- `ia-online.php` — plugin header, constants, activation, boot wiring.
+- `includes/bootstrap.php` — shared helpers, settings, table naming, IP/session helpers.
+- `includes/db/schema.php` — presence table install and cleanup event.
+- `includes/runtime/presence.php` — request tracking, identity resolution, route/url capture.
+- `includes/runtime/ajax.php` — lightweight presence ping endpoint for SPA route changes.
+- `includes/admin/page.php` — admin UI listing live user and guest sessions.
+
+## Operating rule
+
+Keep changes patch-only. Preserve existing Atrium routing and identity mapping. Prefer compatibility fallbacks over assumptions.
+
+## 0.1.0 initial baseline
+
+- Added `IA Online` as a standalone Atrium-aware presence plugin.
+- Tracks logged-in users and guests separately in `wp_ia_online_presence`.
+- Resolves phpBB user ids through `ia_phpbb_user_id`, `phpbb_user_id`, or `wp_ia_identity_map` when available.
+- Records IP address, user agent, current route, current URL, and last seen.
+- Adds a lightweight front-end ping so SPA navigation keeps presence fresh.
+- Adds an admin page under the Atrium menu when present, otherwise under Tools.
+- Keeps the plugin self-contained and avoids changing Connect/Discuss internals.
+
+
+## 0.1.1 guest visibility admin patch
+
+- Split the admin live-session view into separate `Users online` and `Guests online` tables.
+- Keeps guest IPs visible in their own list instead of relying on one combined table.
+- Patch-only admin UI change; tracking/storage logic unchanged.
+
+
+## 0.1.2 admin layout tidy patch
+- Wrapped admin tables in a horizontal scroll container so long URLs do not break the layout on narrow screens.
+- Adjusted summary cards to stack cleanly on mobile-width admin views.
+- Kept tracking and counts unchanged; this is a display-only tidy-up.
+
+## 0.1.3 guest dedupe patch
+- Tightened guest session handling so repeat guest pings update an existing recent guest row instead of inserting duplicates.
+- Kept the existing cookie-backed guest session key, and made cookie setting more robust with `SameSite=Lax`.
+- Added a narrow fallback for guests: if the cookie key is not yet available, update the most recent active guest row matching the same IP and user agent within the online window.
+
+
+## 0.1.4 guest identity persistence patch
+- Ensured the guest cookie is attempted early on `init` before request tracking runs.
+- Changed guest fallback identity from a fresh random value to a stable fingerprint when a cookie cannot be read or set, so repeated no-cookie requests do not create endless duplicate guest rows.
+- Added a narrow guest dedupe cleanup after upsert so concurrent rapid guest hits with the same session key or same recent IP+user-agent collapse back to one live row.
+- Kept user tracking and admin UI behavior otherwise unchanged.
+
+## 0.2.0 analytics baseline
+- Added lightweight history capture tables for per-minute online samples and sampled route popularity.
+- Added lazy history aggregation after tracked requests so analytics can populate without adding a JS chart dependency or a separate cron-only pipeline.
+- Added Last 24 hours analytics cards, simple SVG line charts for users/guests/total sessions, and a Popular routes (24h) table.
+- Kept this patch Atrium-aware and lightweight: no Connect/Discuss changes, no external chart libraries, and no per-hit event logging.
+
+
+## 0.2.1 analytics tabs admin patch
+- Added explicit admin tabs for `Overview`, `Analytics`, and `Live sessions` so the new analytics section is directly reachable instead of sitting further down a long single page.
+- Kept history capture, chart rendering, and live tracking logic unchanged.
+
+
+## 0.2.2
+- Replaced WP nav-tab markup with plugin-owned visible tabs so section switching is visible in Atrium admin contexts and on mobile.
+- Tab links now derive from `menu_page_url('ia-online', false)` instead of hardcoded `tools.php`, so Analytics/Live links work under Atrium parent menus too.
+- Added explicit Overview action buttons to open Analytics and Live sessions.
+
+
+## 0.2.4
+- Rebuilt analytics/tabs/features on top of the active 0.1.4 guest-identity-fix baseline after inactive copies caused no visible change on the live site.
+- Includes analytics history capture, overview/analytics/live tabs, lightweight SVG charts, and popular route stats.
+- Diagnostic note: when multiple plugin copies exist in WordPress, patch the active installed copy only and remove/deactivate older duplicates before judging whether a change landed.
+
+- 0.2.4 packaging fix: rebuilt analytics update zip with the correct `ia-online/` root folder so WordPress updates the active plugin instead of installing a separate copy.
+
+
+## 0.2.6 analytics range/detail patch
+- Added analytics date-range controls (`24h`, `7d`, `30d`, custom from/to) on the existing Analytics tab.
+- Expanded chart detail with range labels, start/mid/end time markers, and peak timestamp context.
+- Added a captured-samples table so exact bucket times and counts are visible alongside the graphs.
+- Built this directly on the active `ia-online/` update package line to preserve WordPress in-place updates.
+
+
+## 0.2.6 live-route detail patch
+- Improved live session detail so frontend locations survive noisy `wp-admin`/`admin-ajax.php` refreshes instead of being overwritten as plain `admin`.
+- Added request context labeling in the live sessions table (`frontend`, `ajax`, `admin`, `login`) to distinguish real page views from background requests.
+- Expanded Atrium route labels for live sessions so Discuss and Connect views show more detail such as topic, agora, profile, or post ids when those are present in the URL.
+- Shortened displayed URLs in the admin table to compact path-style labels so mobile live-session rows remain readable.
+
+===== ./ia-online/README.md =====
+# IA Online
+
+Atrium-aware online presence tracker for WordPress.
+
+## Purpose
+
+Provides a simple online/guest presence layer that fits an Atrium-style stack:
+- tracks logged-in WordPress users
+- resolves phpBB ids through `ia_identity_map` or user meta
+- tracks guests with a cookie-backed session key
+- records IP address, current route, current URL, and last seen time
+- shows live sessions in wp-admin
+- captures lightweight per-minute history for recent analytics
+
+## Current scope
+
+- Database table: `{$wpdb->prefix}ia_online_presence`
+- History tables: `{$wpdb->prefix}ia_online_presence_history` and `{$wpdb->prefix}ia_online_presence_route_history`
+- Front-end ping for SPA route changes
+- Admin page under Atrium menu when present, otherwise under Tools
+- Admin tabs for Overview, Analytics, and Live Sessions
+- Hourly cleanup of stale sessions and retained history
+- Lightweight SVG charts with no extra JS chart dependency
+
+## Notes
+
+This plugin is intentionally narrow. It does not modify Connect, Discuss, or login flows. It observes presence and stores it separately.
+
+
+### 0.2.2
+Admin sections now use visible plugin-owned tabs and page-aware links, so Overview, Analytics, and Live sessions remain reachable under Atrium admin menus and on mobile layouts.
+
+### 0.2.6
+Analytics now supports explicit date ranges (`24h`, `7d`, `30d`, or custom from/to), richer chart labels, and a captured-samples table so times and dates are visible without leaving the plugin.
+
+===== ./ia-online/includes/runtime/NOTES.md =====
+# AJAX notes for ia-online / includes/runtime
+
+Files in this directory inspected for AJAX handling:
+
+- `ajax.php`
+- `presence.php`
+
+Keep this directory focused on handler registration, request validation, and response payload shaping. When editing search behaviour, avoid unrelated render-path changes.
+
+
+- 2026-04-06 final black-palette Discuss follow-up: bottom-nav profile-menu danger actions were darkened again, Connect→Discuss agoras now force darker title/meta text, topic/reply cards were lightened one more step with preserved readability, and the shared Discuss signature block inside Connect wall cards now targets the real `.iad-post-signature` selectors with a dark-grey signature panel.
+
+
+[ia-connect 0.5.41]
+- Corrected Connect->Discuss activity selectors to target .iac-activity-list directly.
+- Removed boxed shared-signature styling in Connect embeds; signature text is now dark grey on the existing light surface.
+- Darkened bottom-nav profile-menu destructive actions in ia-profile-menu itself.
+
+
+[2026-04-06] ia-connect 0.5.42
+- Added assets/css/BLACK-STYLE-REFERENCE.md as the future-theme behaviour reference for Connect Discuss surfaces, shared Discuss signatures inside Connect, and profile-menu destructive actions.
+- Removed duplicate ia-connect-fb stylesheet enqueue in includes/support/assets.php to slightly reduce first-load CSS work without changing appearance.

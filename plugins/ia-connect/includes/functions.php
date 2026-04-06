@@ -159,6 +159,50 @@ function ia_connect_avatar_url(int $wp_user_id, int $size = 64): string {
   return (string) get_avatar_url($wp_user_id, ['size' => $size]);
 }
 
+function ia_connect_normalize_home_tab($tab): string {
+  $tab = sanitize_key((string) $tab);
+  if (!in_array($tab, ['connect', 'discuss', 'stream'], true)) {
+    $tab = 'connect';
+  }
+  return $tab;
+}
+
+function ia_connect_get_user_home_tab(int $wp_user_id): string {
+  if ($wp_user_id <= 0) return 'connect';
+  $raw = (string) get_user_meta($wp_user_id, IA_CONNECT_META_HOME_TAB, true);
+  return ia_connect_normalize_home_tab($raw ?: 'connect');
+}
+
+function ia_connect_set_user_home_tab(int $wp_user_id, $tab): string {
+  $tab = ia_connect_normalize_home_tab($tab);
+  if ($wp_user_id > 0) {
+    update_user_meta($wp_user_id, IA_CONNECT_META_HOME_TAB, $tab);
+  }
+  return $tab;
+}
+
+function ia_connect_normalize_style($style): string {
+  $style = sanitize_key((string) $style);
+  if (!in_array($style, ['default', 'black', 'calm', 'dawn', 'earth', 'flame', 'leaf', 'night', 'sun', 'twilight', 'water'], true)) {
+    $style = 'default';
+  }
+  return $style;
+}
+
+function ia_connect_get_user_style(int $wp_user_id): string {
+  if ($wp_user_id <= 0) return 'default';
+  $raw = (string) get_user_meta($wp_user_id, IA_CONNECT_META_STYLE, true);
+  return ia_connect_normalize_style($raw ?: 'default');
+}
+
+function ia_connect_set_user_style(int $wp_user_id, $style): string {
+  $style = ia_connect_normalize_style($style);
+  if ($wp_user_id > 0) {
+    update_user_meta($wp_user_id, IA_CONNECT_META_STYLE, $style);
+  }
+  return $style;
+}
+
 function ia_connect_get_settings(): array {
   $s = get_option(IA_CONNECT_OPT_SETTINGS);
   if (!is_array($s)) $s = [];

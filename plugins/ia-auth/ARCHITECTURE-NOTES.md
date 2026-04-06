@@ -421,3 +421,29 @@ Boundary preserved
 - `wp_ia_peertube_tokens` still exists because login/auth surfaces may continue to write it during the broader transition.
 - Stream now treats that table as compatibility baggage only.
 - When Stream needs a bearer, the authoritative path is the per-user helper and `wp_ia_peertube_user_tokens`.
+
+
+## 2026-04-05 opportunistic mint normalization
+
+Patch-only cleanup in the canonical-login era:
+
+- After successful login, `ia-auth` now prefers `IA_PeerTube_Token_Helper::get_token_status_for_current_user()` for the non-blocking opportunistic mint/check.
+- It still falls back to `get_token_for_current_user()` only if the status method is unavailable.
+- This does not change visible login behaviour. It just aligns post-login token warmup with the structured canonical helper contract used elsewhere in the stack.
+
+
+## 2026-04-05 live stability confirmation
+
+Post-patch live verification reported by the user:
+
+- login working
+- Stream reads working
+- comment / reply / rating flows working
+- ia-post upload bootstrap working
+- no immediate regression reported after deploy/reactivate/refresh test pass
+
+Operational reading:
+
+- the shared `ia-auth` grant/helper layer appears stable in the current stack role
+- this does **not** mean every linked user should have a warm canonical token row at all times
+- it **does** mean active login and prompted recovery paths are behaving correctly for tested users

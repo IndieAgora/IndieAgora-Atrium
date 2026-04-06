@@ -1,4 +1,12 @@
+- 2026-04-06 deep-link correction patch: the notify router now has an explicit Stream branch, because generic same-origin navigation was only switching tabs and not reliably opening the fullscreen video modal target.
 # Architecture Notes: IA Notify
+
+- 2026-04-06 deep-link follow-up patch: notification cards now prefer in-stack destination URLs over remote PeerTube URLs so Stream clicks land inside Atrium on the target video/comment, and message clicks carry a message-id hop to land on the exact message bubble that triggered the notification.
+- 2026-04-06 patch: the inbox UI now renders grouped notification cards on the client side rather than one flat row per event. Grouping key is person + source surface, so repeated message storms from one sender collapse into a single expandable card instead of flooding the overlay/toast stack.
+- Added `includes/enrich.php` for payload enrichment and lightweight preview extraction from confirmed local tables only.
+- Added `includes/peertube.php` for defensive reads against documented PeerTube 8.1 My Notifications endpoints.
+- Added AJAX action `ia_notify_clear` for clearing local rows; PeerTube side uses documented read-all because no delete endpoint is documented in the uploaded spec.
+
 
 Generated from the current plugin code on March 15, 2026. This is a working map of the plugin as shipped in this stack, with an emphasis on endpoints, authentication touchpoints, API links, and what each directory/file is for.
 

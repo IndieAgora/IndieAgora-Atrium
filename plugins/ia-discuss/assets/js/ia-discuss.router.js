@@ -72,8 +72,27 @@
       return 'IndieAgora';
     }
 
+    function discussIsActiveSurface() {
+      try {
+        const shell = document.querySelector('#ia-atrium-shell');
+        const active = shell ? String(shell.getAttribute('data-active-tab') || '').trim().toLowerCase() : '';
+        if (active) return active === 'discuss';
+      } catch (e2) {}
+      try {
+        const url = new URL(window.location.href);
+        const tab = String(url.searchParams.get('tab') || '').trim().toLowerCase();
+        if (tab) return tab === 'discuss';
+      } catch (e) {}
+      try {
+        const panel = document.querySelector('#ia-atrium-shell .ia-panel[data-panel="discuss"]');
+        if (panel) return panel.classList.contains('active') || panel.getAttribute('aria-hidden') === 'false';
+      } catch (e3) {}
+      return false;
+    }
+
     function applyDiscussTitle(rawTitle) {
       try {
+        if (!discussIsActiveSurface()) return;
         const site = discussSiteTitle();
         const clean = String(rawTitle || '').trim();
         const full = clean ? (clean + ' | ' + site) : site;

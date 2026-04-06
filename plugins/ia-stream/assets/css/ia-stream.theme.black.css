@@ -1,0 +1,575 @@
+/* IA Stream — Connect Black theme bridge
+ *
+ * Scope: Stream-owned internals only.
+ * Shared shell/chrome/background remains owned by IA Atrium.
+ */
+
+html[data-iac-style="black"] #ia-stream-shell,
+body[data-iac-style="black"] #ia-stream-shell,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell {
+  --ia-bg: #dcdcdc;
+  --ia-panel: #efefef;
+  --ia-card: #efefef;
+  --ia-border: rgba(0, 0, 0, 0.14);
+  --ia-text: #111111;
+  --ia-muted: #4e4e4e;
+  --ia-accent: #ff6a2a;
+  color: var(--ia-text);
+  background: transparent;
+}
+
+html[data-iac-style="black"] #ia-stream-shell a,
+body[data-iac-style="black"] #ia-stream-shell a,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell a {
+  color: #111111;
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-header,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-header,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-header {
+  background: rgba(220, 220, 220, 0.96);
+  border-bottom-color: rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-tabs,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-tabs,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-tabs {
+  background: #e4e4e4;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-tab,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-tab,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-tab {
+  color: #4e4e4e;
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-tab.is-active,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-tab.is-active,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-tab.is-active {
+  background: #202121;
+  color: #ff6a2a;
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-hero,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-section,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-results-head,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-search-extra,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-hero,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-section,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-results-head,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-search-extra,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-hero,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-section,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-results-head,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-search-extra {
+  background: #efefef;
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.10);
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-kicker,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-kicker,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-kicker {
+  color: #ff6a2a;
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-hero-text,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-results-meta,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-user-sub,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-tag-kind,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-comment-search-author,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-comment-search-text,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-hero-text,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-results-meta,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-user-sub,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-tag-kind,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-comment-search-author,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-comment-search-text,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-hero-text,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-results-meta,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-user-sub,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-tag-kind,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-comment-search-author,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-comment-search-text {
+  color: #4e4e4e;
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-loadmore-btn,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-more-btn,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-comment-search-row,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-user-row,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-tag-row,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-loadmore-btn,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-more-btn,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-comment-search-row,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-user-row,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-tag-row,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-loadmore-btn,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-more-btn,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-comment-search-row,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-user-row,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-tag-row {
+  background: #e4e4e4;
+  color: #111111;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-user-avatar--fallback,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-user-avatar--fallback,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-user-avatar--fallback {
+  background: #202121;
+  color: #ff6a2a;
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-card,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-card,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-card {
+  background: #efefef;
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.10);
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-cover,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-cover,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-cover {
+  background: linear-gradient(180deg, #202121, #343434);
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-avatar,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-avatar,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-avatar {
+  background: #d0d0d0;
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-links a,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-meta,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-links a,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-meta,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-links a,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-channel-meta {
+  color: #4e4e4e;
+}
+
+html[data-iac-style="black"] #ia-stream-shell .iad-card,
+body[data-iac-style="black"] #ia-stream-shell .iad-card,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .iad-card {
+  background: #efefef;
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.10);
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-thumb,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-thumb,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-thumb {
+  background: #202121;
+}
+
+html[data-iac-style="black"] #ia-stream-shell .iad-sub,
+html[data-iac-style="black"] #ia-stream-shell .iad-agora-link,
+html[data-iac-style="black"] #ia-stream-shell .iad-card-excerpt p,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-chip,
+html[data-iac-style="black"] #ia-stream-shell .iad-count,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-support,
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-views,
+body[data-iac-style="black"] #ia-stream-shell .iad-sub,
+body[data-iac-style="black"] #ia-stream-shell .iad-agora-link,
+body[data-iac-style="black"] #ia-stream-shell .iad-card-excerpt p,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-chip,
+body[data-iac-style="black"] #ia-stream-shell .iad-count,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-support,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-views,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .iad-sub,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .iad-agora-link,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .iad-card-excerpt p,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-chip,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .iad-count,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-support,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-views {
+  color: #4e4e4e;
+}
+
+html[data-iac-style="black"] #ia-stream-shell .ia-stream-chip,
+html[data-iac-style="black"] #ia-stream-shell .iad-iconbtn,
+body[data-iac-style="black"] #ia-stream-shell .ia-stream-chip,
+body[data-iac-style="black"] #ia-stream-shell .iad-iconbtn,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .ia-stream-chip,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .iad-iconbtn {
+  background: #e4e4e4;
+  color: #111111;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+html[data-iac-style="black"] #ia-stream-shell .iad-iconbtn:hover,
+body[data-iac-style="black"] #ia-stream-shell .iad-iconbtn:hover,
+#ia-atrium-shell[data-iac-style="black"] #ia-stream-shell .iad-iconbtn:hover {
+  background: #dbdbdb;
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+html[data-iac-style="black"] .ia-stream-modal,
+body[data-iac-style="black"] .ia-stream-modal,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal {
+  background: rgba(0, 0, 0, 0.58);
+}
+
+html[data-iac-style="black"] .ia-stream-auth-dialog,
+html[data-iac-style="black"] .ia-stream-modal-dialog,
+html[data-iac-style="black"] .ia-stream-modal-header,
+html[data-iac-style="black"] .ia-stream-modal-body,
+html[data-iac-style="black"] .ia-stream-modal-meta,
+html[data-iac-style="black"] .ia-stream-modal-comments,
+html[data-iac-style="black"] .ia-stream-modal-composer,
+body[data-iac-style="black"] .ia-stream-auth-dialog,
+body[data-iac-style="black"] .ia-stream-modal-dialog,
+body[data-iac-style="black"] .ia-stream-modal-header,
+body[data-iac-style="black"] .ia-stream-modal-body,
+body[data-iac-style="black"] .ia-stream-modal-meta,
+body[data-iac-style="black"] .ia-stream-modal-comments,
+body[data-iac-style="black"] .ia-stream-modal-composer,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-auth-dialog,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-dialog,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-header,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-body,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-meta,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-comments,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-composer {
+  background: #dcdcdc;
+  color: #111111;
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
+html[data-iac-style="black"] .ia-stream-modal-left,
+body[data-iac-style="black"] .ia-stream-modal-left,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-left {
+  border-right-color: rgba(0, 0, 0, 0.14);
+}
+
+html[data-iac-style="black"] .ia-stream-auth-title,
+html[data-iac-style="black"] .ia-stream-auth-msg,
+html[data-iac-style="black"] .ia-stream-modal-title,
+html[data-iac-style="black"] .ia-stream-modal-meta .iad-card-excerpt p,
+html[data-iac-style="black"] .ia-stream-modal-meta p,
+html[data-iac-style="black"] .ia-stream-comment-text,
+html[data-iac-style="black"] .ia-stream-comment-author,
+body[data-iac-style="black"] .ia-stream-auth-title,
+body[data-iac-style="black"] .ia-stream-auth-msg,
+body[data-iac-style="black"] .ia-stream-modal-title,
+body[data-iac-style="black"] .ia-stream-modal-meta .iad-card-excerpt p,
+body[data-iac-style="black"] .ia-stream-modal-meta p,
+body[data-iac-style="black"] .ia-stream-comment-text,
+body[data-iac-style="black"] .ia-stream-comment-author,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-auth-title,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-auth-msg,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-title,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-meta .iad-card-excerpt p,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-meta p,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-comment-text,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-comment-author {
+  color: #111111;
+}
+
+html[data-iac-style="black"] .ia-stream-auth-label,
+html[data-iac-style="black"] .ia-stream-auth-x,
+html[data-iac-style="black"] .ia-stream-modal-close,
+html[data-iac-style="black"] .ia-stream-modal-sub,
+html[data-iac-style="black"] .ia-stream-comment-time,
+html[data-iac-style="black"] .ia-stream-comment-toggle,
+html[data-iac-style="black"] .ia-stream-inline-reply-meta,
+html[data-iac-style="black"] .ia-stream-comment-actions button,
+body[data-iac-style="black"] .ia-stream-auth-label,
+body[data-iac-style="black"] .ia-stream-auth-x,
+body[data-iac-style="black"] .ia-stream-modal-close,
+body[data-iac-style="black"] .ia-stream-modal-sub,
+body[data-iac-style="black"] .ia-stream-comment-time,
+body[data-iac-style="black"] .ia-stream-comment-toggle,
+body[data-iac-style="black"] .ia-stream-inline-reply-meta,
+body[data-iac-style="black"] .ia-stream-comment-actions button,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-auth-label,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-auth-x,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-close,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal-sub,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-comment-time,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-comment-toggle,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-inline-reply-meta,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-comment-actions button {
+  color: #4e4e4e;
+}
+
+html[data-iac-style="black"] .ia-stream-auth-input,
+html[data-iac-style="black"] .ia-stream-auth-btn,
+html[data-iac-style="black"] .ia-stream-inline-reply,
+html[data-iac-style="black"] .ia-stream-inline-reply-input,
+html[data-iac-style="black"] .ia-stream-inline-reply-actions button,
+html[data-iac-style="black"] .ia-stream-composer-input,
+html[data-iac-style="black"] .ia-stream-composer-send,
+html[data-iac-style="black"] .ia-stream-comment,
+html[data-iac-style="black"] .ia-stream-comment-vote,
+html[data-iac-style="black"] .ia-stream-comment-del,
+body[data-iac-style="black"] .ia-stream-auth-input,
+body[data-iac-style="black"] .ia-stream-auth-btn,
+body[data-iac-style="black"] .ia-stream-inline-reply,
+body[data-iac-style="black"] .ia-stream-inline-reply-input,
+body[data-iac-style="black"] .ia-stream-inline-reply-actions button,
+body[data-iac-style="black"] .ia-stream-composer-input,
+body[data-iac-style="black"] .ia-stream-composer-send,
+body[data-iac-style="black"] .ia-stream-comment,
+body[data-iac-style="black"] .ia-stream-comment-vote,
+body[data-iac-style="black"] .ia-stream-comment-del,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-auth-input,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-auth-btn,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-inline-reply,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-inline-reply-input,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-inline-reply-actions button,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-composer-input,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-composer-send,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-comment,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-comment-vote,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-comment-del {
+  background: #efefef;
+  color: #111111;
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
+html[data-iac-style="black"] .ia-stream-comment.is-child,
+body[data-iac-style="black"] .ia-stream-comment.is-child,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-comment.is-child {
+  border-left-color: rgba(0, 0, 0, 0.14);
+}
+
+html[data-iac-style="black"] .ia-stream-comment-vote.is-on,
+body[data-iac-style="black"] .ia-stream-comment-vote.is-on,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-comment-vote.is-on {
+  background: #e4e4e4;
+  color: #111111;
+  border-color: rgba(0, 0, 0, 0.16);
+}
+
+
+/* Explicit root bridge for SPA tab switches.
+ * Stream now mirrors the active Connect style onto #ia-stream-shell itself,
+ * because live testing showed some shell transitions could leave the outer
+ * data-iac-style selectors insufficient to repaint Stream-owned internals.
+ */
+#ia-stream-shell[data-ia-stream-theme="black"] {
+  --ia-bg: #dcdcdc;
+  --ia-panel: #efefef;
+  --ia-card: #efefef;
+  --ia-border: rgba(0, 0, 0, 0.14);
+  --ia-text: #111111;
+  --ia-muted: #4e4e4e;
+  --ia-accent: #ff6a2a;
+  color: var(--ia-text);
+  background: transparent !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] a,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card-title,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-section-title,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-hero-title,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-comment-search-video,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-user-name,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-tag-label {
+  color: #111111 !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-header {
+  background: rgba(220, 220, 220, 0.96) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-tabs,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-chip,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-iconbtn,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-loadmore-btn,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-more-btn,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-comment-search-row,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-user-row,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-tag-row {
+  background: #e4e4e4 !important;
+  color: #111111 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-tab {
+  color: #4e4e4e !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-tab.is-active {
+  background: #202121 !important;
+  color: #ff6a2a !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-hero,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-section,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-results-head,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-search-extra,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-channel-card,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card {
+  background: #efefef !important;
+  border-color: rgba(0, 0, 0, 0.14) !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.10) !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-thumb {
+  background: #202121 !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-kicker {
+  color: #ff6a2a !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-hero-text,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-results-meta,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-sub,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-agora-link,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card-excerpt p,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-user-sub,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-tag-kind,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-count,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-support,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-views,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-channel-meta,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-channel-links a,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-comment-search-author,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-comment-search-text {
+  color: #4e4e4e !important;
+}
+
+
+/* 2026-04-06 follow-up:
+ * In black mode, the video modal needs the same readable light-grey treatment as the rest
+ * of Stream. Keep the player dark, but lift channel/meta text, SVG icon contrast, and use
+ * alternating comment card fills so replies read like Connect instead of one flat block.
+ */
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-card-meta,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-sub,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .ia-stream-support,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .ia-stream-views,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .ia-stream-support-text {
+  color: #5f6773;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn .iad-iconbtn-count,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn svg,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn path,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn line,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn polyline,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn circle {
+  color: #3e4652;
+  stroke: currentColor;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn:hover,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn:hover .iad-iconbtn-count,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn:hover svg,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn:hover path,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn:hover line,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn:hover polyline,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-meta .iad-iconbtn:hover circle {
+  color: #202733;
+  stroke: currentColor;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-comments > .ia-stream-thread:nth-child(odd) > .ia-stream-comment,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-thread-children > .ia-stream-thread:nth-child(odd) > .ia-stream-comment,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-comment-children > .ia-stream-thread:nth-child(odd) > .ia-stream-comment {
+  background: #f2f2f3;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-modal-comments > .ia-stream-thread:nth-child(even) > .ia-stream-comment,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-thread-children > .ia-stream-thread:nth-child(even) > .ia-stream-comment,
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-comment-children > .ia-stream-thread:nth-child(even) > .ia-stream-comment {
+  background: #e7e8eb;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-comment.is-child {
+  border-left-color: rgba(32, 39, 51, 0.18);
+}
+
+
+/* 2026-04-06 follow-up v4:
+ * Some feed-card meta/icon rules still lost on the live stack because card-level
+ * icon/count/channel selectors were inheriting brighter defaults later in the cascade.
+ * Force the black-theme readable grey here, and support JS-added zebra classes for
+ * comment/reply cards because nested reply markup is a flat sequence, not a wrapped list.
+ */
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-card-meta,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-sub,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-agora-link,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-count,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .ia-stream-views,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .ia-stream-support,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .ia-stream-support-label,
+html[data-iac-style="black"] .ia-stream-modal .iad-card-meta,
+html[data-iac-style="black"] .ia-stream-modal .iad-sub,
+html[data-iac-style="black"] .ia-stream-modal .iad-count,
+html[data-iac-style="black"] .ia-stream-modal .ia-stream-views,
+html[data-iac-style="black"] .ia-stream-modal .ia-stream-support,
+html[data-iac-style="black"] .ia-stream-modal .ia-stream-support-label,
+body[data-iac-style="black"] .ia-stream-modal .iad-card-meta,
+body[data-iac-style="black"] .ia-stream-modal .iad-sub,
+body[data-iac-style="black"] .ia-stream-modal .iad-count,
+body[data-iac-style="black"] .ia-stream-modal .ia-stream-views,
+body[data-iac-style="black"] .ia-stream-modal .ia-stream-support,
+body[data-iac-style="black"] .ia-stream-modal .ia-stream-support-label,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .iad-card-meta,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .iad-sub,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .iad-count,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .ia-stream-views,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .ia-stream-support,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .ia-stream-support-label {
+  color: #5f6773 !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-iconbtn,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-iconbtn .iad-count,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-iconbtn .iad-iconbtn-count,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-iconbtn svg,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-iconbtn path,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-iconbtn line,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-iconbtn polyline,
+#ia-stream-shell[data-ia-stream-theme="black"] .iad-card .iad-iconbtn circle,
+html[data-iac-style="black"] .ia-stream-modal .iad-iconbtn,
+html[data-iac-style="black"] .ia-stream-modal .iad-iconbtn .iad-count,
+html[data-iac-style="black"] .ia-stream-modal .iad-iconbtn .iad-iconbtn-count,
+html[data-iac-style="black"] .ia-stream-modal .iad-iconbtn svg,
+html[data-iac-style="black"] .ia-stream-modal .iad-iconbtn path,
+html[data-iac-style="black"] .ia-stream-modal .iad-iconbtn line,
+html[data-iac-style="black"] .ia-stream-modal .iad-iconbtn polyline,
+html[data-iac-style="black"] .ia-stream-modal .iad-iconbtn circle,
+body[data-iac-style="black"] .ia-stream-modal .iad-iconbtn,
+body[data-iac-style="black"] .ia-stream-modal .iad-iconbtn .iad-count,
+body[data-iac-style="black"] .ia-stream-modal .iad-iconbtn .iad-iconbtn-count,
+body[data-iac-style="black"] .ia-stream-modal .iad-iconbtn svg,
+body[data-iac-style="black"] .ia-stream-modal .iad-iconbtn path,
+body[data-iac-style="black"] .ia-stream-modal .iad-iconbtn line,
+body[data-iac-style="black"] .ia-stream-modal .iad-iconbtn polyline,
+body[data-iac-style="black"] .ia-stream-modal .iad-iconbtn circle,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .iad-iconbtn,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .iad-iconbtn .iad-count,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .iad-iconbtn .iad-iconbtn-count,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .iad-iconbtn svg,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .iad-iconbtn path,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .iad-iconbtn line,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .iad-iconbtn polyline,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .iad-iconbtn circle {
+  color: #3e4652 !important;
+  stroke: currentColor !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-comment.ia-stream-comment--alt,
+html[data-iac-style="black"] .ia-stream-modal .ia-stream-comment.ia-stream-comment--alt,
+body[data-iac-style="black"] .ia-stream-modal .ia-stream-comment.ia-stream-comment--alt,
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .ia-stream-comment.ia-stream-comment--alt {
+  background: #e7e8eb !important;
+}
+
+#ia-stream-shell[data-ia-stream-theme="black"] .ia-stream-comment:not(.ia-stream-comment--alt),
+html[data-iac-style="black"] .ia-stream-modal .ia-stream-comment:not(.ia-stream-comment--alt),
+body[data-iac-style="black"] .ia-stream-modal .ia-stream-comment:not(.ia-stream-comment--alt),
+#ia-atrium-shell[data-iac-style="black"] .ia-stream-modal .ia-stream-comment:not(.ia-stream-comment--alt) {
+  background: #f2f2f3 !important;
+}

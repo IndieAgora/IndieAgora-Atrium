@@ -532,8 +532,10 @@
     }).join('');
   }
 
-  async function loadThread(shell, id){
+  async function loadThread(shell, id, opts){
     const st = S(shell);
+    const openOpts = opts || {};
+    const targetMessageId = Number(openOpts.messageId || 0) || 0;
     st.activeId = Number(id || 0);
     clearReply(shell);
     renderThreads(shell);
@@ -548,7 +550,9 @@
     if (log) log.innerHTML = `<div class="ia-msg-empty">Loading…</div>`;
 
     try {
-      const res = await post("ia_message_thread", { nonce: IA_MESSAGE.nonceBoot, thread_id: st.activeId, limit: st.msgLimit, offset: 0 });
+      const req = { nonce: IA_MESSAGE.nonceBoot, thread_id: st.activeId, limit: st.msgLimit, offset: 0 };
+      if (targetMessageId > 0) req.message_id = targetMessageId;
+      const res = await post("ia_message_thread", req);
       if (!res || !res.success) {
         if (log) log.innerHTML = `<div class="ia-msg-empty">Failed to load messages.</div>`;
         return;
@@ -565,6 +569,11 @@
       const thread = res.data && res.data.thread ? res.data.thread : null;
       st.activeThread = thread;
       renderMessages(shell, thread, true);
+      if (targetMessageId > 0) {
+        setTimeout(function(){ jumpToMessage(shell, targetMessageId); }, 40);
+        setTimeout(function(){ jumpToMessage(shell, targetMessageId); }, 180);
+        setTimeout(function(){ jumpToMessage(shell, targetMessageId); }, 420);
+      }
 
       // Show/hide Members button (group only)
       try {
@@ -2242,6 +2251,19 @@ const maybeRunDeepLink = () => {
   // 1) URL param
   try {
     const url = new URL(window.location.href);
+    const threadId = parseInt(url.searchParams.get("ia_msg_thread") || "0", 10) || 0;
+    const messageId = parseInt(url.searchParams.get("ia_msg_mid") || "0", 10) || 0;
+    if (threadId) {
+      window.__IA_MESSAGE_DEEPLINK_DONE = true;
+      activate();
+      setTimeout(async function(){
+        const sh = (findShells()[0]) || null;
+        if (!sh) return;
+        await loadThread(sh, threadId, { messageId: messageId });
+        if (messageId > 0) setTimeout(function(){ jumpToMessage(sh, messageId); }, 80);
+      }, 60);
+      return;
+    }
     const to = parseInt(url.searchParams.get("ia_msg_to") || "0", 10) || 0;
     if (to) {
       window.__IA_MESSAGE_DEEPLINK_DONE = true;
@@ -2400,17 +2422,20 @@ function closeMessages(){
     window.addEventListener('orientationchange', onR, { passive:true });
 
     // Allow in-app deep-linking from IA Notify:
-    // dispatch CustomEvent('ia_message:open_thread', { detail:{ thread_id } })
+    // dispatch CustomEvent('ia_message:open_thread', { detail:{ thread_id, message_id } })
     window.addEventListener('ia_message:open_thread', function(ev){
       try{
         const tid = Number(ev && ev.detail && ev.detail.thread_id ? ev.detail.thread_id : 0) || 0;
+        const mid = Number(ev && ev.detail && ev.detail.message_id ? ev.detail.message_id : 0) || 0;
         if (!tid) return;
         // Ensure Messages tab is active/visible.
         activate();
         // Load after the shell has rendered.
-        setTimeout(function(){
+        setTimeout(async function(){
           const sh = (findShells()[0]) || null;
-          if (sh) loadThread(sh, tid);
+          if (!sh) return;
+          await loadThread(sh, tid, { messageId: mid });
+          if (mid > 0) setTimeout(function(){ jumpToMessage(sh, mid); }, 80);
         }, 60);
       }catch(_){ }
     });

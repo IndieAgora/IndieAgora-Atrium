@@ -1,3 +1,4 @@
+- 2026-04-06 deep-link correction patch: message thread loads can now request a specific target message; the server computes an offset around the target and the client retries the jump after render so message notifications land on the actual bubble that triggered them.
 # Architecture Notes: IA Message
 
 Generated from the current plugin code on March 15, 2026. This is a working map of the plugin as shipped in this stack, with an emphasis on endpoints, authentication touchpoints, API links, and what each directory/file is for.

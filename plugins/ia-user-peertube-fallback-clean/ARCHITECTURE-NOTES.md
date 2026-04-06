@@ -134,3 +134,28 @@ Pithy summary: this plugin currently owns the ladder, but not every rung.
 Longer-term direction recorded from user discussion:
 - later consolidation should move this ladder into one plugin that also owns the low-level token, reconciliation, and session layers cleanly.
 - until then, treat this plugin as the live route owner and preserve compatibility.
+
+
+## 2026-04-05 nonce compatibility follow-up
+
+Patch-only compatibility hardening for the canonical login ladder:
+
+- The shared nonce detector now accepts `ia_ptls_login_nonce` in addition to the existing IA User / IA Auth nonce candidates.
+- This was added so legacy PTLS callers can delegate into the canonical `ia_user_login` ladder without requiring a JS/UI rewrite.
+- No new login surface was added. This only broadens accepted nonce verification for already-existing compatibility traffic.
+
+
+## 2026-04-05 live stability confirmation
+
+User-reported live test result after deploy:
+
+- login works
+- the stack is stable
+
+This confirms the canonical visible ladder is still functioning after the compatibility cleanup around legacy entry surfaces.
+
+Interpretation:
+
+- `ia_user_login` remains the effective live login ladder
+- widening accepted nonce candidates for PTLS compatibility did not destabilise the canonical route
+- longer-term consolidation is still optional future work, not an emergency repair item

@@ -174,7 +174,7 @@ function ia_connect_notify_on_post_created(int $post_id, int $actor_wp_id, int $
   $mentioned_wp_ids = array_values(array_unique($mentioned_wp_ids));
   if (empty($mentioned_wp_ids)) return;
 
-  ia_connect_create_mention_posts($post_id, $actor_wp_id, $mentioned_wp_ids, $comment_id);
+  ia_connect_create_mention_posts($post_id, $actor_wp_id, $mentioned_wp_ids, 0);
 
   $site = wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES);
   $url = ia_connect_build_post_url($post_id);
@@ -244,7 +244,7 @@ function ia_connect_notify_on_comment_created(int $comment_id, int $post_id, int
   $mentioned_wp_ids = array_values(array_unique($mentioned_wp_ids));
   if (!empty($mentioned_wp_ids)) {
     // Ensure the post appears on mentioned users' walls.
-    ia_connect_create_mention_posts($post_id, $actor_wp_id, $mentioned_wp_ids, $comment_id);
+    ia_connect_create_mention_posts($post_id, $actor_wp_id, $mentioned_wp_ids, 0);
     foreach ($mentioned_wp_ids as $wp_id) {
       if ($wp_id === $actor_wp_id) continue;
       $subj = '[' . $site . '] You were mentioned by ' . $actor_name;

@@ -141,3 +141,44 @@
     transform: translate(52%,-52%);
   }
 }
+
+/* Connect global style bridge: black */
+html[data-iac-style="black"] .ia-msg-shell,
+body[data-iac-style="black"] .ia-msg-shell,
+#ia-atrium-shell[data-iac-style="black"] .ia-msg-shell,
+.ia-msg-shell[data-iac-style="black"]{
+  --ia-bg0:#dcdcdc;
+  --ia-bg1:#dcdcdc;
+  --ia-bg2:#d6d5d6;
+  --ia-panel:#dcdbdc;
+  --ia-panel2:#dcdcdc;
+  --ia-line:rgba(0,0,0,0.12);
+  --ia-line2:rgba(0,0,0,0.18);
+  --ia-text:#111;
+  --ia-muted:#444;
+  --ia-shadow:0 14px 34px rgba(0,0,0,0.14);
+  background:#dcdcdc;
+  border-color:rgba(0,0,0,0.18);
+  box-shadow:var(--ia-shadow);
+}
+
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-title,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-title,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-empty,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-empty{
+  color:#111;
+}
+
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-btn,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-btn{
+  background:#efefef;
+  border-color:rgba(0,0,0,0.18);
+  color:#111;
+  box-shadow:none;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-btn:hover,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-btn:hover{
+  background:#e2e2e2;
+  border-color:rgba(0,0,0,0.24);
+  filter:none;
+}

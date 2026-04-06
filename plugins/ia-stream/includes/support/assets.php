@@ -27,6 +27,8 @@ function ia_stream_assets_boot(): void {
     wp_enqueue_style('ia-stream-channels', IA_STREAM_URL . 'assets/css/ia-stream.channels.css', ['ia-stream-layout'], $ver);
     wp_enqueue_style('ia-stream-player', IA_STREAM_URL . 'assets/css/ia-stream.player.css', ['ia-stream-cards'], $ver);
     wp_enqueue_style('ia-stream-modal', IA_STREAM_URL . 'assets/css/ia-stream.modal.css', ['ia-stream-layout'], $ver);
+    wp_enqueue_style('ia-stream-theme-black', IA_STREAM_URL . 'assets/css/ia-stream.theme.black.css', ['ia-stream-modal'], $ver);
+    wp_enqueue_style('ia-stream-theme-mybb', IA_STREAM_URL . 'assets/css/ia-stream.theme.mybb.css', ['ia-stream-theme-black'], $ver);
 
     /* ---------- JS ---------- */
     wp_enqueue_script('ia-stream-core', IA_STREAM_URL . 'assets/js/ia-stream.core.js', [], $ver, true);

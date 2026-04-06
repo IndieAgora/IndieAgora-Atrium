@@ -366,3 +366,77 @@ body.ia-msg-fullscreen .ia-msg-shell[data-mobile-view="chat"] .ia-msg-log{
 .ia-thread {
   min-width: 0;
 }
+
+/* Connect global style bridge: black */
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-left,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-left,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-main,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-main{
+  background:#dcdcdc;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-left,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-left{
+  border-right-color:rgba(0,0,0,0.14);
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-left-head,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-left-head,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head{
+  background:#202121;
+  border-color:#000;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-threadname,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-threadname,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-back,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-back,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-close,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-close,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-relbtn,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-relbtn,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-left-head .ia-msg-headicon,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-left-head .ia-msg-headicon,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-headicon-new::before,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-headicon-new::before{
+  color:#fff;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-back,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-back,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-relbtn,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-relbtn,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-close,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-main-head .ia-msg-close,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-left-head .ia-msg-headicon,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-left-head .ia-msg-headicon{
+  background:rgba(255,255,255,0.08);
+  border-color:rgba(255,255,255,0.18);
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-search,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-search,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-composer,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-composer{
+  background:#d6d5d6;
+  border-color:rgba(0,0,0,0.14);
+  backdrop-filter:none;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-search-input,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-search-input,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-text,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-text{
+  background:#efefef;
+  border-color:rgba(0,0,0,0.18);
+  color:#111;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-search-input::placeholder,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-search-input::placeholder,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-text::placeholder,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-text::placeholder{
+  color:#666;
+}
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-search-input:focus,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-search-input:focus,
+html[data-iac-style="black"] .ia-msg-shell .ia-msg-text:focus,
+body[data-iac-style="black"] .ia-msg-shell .ia-msg-text:focus{
+  background:#f5f5f5;
+  border-color:rgba(0,0,0,0.26);
+  box-shadow:0 0 0 3px rgba(0,0,0,0.08);
+}

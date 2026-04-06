@@ -1,3 +1,8 @@
+## 0.3.99 sidebar housekeeping
+
+- Removed the Discuss-only style and layout controls from the sidebar so housekeeping can proceed before the later cross-platform styling pass.
+- Discuss now boots back onto the default dark Atrium presentation and clears older per-browser Discuss theme/layout picks during shell mount.
+
 # Notes: assets
 
 ## What changed in the 0.3.59 architecture pass
